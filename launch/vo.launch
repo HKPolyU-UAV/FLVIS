@@ -1,0 +1,28 @@
+<launch>
+
+    <param name="/image_width"     type="int" value="640"/>
+    <param name="/image_height"    type="int" value="360"/>
+    <param name="/fx"              type="double" value="318.5274353027344"/>
+    <param name="/fy"              type="double" value="318.7115478515625"/>
+    <param name="/cx"              type="double" value="318.5274353027344"/>
+    <param name="/cy"              type="double" value="179.57516479492188"/>
+
+    <!-- Manager -->
+    <node pkg="nodelet" type="nodelet" args="manager"
+        name="vo_manager" output="screen" />
+
+    <!-- TrackingNode -->
+    <node pkg="nodelet" type="nodelet" args="load vo_nodelet/VOTrackingNodeletClass vo_manager"
+          name="VOTrackingNodeletClass_loader" output="screen">
+          <remap from="/vo/depth_image"  to="/camera/aligned_depth_to_infra1/image_raw"/>
+          <remap from="/vo/image"        to="/camera/infra1/image_rect_raw"/>
+
+
+    </node>
+
+    <!-- LocalMapNode -->
+    <node pkg="nodelet" type="nodelet" args="load vo_nodelet/VOLocalMapNodeletClass vo_manager"
+        name="VOLocalMapNodeletClass_loader" output="screen">
+    </node>
+
+</launch>

@@ -1,0 +1,14 @@
+<library path="lib/libvo_nodelet">
+	<class name="vo_nodelet/VOTrackingNodeletClass" type="vo_nodelet_ns::VOTrackingNodeletClass"
+		base_class_type="nodelet::Nodelet">
+		<description>
+			VOTrackingNodeletClass.
+		</description>
+	</class>
+	<class name="vo_nodelet/VOLocalMapNodeletClass" type="vo_nodelet_ns::VOLocalMapNodeletClass"
+		base_class_type="nodelet::Nodelet">
+		<description>
+			VOLocalMapNodeletClass.
+		</description>
+	</class>
+</library>
