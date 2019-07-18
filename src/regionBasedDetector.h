@@ -15,7 +15,7 @@
  *  //For every region, select features by Harris index and boundary size
  * */
 #define MAX_REGION_FREATURES_NUM (6)
-#define MIN_REGION_FREATURES_NUM (3)
+#define MIN_REGION_FREATURES_NUM (2)
 
 using namespace cv;
 using namespace std;
@@ -38,8 +38,9 @@ private:
   int regionHeight;
   int boundary_dis;
   vector<pair<Point2f,float> > regionKeyPts[16];
+  Mat detectorMask[16];
 
-  calHarrisR(Mat& img, Point2f& Pt, float &R)
+  calHarrisR(const Mat& img, Point2f& Pt, float &R)
   {
     uchar patch[9];
     int xx = Pt.x;
@@ -68,7 +69,7 @@ private:
     R = (X2*Y2)-(XY*XY) - 0.05*(X2+Y2)*(X2+Y2);
   }
 
-  filterAndFillToRegion(Mat& img, vector<Point2f>& pts)
+  filterAndFillIntoRegion(const Mat& img, const vector<Point2f>& pts)
   {
     //Devided all features into 16 regions
     for(size_t i=0; i<pts.size(); i++)
@@ -85,15 +86,25 @@ private:
         }
       }
     }
-    for(int i=0; i<16; i++)
+    //    for(int i=0; i<16; i++)
+    //    {
+    //      cout << regionKeyPts[i].size() << "in Region " << i << endl;
+    //    }
+  }
+
+  fillIntoRegion(const Mat& img, const vector<Point2f>& pts)
+  {
+    for(size_t i=0; i<pts.size(); i++)
     {
-      cout << regionKeyPts[i].size() << "in Region " << i << endl;
+      Point2f pt = pts.at(i);
+      int regionNum= 4*floor(pt.y/regionHeight) + (pt.x/regionWidth);
+      regionKeyPts[regionNum].push_back(make_pair(pt,999.0));
     }
   }
 
 public:
 
-  regionBasedDetector(int image_width, int image_height, int boundaryBoxSize=5)
+  regionBasedDetector(const int image_width, const int image_height, int boundaryBoxSize=5)
   {
     float a=2;
     width=image_width;
@@ -101,15 +112,100 @@ public:
     regionWidth  = floor(width/4.0);
     regionHeight = floor(height/4.0);
     boundary_dis = floor(boundaryBoxSize/2.0);
+    cout << "here" << endl;
+    int gridx[5],gridy[5];
+    for(int i=0; i<5; i++)
+    {
+      gridx[i]=i*regionWidth;
+      gridy[i]=i*regionHeight;
+    }
+    for(int i=0; i<16; i++)
+    {
+      detectorMask[i] = Mat(image_height, image_width, CV_8S,cv::Scalar(0));
+      cout << detectorMask[i].size() << endl;
+      int x_begin,x_end,y_begin,y_end;
+      x_begin = gridx[i%4];
+      x_end   = gridx[(i%4)+1];
+      y_begin = gridy[i/4];
+      y_end   = gridy[(i/4)+1];
+      cout << "x_begin: " << x_begin << endl;
+      cout << "x_end: " << x_end << endl;
+      cout << "y_begin: " << y_begin << endl;
+      cout << "y_end: " << y_end << endl;
+      for(int xx=x_begin; xx<x_end; xx++)
+      {
+        for(int yy=y_begin; yy<y_end; yy++)
+        {
+          detectorMask[i].at<schar>(yy,xx)=1;
+        }
+      }
+      //cout << "detectorMask["<<i<<"]:"<<endl<<detectorMask[i]<<endl;
+    }
   }
+
   ~regionBasedDetector();
 
-  refill(Mat& img, vector<Point2f>& outKeyPts)
+  refill(const Mat& img, const vector<Point2f>& existedKeyPts, vector<Point2f>& newKeyPts, int &newKeyPtscount)
   {
+    //Clear
+    newKeyPtscount = 0;
+    for(int i=0; i<16; i++){
+      regionKeyPts[i].clear();
+    }
+    fillIntoRegion(img,existedKeyPts);
+    //For every region check whether the is
+    for(int i=0; i<16; i++)
+    {
+      if(regionKeyPts[i].size()<=MIN_REGION_FREATURES_NUM)
+      {
+        //detect in the region;
+        Ptr<FastFeatureDetector> detector= FastFeatureDetector::create();
+        vector<pair<Point2f,float>> kpsHarrisRinRegion;
+        kpsHarrisRinRegion.clear();
+        vector<KeyPoint> FASTFeatures;
+        vector<Point2f>  kps;
+        detector->detect(img, FASTFeatures,detectorMask[i]);
+        KeyPoint::convert(FASTFeatures,kps);
+        //cout << FASTFeatures.size() << endl;
+        //Sort by HarrisR
+        for(size_t j=0; j<kps.size(); j++)
+        {
+          Point2f pt = kps.at(j);
+          float Harris_R;
+          calHarrisR(img,pt,Harris_R);
+          if(Harris_R>50.0)
+          {
+            kpsHarrisRinRegion.push_back(make_pair(pt,Harris_R));
+          }
+          sort(kpsHarrisRinRegion.begin(), kpsHarrisRinRegion.end(), sortbysecdesc);
+        }
 
+        for(size_t j=0; j<kpsHarrisRinRegion.size(); j++)
+        {
+          int outSideConflictBoundary = 1;
+          Point pt=kpsHarrisRinRegion.at(j).first;
+          for(size_t k=0; k<regionKeyPts[i].size(); k++)
+          {
+            float dis_x = fabs(pt.x-regionKeyPts[i].at(k).first.x);
+            float dis_y = fabs(pt.y-regionKeyPts[i].at(k).first.y);
+            if(dis_x <= boundary_dis || dis_y <= boundary_dis)
+            {
+              outSideConflictBoundary=0;
+            }
+          }
+          if(outSideConflictBoundary)
+          {
+            regionKeyPts[i].push_back(make_pair(pt,999.0));
+            newKeyPts.push_back(pt);
+            newKeyPtscount++;
+            if(regionKeyPts[i].size() >= MAX_REGION_FREATURES_NUM) break;
+          }
+        }
+      }
+    }
   }
 
-  detect(Mat& img, vector<Point2f>& outKeyPts)
+  detect(const Mat& img, vector<Point2f>& outKeyPts)
   {
     Ptr<FastFeatureDetector> detector= FastFeatureDetector::create();
     //Clear
@@ -121,11 +217,10 @@ public:
     vector<KeyPoint> FASTFeatures;
     vector<Point2f>  allKeyPoints;
     detector->detect(img, FASTFeatures);
-    cout << FASTFeatures.size() << endl;
+    //cout << FASTFeatures.size() << endl;
     KeyPoint::convert(FASTFeatures,allKeyPoints);
 
-
-    filterAndFillToRegion(img,allKeyPoints);
+    filterAndFillIntoRegion(img,allKeyPoints);
 
     //For every region, select features by Harris index and boundary size
     for(int i=0; i<16; i++)

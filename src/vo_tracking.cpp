@@ -41,7 +41,6 @@ void drawRegion16(Mat& img)
 
 void drawKeyPts(Mat& img, vector<Point2f>& KeyPts)
 {
-  cout << endl << KeyPts.size() << endl;
   for(size_t i=0; i<KeyPts.size(); i++)
   {
     Point pt(floor(KeyPts.at(i).x),floor(KeyPts.at(i).y));
@@ -57,11 +56,12 @@ void drawFlow(Mat& img, vector<Point2f>& from, vector<Point2f>& to)
     {
       Point pt_from(floor(from.at(i).x),floor(from.at(i).y));
       Point pt_to(floor(to.at(i).x),floor(to.at(i).y));
-      circle(img, pt_from, 2, Scalar( 0, 128, 255 ));
-      arrowedLine(img, pt_from, pt_to, Scalar( 0,204,204));
+      circle(img, pt_from, 2, Scalar( 0, 255, 0 ));
+      arrowedLine(img, pt_from, pt_to, Scalar( 0,204,204),2);
     }
   }
 }
+
 
 class VOTrackingNodeletClass : public nodelet::Nodelet
 {
@@ -79,13 +79,26 @@ private:
   enum TRACKINGSTATE trackingState;
   regionBasedDetector* detector;
   int frameCount;
+  int image_width,image_height;
   Mat currImg,  lastImg ;
   Mat currDImg ,lastDImg;
   vector<Point2f> currKeyPts, lastKeyPts;
   vector<Mat>     currORBDescriptor, lastORBDescriptor;
-  FRAMEFEATURES currFeatures, lastFeatures;
+  FRAMEFEATURES   currFeatures, lastFeatures;
 
+
+  vector<KeyPoint> KP_tmp;
+  Mat              Descriptor_tmp;
   Mat currShowImg;
+
+  void ORBDescriptorMat2VecMat(const Mat& descriptorMat, vector<Mat>& vecDescriptorMat)
+  {
+    vecDescriptorMat.clear();
+    for(int i=0; i<descriptorMat.size().height;i++)
+    {
+      vecDescriptorMat.push_back(descriptorMat.row(i));
+    }
+  }
 
 
   virtual void onInit()
@@ -93,7 +106,7 @@ private:
     ros::NodeHandle& nh = getPrivateNodeHandle();
 
     //Read Parameter
-    int image_width,image_height;
+
     double fx,fy,cx,cy;
     nh.getParam("/image_width",   image_width);
     nh.getParam("/image_height",  image_height);
@@ -102,9 +115,9 @@ private:
     nh.getParam("/cx",            cx);
     nh.getParam("/cy",            cy);
 
-    cout << "image_width: "  << image_width;
-    cout << "image_width: "  << image_height;
-    detector = new regionBasedDetector(image_width,image_height);
+    cout << "image_width: "  << image_width << endl;
+    cout << "image_width: "  << image_height << endl;
+    detector = new regionBasedDetector(image_width,image_height,10);
     frameCount = 0;
     trackingState = UnInit;
     //Publish
@@ -134,42 +147,110 @@ private:
     case UnInit:
     {
       detector->detect(currImg,currKeyPts);
-      vector<KeyPoint> KP_tmp;
       KeyPoint::convert(currKeyPts,KP_tmp);
-
-//      Ptr<DescriptorExtractor> extractor = ORB::create();
-//      extractor->compute(currImg, KP_tmp, currORBDescriptor);
-      //trackingState = Working;
+      Ptr<DescriptorExtractor> extractor = ORB::create();
+      extractor->compute(currImg, KP_tmp, Descriptor_tmp);
+      KeyPoint::convert(KP_tmp,currKeyPts);
+      ORBDescriptorMat2VecMat(Descriptor_tmp,currORBDescriptor);
+      cout << "size of currKeyPts:        " << currKeyPts.size() << endl;
+      cout << "size of currORBDescriptor: " << currORBDescriptor.size() << endl;
+      trackingState = Working;
       drawKeyPts(currShowImg, currKeyPts);
       break;
     }
 
     case Working:
     {
-      //      cout << "Frame No: " << frameCount << endl;
-      //      vector<uchar> status;
-      //      vector<float> err;
-      //      TermCriteria criteria = TermCriteria((TermCriteria::COUNT) + (TermCriteria::EPS), 10, 0.03);
-      //      calcOpticalFlowPyrLK(lastImg, currImg, lastKeyPts, currKeyPts, status, err, Size(21,21), 2, criteria);
-      //Check orb distance & Remove Outlier
-      //      KeyPoint::convert(currKeyPts,KP_tmp);
-      //      Ptr<DescriptorExtractor> extractor = ORB::create();
-      //      extractor->compute(currImg, KP_tmp, currORBDescriptor);
-      //      for(size_t i=0; i<currKeyPts.size();i++)
-      //      {
-      //        if(status.at(i)==1)//calcOpticalFlowPyrLK success;
-      //        {
-      //          cout << norm(lastORBDescriptor.at(i), currORBDescriptor.at(i), NORM_HAMMING);
-      //        }
+      cout << "Frame No: " << frameCount << endl;
+      cout << currImg.size() << endl;
+      vector<Point2f> flowTrackedPts,flowTrackedPtsWithORBdescriptor;
+      vector<uchar> status;
+      vector<float> err;
+      TermCriteria criteria = TermCriteria((TermCriteria::COUNT) + (TermCriteria::EPS), 10, 0.03);
+      calcOpticalFlowPyrLK(lastImg, currImg, lastKeyPts, flowTrackedPts, status, err, Size(40,40), 2, criteria);
 
-      //      }
-      //double dist_ham = norm(lastORBDescriptor, currORBDescriptor, NORM_HAMMING);
-      //EPNP with RANSIC & Remove Outlier
+
+      //remove OF failure and outlier edge of the camera
+      int outlier_count=0;
+      for(int i = (flowTrackedPts.size()-1); i>=0; i--)
+      {
+        Point pt=flowTrackedPts.at(i);
+        if(status.at(i)==0 || pt.x<10 || pt.x<10 || pt.x>(image_width-11) || pt.y>(image_height-11))
+        {
+          outlier_count++;
+          lastKeyPts.erase(lastKeyPts.begin()+i);
+          lastORBDescriptor.erase(lastORBDescriptor.begin()+i);
+          flowTrackedPts.erase(flowTrackedPts.begin()+i);
+        }
+      }
+
+      //filter by ORB distace
+      //Matched:lastKeyPts,lastORBDescriptor,flowTrackedPts
+      //flowTrackedPtsWithORBdescriptor is subset of flowTrackedPts
+      vector<Mat>     flowTrackedORBDescriptor;
+      KeyPoint::convert(flowTrackedPts,KP_tmp);
+      Ptr<DescriptorExtractor> extractor = ORB::create();
+      extractor->compute(currImg, KP_tmp, Descriptor_tmp);
+      ORBDescriptorMat2VecMat(Descriptor_tmp,flowTrackedORBDescriptor);
+      KeyPoint::convert(KP_tmp,flowTrackedPtsWithORBdescriptor);
+      for(size_t i=0; i<flowTrackedPtsWithORBdescriptor.size(); )
+      {
+        if(flowTrackedPtsWithORBdescriptor.at(i).x == flowTrackedPts.at(i).x &&
+           flowTrackedPtsWithORBdescriptor.at(i).y == flowTrackedPts.at(i).y)
+        {//matched
+          i++;
+        }
+        else
+        {//un matched matched
+          lastKeyPts.erase(lastKeyPts.begin()+i);
+          lastORBDescriptor.erase(lastORBDescriptor.begin()+i);
+          flowTrackedPts.erase(flowTrackedPts.begin()+i);
+        }
+      }
+      flowTrackedPts = flowTrackedPtsWithORBdescriptor;
+
+      for(int i=flowTrackedPtsWithORBdescriptor.size()-1; i>=0; i--)
+      {
+        if(norm(lastORBDescriptor.at(i), flowTrackedORBDescriptor.at(i), NORM_HAMMING) > 20 )
+        {
+          lastKeyPts.erase(lastKeyPts.begin()+i);
+          lastORBDescriptor.erase(lastORBDescriptor.begin()+i);
+          flowTrackedPts.erase(flowTrackedPts.begin()+i);
+          flowTrackedORBDescriptor.erase(flowTrackedORBDescriptor.begin()+i);
+        }
+      }
+      //EPNP RANSIC + Optimizer to Estimate the Camera Pose
+      //lastKeyPts + flowTrackedPts
+
+//      cout << "size of lastKeyPts:               " << lastKeyPts.size() << endl;
+//      cout << "size of lastORBDescriptor:        " << lastORBDescriptor.size() << endl;
+//      cout << "size of flowTrackedPts:           " << flowTrackedPts.size() << endl;
+//      cout << "size of flowTrackedORBDescriptor: " << flowTrackedORBDescriptor.size() << endl;
+
+      //Refill
+
 
       //Refill the keyPoints
-      detector->refill(currImg,currKeyPts);
+      vector<Point2f> newKeyPts;
+      vector<Mat>     newPtsDescriptor;
+      int newPtsCount;
+      detector->refill(currImg,flowTrackedPts,newKeyPts,newPtsCount);
+      vector<Mat> newORBDescriptor;
+      KeyPoint::convert(newKeyPts,KP_tmp);
+      extractor->compute(currImg, KP_tmp, Descriptor_tmp);
+      ORBDescriptorMat2VecMat(Descriptor_tmp,newPtsDescriptor);
+      KeyPoint::convert(KP_tmp,newKeyPts);
+      cout << "Add " << newKeyPts.size() << "new KeyPoints" << endl;
+
+      currKeyPts = flowTrackedPts;
+      currORBDescriptor = flowTrackedORBDescriptor;
+      currKeyPts.insert(currKeyPts.end(), newKeyPts.begin(), newKeyPts.end());
+      currORBDescriptor.insert(currORBDescriptor.end(), newPtsDescriptor.begin(), newPtsDescriptor.end());
+
+      //drawKeyPts(currShowImg, newKeyPts);
       drawKeyPts(currShowImg, currKeyPts);
-      drawFlow(currShowImg,lastKeyPts,currKeyPts);
+      drawFlow(currShowImg,lastKeyPts,flowTrackedPts);
+
     }
 
       break;
@@ -192,7 +273,10 @@ private:
     lastORBDescriptor = currORBDescriptor;
     lastImg = currImg;
     lastDImg = currDImg;
+
+    cout << endl;
     tt_cb.toc();
+    cout << endl;
 
 
   }//image_input_callback(const sensor_msgs::ImageConstPtr & imgPtr, const sensor_msgs::ImageConstPtr & depthImgPtr)
