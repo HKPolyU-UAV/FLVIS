@@ -1,11 +1,19 @@
 <launch>
 
-    <param name="/image_width"     type="int" value="640"/>
+<!--    <param name="/image_width"     type="int" value="640"/>
     <param name="/image_height"    type="int" value="360"/>
     <param name="/fx"              type="double" value="318.5274353027344"/>
     <param name="/fy"              type="double" value="318.7115478515625"/>
     <param name="/cx"              type="double" value="318.5274353027344"/>
-    <param name="/cy"              type="double" value="179.57516479492188"/>
+    <param name="/cy"              type="double" value="179.57516479492188"/>-->
+
+    <param name="/image_width"     type="int" value="480"/>
+    <param name="/image_height"    type="int" value="270"/>
+    <param name="/fx"              type="double" value="239.08380126953125"/>
+    <param name="/fy"              type="double" value="238.68667602539062"/>
+    <param name="/cx"              type="double" value="239.08380126953125"/>
+    <param name="/cy"              type="double" value="134.68154907226562"/>
+
 
     <!-- Manager -->
     <node pkg="nodelet" type="nodelet" args="manager"

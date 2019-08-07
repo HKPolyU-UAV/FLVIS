@@ -1,5 +1,5 @@
-#ifndef EULER_Q_RMATRIX
-#define EULER_Q_RMATRIX
+#ifndef EULER_RMATRIX
+#define EULER_RMATRIX
 
 #include <eigen3/Eigen/Eigen>
 #include <eigen3/Eigen/Dense>
@@ -56,9 +56,6 @@ inline Vector3d euler_from_rotation_matrix(const Matrix3d R)
     double r33 = R(2,2);
 
     roll  = asin(r32);
-//    pitch = atan2(-r31/cos(roll),r33/cos(roll));
-//    yaw   = atan2(-r12/cos(roll),r22/cos(roll));
-
     pitch = atan2(-r31,r33);
     yaw   = atan2(-r12,r22);
 
