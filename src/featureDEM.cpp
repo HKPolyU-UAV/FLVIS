@@ -8,19 +8,19 @@ static bool sortbysecdesc(const pair<Point2f,float> &a,
   return a.second>b.second;
 }
 
-void FeatureDEM::DescriptorMat2VecMat(const Mat& descriptorMat,
-                                               vector<Mat>& vecDescriptorMat)
-{
-  vecDescriptorMat.clear();
-  for(int i=0; i<descriptorMat.size().height;i++)
-  {
-    vecDescriptorMat.push_back(descriptorMat.row(i));
-  }
-}
+//void FeatureDEM::DescriptorMat2VecMat(const Mat& descriptorMat,
+//                                      vector<Mat>& vecDescriptorMat)
+//{
+//  vecDescriptorMat.clear();
+//  for(int i=0; i<descriptorMat.size().height;i++)
+//  {
+//    vecDescriptorMat.push_back(descriptorMat.row(i));
+//  }
+//}
 
 FeatureDEM::FeatureDEM(const int image_width,
-                                         const int image_height,
-                                         int boundaryBoxSize)
+                       const int image_height,
+                       int boundaryBoxSize)
 {
   width=image_width;
   height=image_height;
@@ -42,10 +42,10 @@ FeatureDEM::FeatureDEM(const int image_width,
     x_end   = gridx[(i%4)+1];
     y_begin = gridy[i/4];
     y_end   = gridy[(i/4)+1];
-//    cout << "x_begin: " << x_begin << endl;
-//    cout << "x_end: " << x_end << endl;
-//    cout << "y_begin: " << y_begin << endl;
-//    cout << "y_end: " << y_end << endl;
+    //    cout << "x_begin: " << x_begin << endl;
+    //    cout << "x_end: " << x_end << endl;
+    //    cout << "y_begin: " << y_begin << endl;
+    //    cout << "y_end: " << y_end << endl;
     for(int xx=x_begin; xx<x_end; xx++)
     {
       for(int yy=y_begin; yy<y_end; yy++)
@@ -61,8 +61,8 @@ FeatureDEM::~FeatureDEM()
 {;}
 
 void FeatureDEM::calHarrisR(const Mat& img,
-                                     Point2f& Pt,
-                                     float &R)
+                            Point2f& Pt,
+                            float &R)
 {
   uchar patch[9];
   int xx = Pt.x;
@@ -92,7 +92,7 @@ void FeatureDEM::calHarrisR(const Mat& img,
 }
 
 void FeatureDEM::filterAndFillIntoRegion(const Mat& img,
-                                                  const vector<Point2f>& pts)
+                                         const vector<Point2f>& pts)
 {
   //Devided all features into 16 regions
   for(size_t i=0; i<pts.size(); i++)
@@ -112,28 +112,33 @@ void FeatureDEM::filterAndFillIntoRegion(const Mat& img,
 }
 
 void FeatureDEM::fillIntoRegion(const Mat& img,
-                                         const vector<Point2f>& pts)
+                                const vector<Point2f>& pts)
 {
   for(size_t i=0; i<pts.size(); i++)
   {
     Point2f pt = pts.at(i);
     int regionNum= 4*floor(pt.y/regionHeight) + (pt.x/regionWidth);
-    regionKeyPts[regionNum].push_back(make_pair(pt,999.0));
+    regionKeyPts[regionNum].push_back(make_pair(pt,99999.0));
   }
 }
 
 
 void FeatureDEM::redetect(const Mat& img,
-                                 const vector<Point2f>& existedKeyPts,
-                                 vector<Point2f>& newKeyPts,
-                                 int &newKeyPtscount)
+                          const vector<Vec2>& existedPts,
+                          vector<Vec2>& newPts,
+                          vector<Mat>& newDescriptors,
+                          int &newPtscount)
 {
+  vector<Point2f> newPts_cvP2f;
   //Clear
-  newKeyPtscount = 0;
+  newPts_cvP2f.clear();
+  newDescriptors.clear();
+  newPtscount = 0;
   for(int i=0; i<16; i++){
     regionKeyPts[i].clear();
   }
-  fillIntoRegion(img,existedKeyPts);
+  vector<Point2f> existedPts_cvP2f=vVec2_2_vcvP2f(existedPts);
+  fillIntoRegion(img,existedPts_cvP2f);
   //For every region check whether the is
   for(int i=0; i<16; i++)
   {
@@ -163,7 +168,7 @@ void FeatureDEM::redetect(const Mat& img,
 
       for(size_t j=0; j<kpsHarrisRinRegion.size(); j++)
       {
-        int outSideConflictBoundary = 1;
+        int noFeatureNearby = 1;
         Point pt=kpsHarrisRinRegion.at(j).first;
         for(size_t k=0; k<regionKeyPts[i].size(); k++)
         {
@@ -171,16 +176,29 @@ void FeatureDEM::redetect(const Mat& img,
           float dis_y = fabs(pt.y-regionKeyPts[i].at(k).first.y);
           if(dis_x <= boundary_dis || dis_y <= boundary_dis)
           {
-            outSideConflictBoundary=0;
+            noFeatureNearby=0;
           }
         }
-        if(outSideConflictBoundary)
+        if(noFeatureNearby)
         {
-          regionKeyPts[i].push_back(make_pair(pt,999.0));
-          newKeyPts.push_back(pt);
-          newKeyPtscount++;
+          regionKeyPts[i].push_back(make_pair(pt,999999.0));
+          newPts_cvP2f.push_back(pt);
+          newPtscount++;
           if(regionKeyPts[i].size() >= MAX_REGION_FREATURES_NUM) break;
         }
+      }
+      if(newPts_cvP2f.size()>0)
+      {
+        Mat tmpDescriptors;
+        vector<KeyPoint> tmpKPs;
+        KeyPoint::convert(newPts_cvP2f,tmpKPs);
+        Ptr<DescriptorExtractor> extractor = ORB::create();
+        extractor->compute(img, tmpKPs, tmpDescriptors);
+        for(size_t i=0; i<tmpKPs.size(); i++)
+        {
+          newPts.push_back(Vec2(tmpKPs.at(i).pt.x,tmpKPs.at(i).pt.y));
+        }
+        descriptors_to_vMat(tmpDescriptors,newDescriptors);
       }
     }
   }
@@ -253,5 +271,5 @@ void FeatureDEM::detect(const Mat& img, vector<Vec2>& pts, vector<Mat>& descript
   {
     pts.push_back(Vec2(tmpKPs.at(i).pt.x,tmpKPs.at(i).pt.y));
   }
-  DescriptorMat2VecMat(tmpDescriptors,descriptors);
+  descriptors_to_vMat(tmpDescriptors,descriptors);
 }

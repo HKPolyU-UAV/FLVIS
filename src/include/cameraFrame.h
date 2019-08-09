@@ -1,9 +1,9 @@
 #ifndef CAMERAFRAME_H
 #define CAMERAFRAME_H
 
-#include <include/common_def.h>
-#include <include/depthCamera.h>
-#include <landMarkInFrame.h>
+#include <include/common.h>
+#include <include/dCamera.h>
+#include <lmInFrame.h>
 
 class CameraFrame
 {

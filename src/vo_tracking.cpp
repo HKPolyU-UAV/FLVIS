@@ -17,9 +17,8 @@
 #include <g2o/types/sba/types_six_dof_expmap.h>
 
 #include <utils/tic_toc_ros.h>
-#include <_misc.h>
-#include <include/common_def.h>
-#include <include/depthCamera.h>
+#include <include/common.h>
+#include <include/dCamera.h>
 #include <include/featureDEM.h>
 #include <include/rvizFrame.h>
 #include <include/rvizPath.h>
@@ -29,6 +28,44 @@
 
 using namespace cv;
 using namespace std;
+
+
+void drawRegion16(Mat& img)
+{
+  int divH = floor(img.size().height/4);
+  int divW = floor(img.size().width/4);
+  int x,y;
+  for(int i=1; i<=3; i++)//horizon
+  {
+    y=i*divH;
+    line(img, Point(0,y), Point((img.size().width-1),y), Scalar(255,255,255),1);//horizon
+    x=i*divW;
+    line(img, Point(x,0), Point(x,(img.size().height-1)), Scalar(255,255,255),1);//vertical
+  }
+}
+
+void drawKeyPts(Mat& img, const vector<Point2f>& KeyPts)
+{
+  for(size_t i=0; i<KeyPts.size(); i++)
+  {
+    Point pt(floor(KeyPts.at(i).x),floor(KeyPts.at(i).y));
+    circle(img, pt, 2, Scalar( 255, 0, 0 ), 3);
+  }
+}
+
+void drawFlow(Mat& img, const vector<Point2f>& from, const vector<Point2f>& to)
+{
+  if(from.size()==to.size())
+  {
+    for(size_t i=0; i<from.size(); i++)
+    {
+      Point pt_from(floor(from.at(i).x),floor(from.at(i).y));
+      Point pt_to(floor(to.at(i).x),floor(to.at(i).y));
+      circle(img, pt_from, 2, Scalar( 0, 255, 0 ));
+      arrowedLine(img, pt_from, pt_to, Scalar( 0,204,204),2);
+    }
+  }
+}
 
 enum TRACKINGSTATE{UnInit, Working, trackingFail};
 
@@ -72,7 +109,7 @@ private:
   virtual void onInit()
   {
     ros::NodeHandle& nh = getPrivateNodeHandle();
-
+    cv::startWindowThread();
     //Read Parameter
 
     double fx,fy,cx,cy;
@@ -167,7 +204,7 @@ private:
               LandMarkInFrame(pts2d.at(i),pt3d_w,
                               descriptors.at(i),maskHas3DInf.at(i)));
       }
-      drawKeyPts(currShowImg, toCVPoint2f(pts2d));
+      drawKeyPts(currShowImg, vVec2_2_vcvP2f(pts2d));
       framePub->pubFramePtsPoseT_c_w(currFrame->getValid3dPts(),currFrame->T_c_w,currStamp);
       pathPub->pubPathT_c_w(currFrame->T_c_w,currStamp);
 
@@ -270,30 +307,28 @@ private:
 
       Mat R_;
       cv::Rodrigues ( r_, R_ );
-      Mat3x3 R=cvMat2EigenMatrix_3x3(R_);
-      Vec3   t=cvMat2EigenVector_3(t_);
+      Mat3x3 R=cvMat_to_Mat3x3(R_);
+      Vec3   t=cvMat_to_Vec3(t_);
       cout<<"Optimizer"<<endl;
+
       //bundleAdjustment ( pts_3d, pts_2d, K, R, t );
 
+      //3D Inf Update
       currFrame->T_c_w = SE3(R,t);
 
       framePub->pubFramePtsPoseT_c_w(currFrame->getValid3dPts(),currFrame->T_c_w);
       pathPub->pubPathT_c_w(currFrame->T_c_w,currStamp);
 
+      //lastKeyPts + flowTrackedPts
 
-
-      //      //lastKeyPts + flowTrackedPts
-      //      //Refill the keyPoints
-      //      vector<Point2f> newKeyPts;
-      //      vector<Mat>     newPtsDescriptor;
-      //      int newPtsCount;
-      //      detector->refill(currImg,flowTrackedPts,newKeyPts,newPtsCount);
-      //      vector<Mat> newORBDescriptor;
-      //      KeyPoint::convert(newKeyPts,KP_tmp);
-      //      extractor->compute(currImg, KP_tmp, Descriptor_tmp);
-      //      ORBDescriptorMat2VecMat(Descriptor_tmp,newPtsDescriptor);
-      //      KeyPoint::convert(KP_tmp,newKeyPts);
-      //      cout << "Add " << newKeyPts.size() << "new KeyPoints" << endl;
+      //Refill the keyPoints
+      vector<Vec2> newKeyPts;
+      vector<Mat>  newDescriptor;
+      int newPtsCount;
+      featureDEM->redetect(currFrame->img,
+                           currFrame->get2dPtsVec(),
+                           newKeyPts,newDescriptor,newPtsCount);
+      cout << "Add " << newKeyPts.size() << "new KeyPoints" << endl;
 
       //      currKeyPts = flowTrackedPts;
       //      currORBDescriptor = flowTrackedORBDescriptor;
@@ -302,13 +337,13 @@ private:
 
       //      //drawKeyPts(currShowImg, newKeyPts);
       //      drawKeyPts(currShowImg, currKeyPts);
-      //      drawFlow(currShowImg,lastKeyPts,flowTrackedPts);
-      //trackingState = UnInit;
+
       break;
     }
 
     case trackingFail:
     {
+      trackingState = UnInit;
       break;
     }
 
@@ -325,7 +360,7 @@ private:
       if(displaytmp==0)
       {
         displaytmp=1;
-        cvMoveWindow( "Image", 500, 500 );
+        cvMoveWindow( "Image", 1300, 500 );
       }
     }
     waitKey(1);

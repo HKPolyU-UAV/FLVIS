@@ -1,4 +1,4 @@
-#include <include/landMarkInFrame.h>
+#include <include/lmInFrame.h>
 
 //LandMarkInFrame::LandMarkInFrame(Vec2 pt2d, Vec3 pt3d, Mat descriptor, unsigned char has3dInf)
 //{

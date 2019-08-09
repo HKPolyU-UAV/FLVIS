@@ -2,7 +2,7 @@
 #define RVIZFRAME_H
 
 #include <ros/ros.h>
-#include <include/common_def.h>
+#include <include/common.h>
 #include <visualization_msgs/Marker.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <cmath>

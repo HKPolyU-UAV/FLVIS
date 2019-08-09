@@ -21,6 +21,7 @@ find_package(catkin REQUIRED COMPONENTS
     cv_bridge
     message_generation
     message_filters
+    image_transport
     )
 
 
@@ -45,9 +46,9 @@ add_library(vo_nodelet
     src/vo_tracking.cpp
     src/vo_localmap.cpp
     src/featureDEM.cpp
-    src/depthCamera.cpp
+    src/dCamera.cpp
     src/landMark.cpp
-    src/landMarkInFrame.cpp
+    src/lmInFrame.cpp
     src/cameraFrame.cpp
     src/rvizFrame.cpp
     src/rvizPath.cpp
@@ -61,26 +62,42 @@ target_link_libraries(vo_nodelet
     g2o_core g2o_stuff g2o_types_sba g2o_csparse_extension
     )
 
-add_executable(testSophus
-    src/test.cpp)
+#add_executable(testSophus
+#    src/test/test.cpp)
 
-target_link_libraries(testSophus
+#target_link_libraries(testSophus
+#    ${catkin_LIBRARIES}
+#    ${OpenCV_LIBRARIES}
+#    ${CSPARSE_LIBRARY}
+#    ${Sophus_LIBRARIES}
+#    g2o_core g2o_stuff g2o_types_sba g2o_csparse_extension
+#    )
+
+
+#add_executable(testVis
+#    src/test/rvizVis.cpp
+#    src/rvizFrame.cpp)
+
+#target_link_libraries(testVis
+#    ${catkin_LIBRARIES}
+#    ${OpenCV_LIBRARIES}
+#    ${CSPARSE_LIBRARY}
+#    ${Sophus_LIBRARIES}
+#    )
+
+add_executable(undistort
+    src/test/undistort.cpp)
+
+target_link_libraries(undistort
     ${catkin_LIBRARIES}
     ${OpenCV_LIBRARIES}
-    ${CSPARSE_LIBRARY}
-    ${Sophus_LIBRARIES}
-    g2o_core g2o_stuff g2o_types_sba g2o_csparse_extension
     )
 
 
-add_executable(testVis
-    src/rvizFrame.cpp
-    src/testVis.cpp)
 
-target_link_libraries(testVis
-    ${catkin_LIBRARIES}
-    ${OpenCV_LIBRARIES}
-    ${CSPARSE_LIBRARY}
-    ${Sophus_LIBRARIES}
-    )
+
+
+
+
+
 

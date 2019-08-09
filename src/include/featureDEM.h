@@ -1,7 +1,7 @@
 #ifndef FEATUREDEM_H
 #define FEATUREDEM_H
 
-#include <include/common_def.h>
+#include <include/common.h>
 #include <iostream>
 #include <utility>
 
@@ -22,7 +22,7 @@
  *  //Devided all features into 16 regions
  *  //For every region, select features by Harris index and boundary size
  * */
-#define MAX_REGION_FREATURES_NUM (7)
+#define MAX_REGION_FREATURES_NUM (12)
 #define MIN_REGION_FREATURES_NUM (4)
 #define BOUNDARYBOXSIZE          (4)
 
@@ -45,8 +45,9 @@ public:
               vector<Mat>& descriptors);
 
   void redetect(const Mat& img,
-                const vector<Point2f>& existedKeyPts,
-                vector<Point2f>& newKeyPts,
+                const vector<Vec2>& existedPts,
+                vector<Vec2>& newPts,
+                vector<Mat>& newDescriptors,
                 int &newKeyPtscount);
 
 private:
@@ -65,11 +66,6 @@ private:
 
   void fillIntoRegion(const Mat& img,
                       const vector<Point2f>& pts);
-
-  void DescriptorMat2VecMat(const Mat& descriptorMat,
-                            vector<Mat>& vecDescriptorMat);
-
-
 
 
 

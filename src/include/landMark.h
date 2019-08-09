@@ -1,7 +1,7 @@
 #ifndef LandMark_H
 #define LandMark_H
 
-#include <include/common_def.h>
+#include <include/common.h>
 
 #define LMSTATE_NO_DEPTH  (0)
 #define LMSTATE_NORMAL    (1)

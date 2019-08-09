@@ -1,7 +1,7 @@
 #ifndef DEPTHCAMERA_H
 #define DEPTHCAMERA_H
 
-#include "common_def.h"
+#include "common.h"
 
 //DepthCamera Class
 //Support Z16 depth format

@@ -1,4 +1,4 @@
-#include "include/depthCamera.h"
+#include "include/dCamera.h"
 
 DepthCamera::DepthCamera()
 {
