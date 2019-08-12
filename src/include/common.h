@@ -52,11 +52,13 @@ inline Mat3x3 cvMat_to_Mat3x3(const Mat R)
       R.at<double>(2,0),R.at<double>(2,1),R.at<double>(2,2);
   return ret;
 }
-//transfor cv translation to Mat3x3
+
+//transfor cv translation to Vec3
 inline Vec3 cvMat_to_Vec3(const Mat t)
 {
   return Vec3(t.at<double>(0,0),t.at<double>(1,0),t.at<double>(2,0));
 }
+
 //transfor descriptors to vector of Mat(cv)
 inline void descriptors_to_vMat(const Mat& descriptorMat, vector<Mat>& vecDescriptorMat)
 {
@@ -66,16 +68,19 @@ inline void descriptors_to_vMat(const Mat& descriptorMat, vector<Mat>& vecDescri
     vecDescriptorMat.push_back(descriptorMat.row(i));
   }
 }
+
 //transfor 2d point to cvP2f
 inline Point2f Vec2_to_cvP2f(const Vec2 pt)
 {
   return Point2f(pt[0],pt[1]);
 }
+
 //transfor 3d point to cvP3f
 inline Point3f Vec3_to_cvP3f(const Vec3 pt)
 {
   return Point3f(pt[0],pt[1],pt[2]);
 }
+
 //transfor (vector of 2d point) to (vector of cvP2f)
 inline vector<Point2f> vVec2_2_vcvP2f(const vector<Vec2>& pt2ds)
 {
@@ -86,5 +91,21 @@ inline vector<Point2f> vVec2_2_vcvP2f(const vector<Vec2>& pt2ds)
   return ret;
 }
 
+//transfor Mat3x3 to cv rotation
+//inline Mat Mat3x3_to_cvMat(const Mat3x3 R)
+//{
+//  double data[10] = { R(0,0), R(0,1), R(0,2),
+//                      R(1,0), R(1,1), R(1,2),
+//                      R(2,0), R(2,1), R(2,2)};
+//  Mat ret = cv::Mat(3, 3, CV_64F, data);
+//  return ret;
+//}
+//transfor Vec3 to cv translation
+//inline Mat Vec3_to_cvMat(const Vec3 t)
+//{
+//  double data[3] = { t(0,0), t(1,0), t(2,0)};
+//  Mat ret = cv::Mat(3, 1, CV_64F, data);
+//  return ret;
+//}
 
 #endif // COMMON_H

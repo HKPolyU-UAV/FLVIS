@@ -70,8 +70,8 @@ void RVIZFrame::pubFramePtsPoseT_w_c(const vector<Vec3>& pts3d,
 
   // POINTS markers use x and y scale for width/height respectively
   // Points are blue
-  points.scale.x = 0.1;
-  points.scale.y = 0.1;
+  points.scale.x = 0.05;
+  points.scale.y = 0.05;
 
   points.color.b = 0.7f;
   points.color.a = 1.0;

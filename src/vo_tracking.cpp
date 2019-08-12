@@ -91,7 +91,6 @@ private:
 
   //Tools
   FeatureDEM         *featureDEM;
-  DepthCamera        *camera;
 
   //F2F
   int frameCount;
@@ -129,12 +128,10 @@ private:
 
     featureDEM  = new FeatureDEM(image_width,image_height,10);
     cout << "init regionBasedDetector" << endl;
-    camera    = new DepthCamera(fx,fy,cx,cy,1000.0);
-    cout << "init DepthCamera" << endl;
 
     currFrame = std::make_shared<CameraFrame>();
     lastFrame = std::make_shared<CameraFrame>();
-    currFrame->camera = lastFrame->camera = *camera;
+    currFrame->d_camera = lastFrame->d_camera = DepthCamera(fx,fy,cx,cy,1000.0);
     frameCount = 0;
     trackingState = UnInit;
 
@@ -194,12 +191,12 @@ private:
 
       featureDEM->detect(currFrame->img,pts2d,descriptors);
       cout << "Detect " << pts2d.size() << " Features"<< endl;
-      camera->recover3DPtsFromDepthImg(currFrame->d_img,pts2d,pts3d_c,maskHas3DInf);
+      currFrame->d_camera.recover3DPtsFromDepthImg(currFrame->d_img,pts2d,pts3d_c,maskHas3DInf);
 
       //add landmark
       for(size_t i=0; i<pts2d.size(); i++)
       {
-        Vec3 pt3d_w = camera->camera2world(pts3d_c.at(i),currFrame->T_c_w);
+        Vec3 pt3d_w = DepthCamera::camera2worldT_c_w(pts3d_c.at(i),currFrame->T_c_w);
         currFrame->landmarks.push_back(
               LandMarkInFrame(pts2d.at(i),pt3d_w,
                               descriptors.at(i),maskHas3DInf.at(i)));
@@ -219,11 +216,11 @@ private:
 
       /* F2F Workflow
          STEP1: Track
-         STEP2: Compute ORB
-         STEP3: Match Check
-         STEP4: PNP2D3D
-         STEP5: F2FOptimize
-         STEP6: Redetect
+         STEP2: Computer ORB
+         STEP3: Check Matches
+         STEP4: 2D3D-PNP+F2FBA
+         STEP5: Redetect
+         STEP6: Update Landmarks(IIR)
       */
 
       //Track
@@ -296,31 +293,35 @@ private:
         Vec2 pt = Vec2(trackedLM_cvP2f.at(i).x,trackedLM_cvP2f.at(i).y);
         currFrame->landmarks.at(i).lmPt2d=pt;
       }
+
       drawFlow(currShowImg,lastFrame->get2dPtsVec_cvP2f(),trackedLM_cvP2f);
 
       vector<Point2f> p2d;
       vector<Point3f> p3d;
-      cv::Mat r_ = cv::Mat::zeros(3, 1, CV_64FC1);
-      cv::Mat t_ = cv::Mat::zeros(3, 1, CV_64FC1);
       currFrame->getValid2d3dPair_cvPf(p2d,p3d);
-      solvePnP ( p3d, p2d, cameraMatrix, distCoeffs, r_, t_, false, SOLVEPNP_EPNP);
+      cv::Mat R_;
+      cv::Mat r_;
+      cv::Mat t_;
 
-      Mat R_;
+      r_ = cv::Mat::zeros(3, 1, CV_64FC1);
+      t_ = cv::Mat::zeros(3, 1, CV_64FC1);
+      solvePnPRansac(p3d,p2d,cameraMatrix,distCoeffs,r_,t_,false);
+
+
       cv::Rodrigues ( r_, R_ );
       Mat3x3 R=cvMat_to_Mat3x3(R_);
       Vec3   t=cvMat_to_Vec3(t_);
-      cout<<"Optimizer"<<endl;
 
+      cout<<"Optimizer"<<endl;
       //bundleAdjustment ( pts_3d, pts_2d, K, R, t );
 
       //3D Inf Update
       currFrame->T_c_w = SE3(R,t);
-
       framePub->pubFramePtsPoseT_c_w(currFrame->getValid3dPts(),currFrame->T_c_w);
       pathPub->pubPathT_c_w(currFrame->T_c_w,currStamp);
 
-      //lastKeyPts + flowTrackedPts
-
+      //Remove Outliers ||reprojection error|| < 5pixels
+      currFrame->removeOutliers(3);
       //Refill the keyPoints
       vector<Vec2> newKeyPts;
       vector<Mat>  newDescriptor;
@@ -328,15 +329,20 @@ private:
       featureDEM->redetect(currFrame->img,
                            currFrame->get2dPtsVec(),
                            newKeyPts,newDescriptor,newPtsCount);
-      cout << "Add " << newKeyPts.size() << "new KeyPoints" << endl;
+      cout << "Add " << newKeyPts.size() << " new KeyPoints" << endl;
+      //add landmarks with no position information
+      Vec3 pt3d_w(0,0,0);
+      for(size_t i=0; i<newKeyPts.size(); i++)
+      {
+        LandMarkInFrame lm = LandMarkInFrame(newKeyPts.at(i),pt3d_w,newDescriptor.at(i),0);
+        currFrame->landmarks.push_back(lm);
+        cout << "step " << i << " newkpssize "<< newKeyPts.size() << endl;
+      }
+      //      cout << "add lms to currFrame" << endl;
+      currFrame->updateDepthMeasurement();
 
-      //      currKeyPts = flowTrackedPts;
-      //      currORBDescriptor = flowTrackedORBDescriptor;
-      //      currKeyPts.insert(currKeyPts.end(), newKeyPts.begin(), newKeyPts.end());
-      //      currORBDescriptor.insert(currORBDescriptor.end(), newPtsDescriptor.begin(), newPtsDescriptor.end());
+      //Update Depth Measurement
 
-      //      //drawKeyPts(currShowImg, newKeyPts);
-      //      drawKeyPts(currShowImg, currKeyPts);
 
       break;
     }

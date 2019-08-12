@@ -7,7 +7,7 @@
 #include <common.h>
 
 
-#define DEFAULT_NUM_OF_POSE (900)
+#define DEFAULT_NUM_OF_POSE (9000)
 
 class RVIZPath
 {

@@ -129,12 +129,16 @@ void FeatureDEM::redetect(const Mat& img,
                           vector<Mat>& newDescriptors,
                           int &newPtscount)
 {
-  vector<Point2f> newPts_cvP2f;
   //Clear
-  newPts_cvP2f.clear();
+  newPts.clear();
   newDescriptors.clear();
-  newPtscount = 0;
-  for(int i=0; i<16; i++){
+  newPtscount=0;
+
+  vector<Point2f> newPts_cvP2f;
+  newPts_cvP2f.clear();
+
+  for(int i=0; i<16; i++)
+  {
     regionKeyPts[i].clear();
   }
   vector<Point2f> existedPts_cvP2f=vVec2_2_vcvP2f(existedPts);
@@ -183,26 +187,30 @@ void FeatureDEM::redetect(const Mat& img,
         {
           regionKeyPts[i].push_back(make_pair(pt,999999.0));
           newPts_cvP2f.push_back(pt);
-          newPtscount++;
           if(regionKeyPts[i].size() >= MAX_REGION_FREATURES_NUM) break;
         }
       }
-      if(newPts_cvP2f.size()>0)
-      {
-        Mat tmpDescriptors;
-        vector<KeyPoint> tmpKPs;
-        KeyPoint::convert(newPts_cvP2f,tmpKPs);
-        Ptr<DescriptorExtractor> extractor = ORB::create();
-        extractor->compute(img, tmpKPs, tmpDescriptors);
-        for(size_t i=0; i<tmpKPs.size(); i++)
-        {
-          newPts.push_back(Vec2(tmpKPs.at(i).pt.x,tmpKPs.at(i).pt.y));
-        }
-        descriptors_to_vMat(tmpDescriptors,newDescriptors);
-      }
     }
   }
+  if(newPts_cvP2f.size()>0)
+  {
+    Mat tmpDescriptors;
+    vector<KeyPoint> tmpKPs;
+    KeyPoint::convert(newPts_cvP2f,tmpKPs);
+    Ptr<DescriptorExtractor> extractor = ORB::create();
+    extractor->compute(img, tmpKPs, tmpDescriptors);
+    for(size_t i=0; i<tmpKPs.size(); i++)
+    {
+      Vec2 pt(tmpKPs.at(i).pt.x,tmpKPs.at(i).pt.y);
+      cout << pt;
+      newPts.push_back(pt);
+    }
+    newPtscount=newPts.size();
+    descriptors_to_vMat(tmpDescriptors,newDescriptors);
+  }
 }
+
+
 
 void FeatureDEM::detect(const Mat& img, vector<Vec2>& pts, vector<Mat>& descriptors)
 {
