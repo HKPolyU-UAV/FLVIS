@@ -4,9 +4,12 @@ project(vo_nodelet)
 set(CMAKE_CXX_FLAGS "-std=c++11 ${CMAKE_CXX_FLAGS} -O3 -Wall -pthread") # -Wextra -Werror
 set(CMAKE_BUILD_TYPE "RELEASE")
 
+list( APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/3rdPartLib/g2o/cmake_modules)
+set(G2O_ROOT /usr/local/include/g2o)
+find_package(G2O REQUIRED) 
+
 find_package (OpenCV 3 REQUIRED)
 find_package (Eigen3 REQUIRED)
-find_package (G2O REQUIRED )
 find_package (CSparse REQUIRED )
 find_package (Sophus REQUIRED )
 
@@ -35,10 +38,9 @@ include_directories(SYSTEM
     ${OpenCV_INCLUDE_DIRS}
     ${G2O_INCLUDE_DIRS}
     ${CSPARSE_INCLUDE_DIR}
+    ${Sophus_INCLUDE_DIRS}
     "${CMAKE_CURRENT_SOURCE_DIR}/src/"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/include/"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/include/"
-    ${Sophus_INCLUDE_DIRS}
     )
 
 ## Declare a C++ library

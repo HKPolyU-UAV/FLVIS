@@ -1,1 +1,0 @@
-/usr/bin/c++   -O3 -DNDEBUG    CMakeFiles/test_scso3.dir/sophus/test_scso3.cpp.o  -o test_scso3 -rdynamic libSophus.so -Wl,-rpath,/home/gh034/VO/src/vo/3rdPartLib/Sophus/svs_build 
