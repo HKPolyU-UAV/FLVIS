@@ -1,15 +1,27 @@
 # VO
 
+## Build
+### Installing dependencies
 
-## Install
+### Clone from this repo
 Clone the repository to the catkin work space eg. /catkin_ws/src
 ````
 git clone https://github.com/Ttoto/VO.git
 ````
-### install 3 part library
+### Compile and Install 3rd Part library
 #### sparse library
 ````
 sudo apt-get install libsuitesparse
+````
+#### yaml-cpp(0.6.2)
+````
+cd yaml-cpp-0.6.2
+mkdir build
+cd build
+cmake .. -DBUILD_SHARED_LIBS=ON
+make -j4
+sudo make install
+
 ````
 #### g2o
 ````

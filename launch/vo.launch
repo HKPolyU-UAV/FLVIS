@@ -1,11 +1,6 @@
 <launch>
 
-<!--    <param name="/image_width"     type="int" value="640"/>
-    <param name="/image_height"    type="int" value="360"/>
-    <param name="/fx"              type="double" value="318.5274353027344"/>
-    <param name="/fy"              type="double" value="318.7115478515625"/>
-    <param name="/cx"              type="double" value="318.5274353027344"/>
-    <param name="/cy"              type="double" value="179.57516479492188"/>-->
+    <param name="/yamlconfigfile"     type="string" value="$(find vo_nodelet)/launch/vio_config.yaml"/>
 
     <param name="/image_width"     type="int" value="480"/>
     <param name="/image_height"    type="int" value="270"/>

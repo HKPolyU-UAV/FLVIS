@@ -1,0 +1,23 @@
+#image_width: 640
+#image_height: 360
+#camera_model: pinhole
+#intrinsics: [318.5274353, 318.71154785, 318.5274353, 179.5751648]#fx fy cx cy
+#distortion_model: radtan
+#distortion_coeffs: [0.0, 0.0, 0.0, 0.0]
+
+image_width: 480
+image_height: 270
+intrinsics: [239.0838, 238.686676, 239.0838, 134.681549]#fx fy cx cy
+distortion_coeffs: [0.0, 0.0, 0.0, 0.0]#k1 k2 r1 r2
+
+accelerometer_noise_density: 0.0245
+accelerometer_random_walk: 0.000251
+gyroscope_noise_density: 0.00107
+gyroscope_random_walk: 3.99e-06
+
+T_cam_imu:
+  - [0.003894595300427406, -0.9999312605636292, 0.011059216747914213, 0.014088365503577643]
+  - [0.10091761410976224, -0.010609827456130982, -0.9948382113307392, 0.1321588887227648]
+  - [0.9948871630943075, 0.004990561990656561, 0.10086935610569936, -0.07166948114723835]
+  - [0.0, 0.0, 0.0, 1.0]
+timeshift_cam_imu: -0.02891545906863047
