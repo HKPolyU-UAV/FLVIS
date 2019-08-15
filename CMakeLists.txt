@@ -12,6 +12,7 @@ find_package (OpenCV 3 REQUIRED)
 find_package (Eigen3 REQUIRED)
 find_package (CSparse REQUIRED )
 find_package (Sophus REQUIRED )
+find_package (yaml-cpp REQUIRED )
 
 
 find_package(catkin REQUIRED COMPONENTS
@@ -33,12 +34,14 @@ catkin_package(
     CATKIN_DEPENDS message_runtime
     )
 
+
 include_directories(SYSTEM
     ${catkin_INCLUDE_DIRS}
     ${OpenCV_INCLUDE_DIRS}
     ${G2O_INCLUDE_DIRS}
     ${CSPARSE_INCLUDE_DIR}
     ${Sophus_INCLUDE_DIRS}
+    ${YAML_CPP_INCLUDE_DIR}
     "${CMAKE_CURRENT_SOURCE_DIR}/src/"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/include/"
     )
@@ -61,11 +64,12 @@ target_link_libraries(vo_nodelet
     ${OpenCV_LIBRARIES}
     ${CSPARSE_LIBRARY}
     ${Sophus_LIBRARIES}
+    ${YAML_CPP_LIBRARIES}
     g2o_core g2o_stuff g2o_types_sba g2o_csparse_extension
     )
 
 #add_executable(testSophus
-#    src/test/test.cpp)
+#    src/test/test_SE3.cpp)
 
 #target_link_libraries(testSophus
 #    ${catkin_LIBRARIES}
@@ -77,7 +81,7 @@ target_link_libraries(vo_nodelet
 
 
 #add_executable(testVis
-#    src/test/rvizVis.cpp
+#    src/test/rviz_Vis.cpp
 #    src/rvizFrame.cpp)
 
 #target_link_libraries(testVis
@@ -87,13 +91,22 @@ target_link_libraries(vo_nodelet
 #    ${Sophus_LIBRARIES}
 #    )
 
-add_executable(undistort
-    src/test/undistort.cpp)
+#add_executable(test_YAML2Eigen
+#    src/test/test_yaml2eigen.cpp
+#)
 
-target_link_libraries(undistort
-    ${catkin_LIBRARIES}
-    ${OpenCV_LIBRARIES}
-    )
+#target_link_libraries(test_YAML2Eigen
+#    ${catkin_LIBRARIES}
+#    ${YAML_CPP_LIBRARIES}
+#    )
+
+#add_executable(undistort
+#    src/test/undistort.cpp)
+
+#target_link_libraries(undistort
+#    ${catkin_LIBRARIES}
+#    ${OpenCV_LIBRARIES}
+#    )
 
 
 

@@ -4,6 +4,7 @@
 #include <include/common.h>
 #include <include/dCamera.h>
 #include <lmInFrame.h>
+#include <opencv2/opencv.hpp>
 
 class CameraFrame
 {
@@ -25,11 +26,16 @@ public:
   CameraFrame();
   void clear();
 
-  void getValid2d3dPair_cvPf(vector<Point2f>& p2d,vector<Point3f>& p3d);
+  void trackMatchAndUpdateLMs(Mat& newImage,
+                                     vector<Vec2>& lm2d_from,
+                                     vector<Vec2>& lm2d_to,
+                                     vector<Vec2>& outlier);
+  void removeReprojectionOutliers(vector<Vec2> &outlier,
+                                  double SH = 3.0);
   void updateDepthMeasurement(void);
-  void removeOutliers(double sh_reprojection_error = 5.0);
 
   //IO
+  void getValid2d3dPair_cvPf(vector<Point2f>& p2d,vector<Point3f>& p3d);
   void unpack(vector<Vec2>& pt2d,
               vector<Mat> & descriptors,
               vector<Vec3>& pt3d,
@@ -47,3 +53,5 @@ private:
 };
 
 #endif // CAMERAFRAME_H
+
+

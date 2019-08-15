@@ -23,49 +23,13 @@
 #include <include/rvizFrame.h>
 #include <include/rvizPath.h>
 #include <include/cameraFrame.h>
-
-
+#include <include/yamlRead.h>
+#include <include/cvDraw.h>
 
 using namespace cv;
 using namespace std;
 
 
-void drawRegion16(Mat& img)
-{
-  int divH = floor(img.size().height/4);
-  int divW = floor(img.size().width/4);
-  int x,y;
-  for(int i=1; i<=3; i++)//horizon
-  {
-    y=i*divH;
-    line(img, Point(0,y), Point((img.size().width-1),y), Scalar(255,255,255),1);//horizon
-    x=i*divW;
-    line(img, Point(x,0), Point(x,(img.size().height-1)), Scalar(255,255,255),1);//vertical
-  }
-}
-
-void drawKeyPts(Mat& img, const vector<Point2f>& KeyPts)
-{
-  for(size_t i=0; i<KeyPts.size(); i++)
-  {
-    Point pt(floor(KeyPts.at(i).x),floor(KeyPts.at(i).y));
-    circle(img, pt, 2, Scalar( 255, 0, 0 ), 3);
-  }
-}
-
-void drawFlow(Mat& img, const vector<Point2f>& from, const vector<Point2f>& to)
-{
-  if(from.size()==to.size())
-  {
-    for(size_t i=0; i<from.size(); i++)
-    {
-      Point pt_from(floor(from.at(i).x),floor(from.at(i).y));
-      Point pt_to(floor(to.at(i).x),floor(to.at(i).y));
-      circle(img, pt_from, 2, Scalar( 0, 255, 0 ));
-      arrowedLine(img, pt_from, pt_to, Scalar( 0,204,204),2);
-    }
-  }
-}
 
 enum TRACKINGSTATE{UnInit, Working, trackingFail};
 
@@ -109,22 +73,26 @@ private:
   {
     ros::NodeHandle& nh = getPrivateNodeHandle();
     cv::startWindowThread();
-    //Read Parameter
 
-    double fx,fy,cx,cy;
-    nh.getParam("/image_width",   image_width);
-    nh.getParam("/image_height",  image_height);
-    nh.getParam("/fx",            fx);
-    nh.getParam("/fy",            fy);
-    nh.getParam("/cx",            cx);
-    nh.getParam("/cy",            cy);
-
+    //Load Parameter
+    string configFilePath;
+    nh.getParam("/yamlconfigfile",   configFilePath);
+    image_width  = getIntVariableFromYaml(configFilePath,"image_width");
+    image_height = getIntVariableFromYaml(configFilePath,"image_height");
+    cameraMatrix = cameraMatrixFromYamlIntrinsics(configFilePath);
+    distCoeffs = distCoeffsFromYaml(configFilePath);
+    double fx = cameraMatrix.at<double>(0,0);
+    double fy = cameraMatrix.at<double>(1,1);
+    double cx = cameraMatrix.at<double>(0,2);
+    double cy = cameraMatrix.at<double>(1,2);
+    cout << "cameraMatrix:" << endl << cameraMatrix << endl;
+    cout << "distCoeffs:" << endl << distCoeffs << endl;
     cout << "image_width: "  << image_width << endl;
-    cout << "image_width: "  << image_height << endl;
-
-    //Init
-    cameraMatrix = (Mat1d(3, 3) << fx, 0, cx, 0, fy, cy, 0, 0, 1);
-    distCoeffs   = (Mat1d(5, 1) << 0,0,0,0,0);
+    cout << "image_height: "  << image_height << endl;
+    cout << "fx: "  << fx << endl;
+    cout << "fy: "  << fy << endl;
+    cout << "cx: "  << cx << endl;
+    cout << "cy: "  << cy << endl;
 
     featureDEM  = new FeatureDEM(image_width,image_height,10);
     cout << "init regionBasedDetector" << endl;
@@ -134,7 +102,6 @@ private:
     currFrame->d_camera = lastFrame->d_camera = DepthCamera(fx,fy,cx,cy,1000.0);
     frameCount = 0;
     trackingState = UnInit;
-
 
     //Publish
     pathPub  = new RVIZPath(nh,"/vo_path");
@@ -213,88 +180,27 @@ private:
 
     case Working:
     {
-
       /* F2F Workflow
-         STEP1: Track
-         STEP2: Computer ORB
-         STEP3: Check Matches
-         STEP4: 2D3D-PNP+F2FBA
-         STEP5: Redetect
-         STEP6: Update Landmarks(IIR)
+         STEP1: Track Match
+         STEP2: 2D3D-PNP+F2FBA
+         STEP3: Redetect
+         STEP4: Update Landmarks(IIR)
       */
-
-      //Track
-      vector<Point2f> trackedLM_cvP2f;
-      vector<float> err;
-      vector<unsigned char> mask_tracked;
-      TermCriteria criteria = TermCriteria((TermCriteria::COUNT) + (TermCriteria::EPS), 10, 0.03);
-      calcOpticalFlowPyrLK(lastFrame->img, currFrame->img,
-                           lastFrame->get2dPtsVec_cvP2f(), trackedLM_cvP2f,
-                           mask_tracked, err, Size(31,31), 2, criteria);
-
-      //Compute ORB
-      vector<unsigned char> mask_hasDescriptor;
-      vector<Mat>           trackedLMDescriptors;
-      vector<KeyPoint>      trackedLM_cvKP;
-      Mat descriptorsMat;
-      KeyPoint::convert(trackedLM_cvP2f,trackedLM_cvKP);
-      Ptr<DescriptorExtractor> extractor = ORB::create();
-      extractor->compute(currFrame->img, trackedLM_cvKP, descriptorsMat);
-
-      for(size_t i=0; i<trackedLM_cvP2f.size(); i++)
-      {
-        unsigned char hasDescriptor = 0;
-        for(size_t j=0; j<trackedLM_cvKP.size(); j++)
-        {
-          if(trackedLM_cvP2f.at(i).x==trackedLM_cvKP.at(j).pt.x &&
-             trackedLM_cvP2f.at(i).y==trackedLM_cvKP.at(j).pt.y)
-          {//has ORB descriptor
-            trackedLMDescriptors.push_back(descriptorsMat.row(j));
-            hasDescriptor = 1;
-            break;
-          }
-        }
-        mask_hasDescriptor.push_back(hasDescriptor);
-        if(hasDescriptor==0)
-        {
-          cv::Mat zeroDescriptor(cv::Size(32, 1), CV_8U, Scalar(0));
-          trackedLMDescriptors.push_back(zeroDescriptor);
-        }
-      }
-      //Match Check
-      vector<unsigned char> mask_matchCheck;
-      for(size_t i=0; i<trackedLMDescriptors.size(); i++)
-      {
-        if(norm(lastFrame->landmarks.at(i).lmDescriptor, trackedLMDescriptors.at(i), NORM_HAMMING) <= 100)
-        {
-          mask_matchCheck.push_back(1);
-        }else
-        {
-          mask_matchCheck.push_back(0);
-        }
-      }
-
       //Remove Lost Landmarks and Creat currFrame
-      for(int i=lastFrame->landmarks.size()-1; i>=0; i--)
-      {
-        if(mask_tracked.at(i)!=1       ||
-           mask_hasDescriptor.at(i)!=1 ||
-           mask_matchCheck.at(i)!=1)
-        {
-          trackedLM_cvP2f.erase(trackedLM_cvP2f.begin()+i);
-          trackedLM_cvKP.erase(trackedLM_cvKP.begin()+i);
-          lastFrame->landmarks.erase(lastFrame->landmarks.begin()+i);
-        }
-      }
-
+      vector<Vec2> lm2d_from;
+      vector<Vec2> lm2d_to;
+      vector<Vec2> outlier_tracking;
+      lastFrame->trackMatchAndUpdateLMs(currFrame->img,
+                                        lm2d_from,
+                                        lm2d_to,
+                                        outlier_tracking);
+      //Update currFrame
       for(size_t i=0; i<lastFrame->landmarks.size(); i++)
       {
         currFrame->landmarks.push_back(lastFrame->landmarks.at(i));
-        Vec2 pt = Vec2(trackedLM_cvP2f.at(i).x,trackedLM_cvP2f.at(i).y);
-        currFrame->landmarks.at(i).lmPt2d=pt;
+        currFrame->landmarks.at(i).lmPt2d=lm2d_to.at(i);
       }
-
-      drawFlow(currShowImg,lastFrame->get2dPtsVec_cvP2f(),trackedLM_cvP2f);
+      drawFlow(currShowImg,lm2d_from,lm2d_to);
 
       vector<Point2f> p2d;
       vector<Point3f> p3d;
@@ -307,21 +213,25 @@ private:
       t_ = cv::Mat::zeros(3, 1, CV_64FC1);
       solvePnPRansac(p3d,p2d,cameraMatrix,distCoeffs,r_,t_,false);
 
-
       cv::Rodrigues ( r_, R_ );
       Mat3x3 R=cvMat_to_Mat3x3(R_);
       Vec3   t=cvMat_to_Vec3(t_);
 
-      cout<<"Optimizer"<<endl;
       //bundleAdjustment ( pts_3d, pts_2d, K, R, t );
 
-      //3D Inf Update
+      //6D Inf Update
       currFrame->T_c_w = SE3(R,t);
       framePub->pubFramePtsPoseT_c_w(currFrame->getValid3dPts(),currFrame->T_c_w);
       pathPub->pubPathT_c_w(currFrame->T_c_w,currStamp);
 
-      //Remove Outliers ||reprojection error|| < 5pixels
-      currFrame->removeOutliers(3);
+      //Remove Outliers ||reprojection error|| > MAD of all reprojection error
+      vector<Vec2> outlier_reproject;
+      currFrame->removeReprojectionOutliers(outlier_reproject);
+      vector<Vec2> outlier;
+      outlier.insert(outlier.end(), outlier_tracking.begin(), outlier_tracking.end());
+      outlier.insert(outlier.end(), outlier_reproject.begin(), outlier_reproject.end());
+      cout << "draw Outlier" << endl;
+      drawOutlier(currShowImg,outlier);
       //Refill the keyPoints
       vector<Vec2> newKeyPts;
       vector<Mat>  newDescriptor;
@@ -329,20 +239,26 @@ private:
       featureDEM->redetect(currFrame->img,
                            currFrame->get2dPtsVec(),
                            newKeyPts,newDescriptor,newPtsCount);
-      cout << "Add " << newKeyPts.size() << " new KeyPoints" << endl;
+
       //add landmarks with no position information
       Vec3 pt3d_w(0,0,0);
       for(size_t i=0; i<newKeyPts.size(); i++)
       {
         LandMarkInFrame lm = LandMarkInFrame(newKeyPts.at(i),pt3d_w,newDescriptor.at(i),0);
         currFrame->landmarks.push_back(lm);
-        cout << "step " << i << " newkpssize "<< newKeyPts.size() << endl;
+        //cout << "step " << i << " newkpssize "<< newKeyPts.size() << endl;
       }
       //      cout << "add lms to currFrame" << endl;
       currFrame->updateDepthMeasurement();
 
       //Update Depth Measurement
-
+      //      static int count=0;
+      //      count++;
+      //      if(count==4)
+      //      {
+      //        trackingState = UnInit;
+      //        count =0;
+      //      }
 
       break;
     }
@@ -372,12 +288,9 @@ private:
     waitKey(1);
 
     lastFrame.swap(currFrame);
-    cout << "currFrame -> lastFrame" << endl;
 
     tt_cb.toc();
   }//image_input_callback(const sensor_msgs::ImageConstPtr & imgPtr, const sensor_msgs::ImageConstPtr & depthImgPtr)
-
-
 
 
 };//class VOTrackingNodeletClass

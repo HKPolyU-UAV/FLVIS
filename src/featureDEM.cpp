@@ -202,7 +202,6 @@ void FeatureDEM::redetect(const Mat& img,
     for(size_t i=0; i<tmpKPs.size(); i++)
     {
       Vec2 pt(tmpKPs.at(i).pt.x,tmpKPs.at(i).pt.y);
-      cout << pt;
       newPts.push_back(pt);
     }
     newPtscount=newPts.size();
