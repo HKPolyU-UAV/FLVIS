@@ -145,7 +145,7 @@ void CameraFrame::updateDepthMeasurement(void)
        Vec3 lm_c = DepthCamera::world2cameraT_c_w(landmarks.at(i).lmPt3d,this->T_c_w);
        Vec3 lm_c_measure = pts3d_c.at(i);
        //apply IIR Filter
-       Vec3 lm_c_update = lm_c*0.9+lm_c_measure*0.1;
+       Vec3 lm_c_update = lm_c*0.99+lm_c_measure*0.01;
        //update to world frame
        landmarks.at(i).lmPt3d = DepthCamera::camera2worldT_c_w(lm_c_update,this->T_c_w);
        landmarks.at(i).lmState = LMSTATE_NORMAL;

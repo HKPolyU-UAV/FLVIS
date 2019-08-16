@@ -8,6 +8,7 @@
 
 #include <opencv2/opencv.hpp>
 #include <cv_bridge/cv_bridge.h>
+#include <image_transport/image_transport.h>
 
 #include <g2o/core/base_vertex.h>
 #include <g2o/core/base_unary_edge.h>
@@ -67,7 +68,8 @@ private:
   Mat currShowImg;
   RVIZFrame* framePub;
   RVIZPath*  pathPub;
-
+  image_transport::ImageTransport *it;
+  image_transport::Publisher cv_pub;
 
   virtual void onInit()
   {
@@ -106,7 +108,8 @@ private:
     //Publish
     pathPub  = new RVIZPath(nh,"/vo_path");
     framePub = new RVIZFrame(nh,"/vo_camera_pose","/vo_currFrame");
-    cout << "init Publish" << endl;
+    it = new image_transport::ImageTransport(nh);
+    cv_pub = it->advertise("/vo_img", 1);
 
     //Subscribe
     //Sync Subscribe Image and Rectified Depth Image
@@ -226,7 +229,7 @@ private:
 
       //Remove Outliers ||reprojection error|| > MAD of all reprojection error
       vector<Vec2> outlier_reproject;
-      currFrame->removeReprojectionOutliers(outlier_reproject);
+      currFrame->removeReprojectionOutliers(outlier_reproject,5.0);
       vector<Vec2> outlier;
       outlier.insert(outlier.end(), outlier_tracking.begin(), outlier_tracking.end());
       outlier.insert(outlier.end(), outlier_reproject.begin(), outlier_reproject.end());
@@ -275,16 +278,8 @@ private:
 
 
     drawRegion16(currShowImg);
-    imshow("Image",currShowImg);
-    if(1)//Window(500,500)
-    {
-      static int displaytmp=0;
-      if(displaytmp==0)
-      {
-        displaytmp=1;
-        cvMoveWindow( "Image", 1300, 500 );
-      }
-    }
+    sensor_msgs::ImagePtr img_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", currShowImg).toImageMsg();
+    cv_pub.publish(img_msg);
     waitKey(1);
 
     lastFrame.swap(currFrame);
