@@ -1,4 +1,4 @@
-#include <include/featureDEM.h>
+#include <include/feature_dem.h>
 
 // Driver function to sort the vector elements by
 // second element of pair in descending order

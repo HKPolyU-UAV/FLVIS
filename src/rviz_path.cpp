@@ -1,4 +1,4 @@
-#include <include/rvizPath.h>
+#include <include/rviz_path.h>
 
 
 RVIZPath::RVIZPath(ros::NodeHandle& nh, string topic_name, int bufferCount, int maxNumOfPose)

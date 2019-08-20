@@ -19,13 +19,13 @@
 
 #include <utils/tic_toc_ros.h>
 #include <include/common.h>
-#include <include/dCamera.h>
-#include <include/featureDEM.h>
-#include <include/rvizFrame.h>
-#include <include/rvizPath.h>
-#include <include/cameraFrame.h>
+#include <include/depth_camera.h>
+#include <include/feature_dem.h>
+#include <include/rviz_frame.h>
+#include <include/rviz_path.h>
+#include <include/camera_frame.h>
 #include <include/yamlRead.h>
-#include <include/cvDraw.h>
+#include <include/cv_draw.h>
 
 using namespace cv;
 using namespace std;

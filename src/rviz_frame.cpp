@@ -1,4 +1,4 @@
-#include "include/rvizFrame.h"
+#include "include/rviz_frame.h"
 
 
 RVIZFrame::RVIZFrame(ros::NodeHandle& nh,

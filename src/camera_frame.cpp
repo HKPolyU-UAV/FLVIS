@@ -1,4 +1,4 @@
-#include <include/cameraFrame.h>
+#include <include/camera_frame.h>
 
 CameraFrame::CameraFrame()
 {

@@ -1,7 +1,7 @@
 #ifndef LANDMARKINFRAME_H
 #define LANDMARKINFRAME_H
 
-#include "include/landMark.h"
+#include "include/landmark.h"
 
 class LandMarkInFrame : public LandMark
 {

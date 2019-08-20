@@ -2,8 +2,8 @@
 #define CAMERAFRAME_H
 
 #include <include/common.h>
-#include <include/dCamera.h>
-#include <lmInFrame.h>
+#include <include/depth_camera.h>
+#include <lm_in_frame.h>
 #include <opencv2/opencv.hpp>
 
 class CameraFrame

@@ -50,13 +50,12 @@ include_directories(SYSTEM
 add_library(vo_nodelet
     src/vo_tracking.cpp
     src/vo_localmap.cpp
-    src/featureDEM.cpp
-    src/dCamera.cpp
-    src/landMark.cpp
-    src/lmInFrame.cpp
-    src/cameraFrame.cpp
-    src/rvizFrame.cpp
-    src/rvizPath.cpp
+    src/feature_dem.cpp
+    src/depth_camera.cpp
+    src/landmark.cpp
+    src/camera_frame.cpp
+    src/rviz_frame.cpp
+    src/rviz_path.cpp
     )
 
 target_link_libraries(vo_nodelet

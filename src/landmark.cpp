@@ -1,4 +1,4 @@
-#include <include/landMark.h>
+#include <include/landmark.h>
 
 //#define LMSTATE_NO_DEPTH  (0)
 //#define LMSTATE_NORMAL    (1)
