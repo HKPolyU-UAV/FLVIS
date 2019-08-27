@@ -24,7 +24,7 @@ void DepthCamera::setCameraInfo(double fx, double fy, double cx, double cy, doub
 void DepthCamera::recover3DPtsFromDepthImg(const Mat& dImg,
                                            const vector<Vec2>& pt2ds,
                                            vector<Vec3>& pt3ds,
-                                           vector<unsigned char>& maskHas3DInf)
+                                           vector<bool>& maskHas3DInf)
 {
   pt3ds.clear();
   maskHas3DInf.clear();
@@ -38,7 +38,7 @@ void DepthCamera::recover3DPtsFromDepthImg(const Mat& dImg,
     if(isnan(dImg.at<ushort>(pt)))
     {
       pt3ds.push_back(Vec3(0,0,0));
-      maskHas3DInf.push_back(0);
+      maskHas3DInf.push_back(false);
     }
     else
     {
@@ -49,11 +49,11 @@ void DepthCamera::recover3DPtsFromDepthImg(const Mat& dImg,
         pt3d[0] = (pt.x - camera_cx) * z / camera_fx;
         pt3d[1] = (pt.y - camera_cy) * z / camera_fy;
         pt3ds.push_back(pt3d);
-        maskHas3DInf.push_back(1);
+        maskHas3DInf.push_back(true);
       }else
       {
         pt3ds.push_back(Vec3(0,0,0));
-        maskHas3DInf.push_back(0);
+        maskHas3DInf.push_back(false);
       }
     }
 

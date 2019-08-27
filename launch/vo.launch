@@ -28,4 +28,6 @@
         name="VOLocalMapNodeletClass_loader" output="screen">
     </node>
 
+    <node pkg="rosbag" type="play" name="rosbag" args="$(find vo_nodelet)/bag/2019-08-22-14-40-44.bag"/>
+
 </launch>

@@ -1,30 +1,15 @@
 #include <include/landmark.h>
 
-//#define LMSTATE_NO_DEPTH  (0)
-//#define LMSTATE_NORMAL    (1)
-//#define LMSTATE_CONVERGED (2)
-//#define LMSTATE_ERROR     (3)
-
-LandMark::LandMark(const Vec3 pt_in,const Mat descriptor_in, const unsigned char has3DInf_in)
+LandMark::LandMark()
 {
-
-  lmPt3d = pt_in;
-  lmDescriptor = descriptor_in;
-  if(has3DInf_in)
-  {
-    lmState=LMSTATE_NORMAL;
-  }
-  else
-  {
-    lmState=LMSTATE_NO_DEPTH;
-  }
-  lmObsTimes = 1;
+    lm_id=uniqueID::getID();
 }
 
-unsigned char LandMark::hasDepthInf()
+LandMark::LandMark(const Mat descriptor_in,const Vec3 pt3d_w_in,Vec3 ob_dir_in)
 {
-  if(lmState==LMSTATE_NORMAL || lmState==LMSTATE_CONVERGED)
-  {return 1;}
-  else
-  {return 0;}
+  lm_id=uniqueID::getID();
+  lm_descriptor = descriptor_in;
+  lm_3d_w = pt3d_w_in;
+  lm_ob_dir = ob_dir_in;
 }
+

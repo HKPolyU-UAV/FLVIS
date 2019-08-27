@@ -1,22 +1,21 @@
-#ifndef LandMark_H
-#define LandMark_H
+#ifndef LANDMARK_H
+#define LANDMARK_H
 
 #include <include/common.h>
+#include <include/unique_id.h>
 
 #define LMSTATE_NO_DEPTH  (0)
 #define LMSTATE_NORMAL    (1)
-#define LMSTATE_CONVERGED (2)
-#define LMSTATE_ERROR     (3)
 
 class LandMark
 {
 
 public:
 
-  Vec3 lmPt3d;
-  Mat  lmDescriptor;
-  int  lmObsTimes;
-
+  long lm_id;
+  Vec3 lm_3d_w;
+  Mat  lm_descriptor;
+  Vec3 lm_ob_dir;
 
   //No depth Information
   //Normal
@@ -24,8 +23,8 @@ public:
   //Error
   unsigned char lmState;
 
-  LandMark(const Vec3 pt_in,const Mat descriptor_in, const unsigned char has3DInf_in);
-  unsigned char hasDepthInf();
+  LandMark();
+  LandMark(const Mat descriptor_in,const Vec3 pt3d_w_in,Vec3 ob_dir_in = Vec3(0,0,0));
 
 };
 

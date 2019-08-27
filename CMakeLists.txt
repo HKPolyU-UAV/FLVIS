@@ -26,6 +26,7 @@ find_package(catkin REQUIRED COMPONENTS
     message_generation
     message_filters
     image_transport
+    tf
     )
 
 
@@ -52,10 +53,14 @@ add_library(vo_nodelet
     src/vo_localmap.cpp
     src/feature_dem.cpp
     src/depth_camera.cpp
+    src/unique_id.cpp
     src/landmark.cpp
+    src/landmark_in_frame.cpp
     src/camera_frame.cpp
     src/rviz_frame.cpp
     src/rviz_path.cpp
+    src/rviz_tf.cpp
+    src/triangulation.cpp
     )
 
 target_link_libraries(vo_nodelet
@@ -107,7 +112,15 @@ target_link_libraries(vo_nodelet
 #    ${OpenCV_LIBRARIES}
 #    )
 
+add_executable(test_triangulation
+    src/test/test_triangulation.cpp
+    src/triangulation.cpp)
 
+target_link_libraries(test_triangulation
+    ${catkin_LIBRARIES}
+    ${OpenCV_LIBRARIES}
+    ${Sophus_LIBRARIES}
+    )
 
 
 

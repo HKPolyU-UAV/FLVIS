@@ -22,8 +22,8 @@
  *  //Devided all features into 16 regions
  *  //For every region, select features by Harris index and boundary size
  * */
-#define MAX_REGION_FREATURES_NUM (6)
-#define MIN_REGION_FREATURES_NUM (3)
+#define MAX_REGION_FREATURES_NUM (10)
+#define MIN_REGION_FREATURES_NUM (7)
 #define BOUNDARYBOXSIZE          (5)
 
 using namespace cv;
