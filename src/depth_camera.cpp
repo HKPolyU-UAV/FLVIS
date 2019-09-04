@@ -21,44 +21,7 @@ void DepthCamera::setCameraInfo(double fx, double fy, double cx, double cy, doub
   camera_scale_factor = scale_factor;
 }
 
-void DepthCamera::recover3DPtsFromDepthImg(const Mat& dImg,
-                                           const vector<Vec2>& pt2ds,
-                                           vector<Vec3>& pt3ds,
-                                           vector<bool>& maskHas3DInf)
-{
-  pt3ds.clear();
-  maskHas3DInf.clear();
-  for(size_t i=0; i<pt2ds.size(); i++)
-  {
-    //use round to find the nearst pixel from depth image;
 
-    Point2f pt=Point2f(round(pt2ds.at(i)[0]),round(pt2ds.at(i)[1]));
-    Vec3 pt3d;
-    //CV_16UC1 = Z16 16-Bit unsigned int
-    if(isnan(dImg.at<ushort>(pt)))
-    {
-      pt3ds.push_back(Vec3(0,0,0));
-      maskHas3DInf.push_back(false);
-    }
-    else
-    {
-      float z = (dImg.at<ushort>(pt))/camera_scale_factor;
-      if(z>=0.5&&z<=6.5)
-      {
-        pt3d[2] = z;
-        pt3d[0] = (pt.x - camera_cx) * z / camera_fx;
-        pt3d[1] = (pt.y - camera_cy) * z / camera_fy;
-        pt3ds.push_back(pt3d);
-        maskHas3DInf.push_back(true);
-      }else
-      {
-        pt3ds.push_back(Vec3(0,0,0));
-        maskHas3DInf.push_back(false);
-      }
-    }
-
-  }
-}
 
 
 Vec3 DepthCamera::world2cameraT_c_w ( const Vec3& p_w, const SE3& T_c_w )

@@ -4,6 +4,7 @@
 #include <include/landmark_in_frame.h>
 #include <include/common.h>
 #include <include/depth_camera.h>
+#include <include/triangulation.h>
 #include <opencv2/opencv.hpp>
 
 
@@ -15,6 +16,8 @@ public:
 
     Mat img;
     Mat d_img;
+    int width;
+    int height;
 
     vector<LandMarkInFrame> landmarks;
 
@@ -33,6 +36,13 @@ public:
                                    vector<Vec2>& outlier);
     void CalReprjInlierOutlier(double &mean_prjerr, vector<Vec2> &outlier, double sh_over_med = 3.0);
     void updateLMT_c_w();
+
+    void recover3DPts_c_FromDepthImg(vector<Vec3>& pt3ds,
+                                     vector<bool>& maskHas3DInf);
+
+    void recover3DPts_c_FromTriangulation(vector<Vec3>& pt3ds,
+                                          vector<bool>& maskHas3DInf);
+
     void depthInnovation(void);
 
     //IO
@@ -41,6 +51,7 @@ public:
                 vector<Mat> & descriptors,
                 vector<Vec3>& pt3d,
                 vector<unsigned char>& mask3d);
+    void getKeyFrameInf(vector<uint64_t>& lm_id, vector<Vec2>& lm_2d, vector<Vec3>& lm_3d);
 
     vector<Point2f> get2dPtsVec_cvP2f(void);
     vector<Point3f> get3dPtsVec_cvP3f(void);

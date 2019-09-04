@@ -19,11 +19,6 @@ int main( int argc, char** argv )
     double cx=239.0838;
     double cy=134.681549;
 
-//    double fx=100;
-//    double fy=100;
-//    double cx=0;
-//    double cy=0;
-
     Mat3x3 R;
     R << 1, 0, 0, 0, 1, 0, 0, 0, 1;
     Vec3   t1=Vec3(0,0,0);

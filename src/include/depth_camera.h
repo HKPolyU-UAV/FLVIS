@@ -25,11 +25,6 @@ public:
 
   void setCameraInfo(double fx, double fy, double cx, double cy, double scale_factor=1);
 
-  void recover3DPtsFromDepthImg(const Mat& dImg,
-                                const vector<Vec2>& pt2ds,
-                                vector<Vec3>& pt3ds,
-                                vector<bool>& maskHas3DInf);
-
   static Vec3 world2cameraT_c_w( const Vec3& p_w, const SE3& T_c_w );
   static Vec3 camera2worldT_c_w( const Vec3& p_c, const SE3& T_c_w );
 
