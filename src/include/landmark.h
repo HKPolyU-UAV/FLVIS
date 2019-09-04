@@ -12,7 +12,8 @@ class LandMark
 
 public:
 
-  long lm_id;
+  uint64_t lm_id;
+  //long lm_id
   Vec3 lm_3d_w;
   Mat  lm_descriptor;
   Vec3 lm_ob_dir;

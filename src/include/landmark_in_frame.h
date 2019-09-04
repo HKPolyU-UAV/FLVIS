@@ -15,7 +15,7 @@ class LandMarkInFrame : public LandMark
 public:
 
     Vec2 lm_2d;
-    Vec3 lm_3d_w_c;      //land mark 3d in camera frame
+    Vec3 lm_3d_c;      //land mark 3d in camera frame
     SE3  lm_frame_pose;//pose of the frame
 
     bool lm_has_3d;
