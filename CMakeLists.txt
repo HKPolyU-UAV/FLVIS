@@ -29,11 +29,23 @@ find_package(catkin REQUIRED COMPONENTS
     tf
     )
 
+add_message_files(
+  FILES
+  KeyFrame.msg
+)
+
+generate_messages(
+  DEPENDENCIES
+  std_msgs
+  sensor_msgs
+  geometry_msgs
+)
 
 ## Declare a catkin package
 catkin_package(
     CATKIN_DEPENDS message_runtime
     )
+
 
 
 include_directories(SYSTEM
@@ -61,6 +73,7 @@ add_library(vo_nodelet
     src/rviz_path.cpp
     src/rviz_tf.cpp
     src/triangulation.cpp
+    src/keyframe_msg.cpp
     )
 
 target_link_libraries(vo_nodelet

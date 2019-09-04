@@ -11,17 +11,15 @@
 
 
     <!-- Manager -->
-    <node pkg="nodelet" type="nodelet" args="manager"
-        name="vo_manager" output="screen" />
+    <node pkg="nodelet" type="nodelet" name="vo_manager"  args="manager" output="screen"/>
 
     <!-- TrackingNode -->
     <node pkg="nodelet" type="nodelet" args="load vo_nodelet/VOTrackingNodeletClass vo_manager"
-          name="VOTrackingNodeletClass_loader" output="screen">
+          name="VOTrackingNodeletClass_loader" output="log">
           <remap from="/vo/depth_image"  to="/camera/aligned_depth_to_infra1/image_raw"/>
           <remap from="/vo/image"        to="/camera/infra1/image_rect_raw"/>
-
-
     </node>
+
 
     <!-- LocalMapNode -->
     <node pkg="nodelet" type="nodelet" args="load vo_nodelet/VOLocalMapNodeletClass vo_manager"
