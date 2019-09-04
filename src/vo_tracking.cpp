@@ -27,6 +27,8 @@
 #include <include/camera_frame.h>
 #include <include/yamlRead.h>
 #include <include/cv_draw.h>
+#include <vo_nodelet/KeyFrame.h>
+#include <include/keyframe_msg.h>
 
 using namespace cv;
 using namespace std;
@@ -67,9 +69,10 @@ private:
 
     //Visualization
     Mat currShowImg;
-    RVIZFrame* framePub;
-    RVIZPath*  pathPub;
-    RVIZTF*    tfPub;
+    RVIZFrame* frame_pub;
+    RVIZPath*  path_pub;
+    RVIZTF*    tf_pub;
+    KeyFrameMsg* kf_pub;
     image_transport::ImageTransport *it;
     image_transport::Publisher cv_pub;
 
@@ -89,28 +92,27 @@ private:
         double fy = cameraMatrix.at<double>(1,1);
         double cx = cameraMatrix.at<double>(0,2);
         double cy = cameraMatrix.at<double>(1,2);
-        cout << "cameraMatrix:" << endl << cameraMatrix << endl;
-        cout << "distCoeffs:" << endl << distCoeffs << endl;
-        cout << "image_width: "  << image_width << endl;
-        cout << "image_height: "  << image_height << endl;
-        cout << "fx: "  << fx << endl;
-        cout << "fy: "  << fy << endl;
-        cout << "cx: "  << cx << endl;
-        cout << "cy: "  << cy << endl;
+        cout << "cameraMatrix:" << endl << cameraMatrix << endl
+             << "distCoeffs:" << endl << distCoeffs << endl
+             << "image_width: "  << image_width << " image_height: "  << image_height << endl
+             << "fx: "  << fx << " fy: "  << fy <<  " cx: "  << cx <<  " cy: "  << cy << endl;
 
         featureDEM  = new FeatureDEM(image_width,image_height,10);
-        cout << "init regionBasedDetector" << endl;
 
         curr_frame = std::make_shared<CameraFrame>();
         last_frame = std::make_shared<CameraFrame>();
+        curr_frame->height = last_frame->height = image_height;
+        curr_frame->width = last_frame->width = image_width;
         curr_frame->d_camera = last_frame->d_camera = DepthCamera(fx,fy,cx,cy,1000.0);
+
         frameCount = 0;
         vo_tracking_state = UnInit;
 
         //Publish
-        pathPub  = new RVIZPath(nh,"/vo_path");
-        framePub = new RVIZFrame(nh,"/vo_camera_pose","/vo_curr_frame");
-        tfPub    = new RVIZTF();
+        path_pub  = new RVIZPath(nh,"/vo_path");
+        frame_pub = new RVIZFrame(nh,"/vo_camera_pose","/vo_curr_frame");
+        tf_pub    = new RVIZTF();
+        kf_pub    = new KeyFrameMsg(nh,"/vo_kf");
         it = new image_transport::ImageTransport(nh);
         cv_pub = it->advertise("/vo_img", 1);
 
@@ -167,19 +169,20 @@ private:
 
             featureDEM->detect(curr_frame->img,pts2d,descriptors);
             cout << "Detect " << pts2d.size() << " Features"<< endl;
-            curr_frame->d_camera.recover3DPtsFromDepthImg(curr_frame->d_img,pts2d,pts3d_c,maskHas3DInf);
-
-            //add landmark
-            for(size_t i=0; i<pts2d.size(); i++){
+            for(size_t i=0; i<pts2d.size(); i++)
+            {
                 curr_frame->landmarks.push_back(LandMarkInFrame(descriptors.at(i),
                                                                 pts2d.at(i),
-                                                                pts3d_c.at(i),
-                                                                maskHas3DInf.at(i),
+                                                                Vec3(0,0,0),
+                                                                false,
                                                                 curr_frame->T_c_w));
             }
+            curr_frame->depthInnovation();
+
+
             drawKeyPts(currShowImg, vVec2_2_vcvP2f(pts2d));
-            framePub->pubFramePtsPoseT_c_w(curr_frame->getValid3dPts(),curr_frame->T_c_w,currStamp);
-            pathPub->pubPathT_c_w(curr_frame->T_c_w,currStamp);
+            frame_pub->pubFramePtsPoseT_c_w(curr_frame->getValid3dPts(),curr_frame->T_c_w,currStamp);
+            path_pub->pubPathT_c_w(curr_frame->T_c_w,currStamp);
 
             vo_tracking_state = Working;
             cout << "vo_tracking_state = Working" << endl;
@@ -223,8 +226,8 @@ private:
             //Remove Outliers ||reprojection error|| > MAD of all reprojection error
             vector<Vec2> outlier_reproject;
             double mean_error;
-            curr_frame->CalReprjInlierOutlier(mean_error,outlier_reproject,1.5);
-            cout << "Reprojection Error" << mean_error << endl;
+            curr_frame->CalReprjInlierOutlier(mean_error,outlier_reproject,2.0);
+            //cout << "Reprojection Error " << mean_error << endl;
 
             //Refill the keyPoints
             vector<Vec2> newKeyPts;
@@ -247,16 +250,23 @@ private:
             //
             curr_frame->depthInnovation();
 
-
-            drawFlow(currShowImg,lm2d_from,lm2d_to);
+            //visualize and publish
             vector<Vec2> outlier;
             outlier.insert(outlier.end(), outlier_tracking.begin(), outlier_tracking.end());
             outlier.insert(outlier.end(), outlier_reproject.begin(), outlier_reproject.end());
             drawOutlier(currShowImg,outlier);
-            framePub->pubFramePtsPoseT_c_w(curr_frame->getValid3dPts(),curr_frame->T_c_w);
-            pathPub->pubPathT_c_w(curr_frame->T_c_w,currStamp);
-            tfPub->pubTFT_c_w(curr_frame->T_c_w,currStamp);
+            drawFlow(currShowImg,lm2d_from,lm2d_to);
+            drawRegion16(currShowImg);
+            sensor_msgs::ImagePtr img_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", currShowImg).toImageMsg();
+            cv_pub.publish(img_msg);
 
+            frame_pub->pubFramePtsPoseT_c_w(curr_frame->getValid3dPts(),curr_frame->T_c_w);
+            path_pub->pubPathT_c_w(curr_frame->T_c_w,currStamp);
+            tf_pub->pubTFT_c_w(curr_frame->T_c_w,currStamp);
+            if(frameCount%4==0)
+            {
+                kf_pub->pub(*curr_frame,currStamp);
+            }
             break;
         }
 
@@ -271,9 +281,7 @@ private:
         }//end of state machine
 
 
-        drawRegion16(currShowImg);
-        sensor_msgs::ImagePtr img_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", currShowImg).toImageMsg();
-        cv_pub.publish(img_msg);
+
         waitKey(1);
         last_frame.swap(curr_frame);
 
