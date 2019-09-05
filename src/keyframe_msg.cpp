@@ -23,10 +23,10 @@ void KeyFrameMsg::pub(CameraFrame& frame, ros::Time stamp)
     frame.getKeyFrameInf(lm_id,lm_2d,lm_3d);
     kf.lm_count = lm_id.size();
 
-//    for(size_t i=0; i<lm_id.size(); i++)
-//    {
-//        cout << lm_id.at(i) << " " << lm_2d.at(i).transpose() << " "  << lm_3d.at(i).transpose() << endl;
-//    }
+    //    for(size_t i=0; i<lm_id.size(); i++)
+    //    {
+    //        cout << lm_id.at(i) << " " << lm_2d.at(i).transpose() << " "  << lm_3d.at(i).transpose() << endl;
+    //    }
     cout  << endl;
 
     kf.lm_id_data.layout.dim.push_back(std_msgs::MultiArrayDimension());
@@ -76,7 +76,9 @@ void KeyFrameMsg::unpack(vo_nodelet::KeyFrameConstPtr kf_const_ptr,
     lm_2d.clear();
     lm_3d.clear();
     int count =  kf_const_ptr->lm_count;
-    cout << "receive " << count << " lms" << endl;
+
+    cv_bridge::CvImagePtr cvbridge_image  = cv_bridge::toCvCopy(kf_const_ptr->img, kf_const_ptr->img.encoding);
+    img=cvbridge_image->image;
 
     for(int i=0; i<count; i++)
     {
@@ -96,5 +98,5 @@ void KeyFrameMsg::unpack(vo_nodelet::KeyFrameConstPtr kf_const_ptr,
     uq.y() = kf_const_ptr->T_c_w.rotation.y;
     uq.z() = kf_const_ptr->T_c_w.rotation.z;
     T_c_w = SE3(uq,t);
-    cout << "SE3 T_c_w: " << T_c_w << endl;
+
 }

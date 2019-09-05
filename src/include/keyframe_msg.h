@@ -1,11 +1,13 @@
 #ifndef KEYFRAME_MSG_H
 #define KEYFRAME_MSG_H
 #include <ros/ros.h>
+#include <cv_bridge/cv_bridge.h>
+
 #include <vo_nodelet/KeyFrame.h>
 #include <include/common.h>
 #include <camera_frame.h>
-#include <cv_bridge/cv_bridge.h>
-#include <include/common.h>
+
+
 
 
 class KeyFrameMsg
