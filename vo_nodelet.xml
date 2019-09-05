@@ -5,10 +5,18 @@
 			VOTrackingNodeletClass.
 		</description>
 	</class>
+
 	<class name="vo_nodelet/VOLocalMapNodeletClass" type="vo_nodelet_ns::VOLocalMapNodeletClass"
 		base_class_type="nodelet::Nodelet">
 		<description>
 			VOLocalMapNodeletClass.
 		</description>
 	</class>
+
+        <class name="vo_nodelet/VOLoopClosingNodeletClass" type="vo_nodelet_ns::VOLoopClosingNodeletClass"
+                base_class_type="nodelet::Nodelet">
+                <description>
+                        VOLoopClosingClass.
+                </description>
+        </class>
 </library>

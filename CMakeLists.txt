@@ -63,6 +63,7 @@ include_directories(SYSTEM
 add_library(vo_nodelet
     src/vo_tracking.cpp
     src/vo_localmap.cpp
+    src/vo_loopclosing.cpp
     src/feature_dem.cpp
     src/depth_camera.cpp
     src/unique_id.cpp
@@ -125,15 +126,15 @@ target_link_libraries(vo_nodelet
 #    ${OpenCV_LIBRARIES}
 #    )
 
-add_executable(test_triangulation
-    src/test/test_triangulation.cpp
-    src/triangulation.cpp)
+#add_executable(test_triangulation
+#    src/test/test_triangulation.cpp
+#    src/triangulation.cpp)
 
-target_link_libraries(test_triangulation
-    ${catkin_LIBRARIES}
-    ${OpenCV_LIBRARIES}
-    ${Sophus_LIBRARIES}
-    )
+#target_link_libraries(test_triangulation
+#    ${catkin_LIBRARIES}
+#    ${OpenCV_LIBRARIES}
+#    ${Sophus_LIBRARIES}
+#    )
 
 
 
