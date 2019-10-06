@@ -22,6 +22,7 @@ public:
                        vector<uint64_t>& lm_id,
                        vector<Vec2>& lm_2d,
                        vector<Vec3>& lm_3d,
+                       vector<Mat> & lm_descriptors,
                        SE3& pose);
 };
 

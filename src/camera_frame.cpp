@@ -385,11 +385,12 @@ vector<Mat>  CameraFrame::getDescriptorVec(void)
     return ret;
 }
 
-void CameraFrame::getKeyFrameInf(vector<uint64_t> &lm_id, vector<Vec2> &lm_2d, vector<Vec3> &lm_3d)
+void CameraFrame::getKeyFrameInf(vector<uint64_t> &lm_id, vector<Vec2> &lm_2d, vector<Vec3> &lm_3d, vector<Mat> &lm_descriptors)
 {
     lm_id.clear();
     lm_2d.clear();
     lm_3d.clear();
+    lm_descriptors.clear();
     for(size_t i=0; i<landmarks.size(); i++)
     {
         LandMarkInFrame lm=landmarks.at(i);
@@ -398,6 +399,7 @@ void CameraFrame::getKeyFrameInf(vector<uint64_t> &lm_id, vector<Vec2> &lm_2d, v
             lm_3d.push_back(lm.lm_3d_w);
             lm_2d.push_back(lm.lm_2d);
             lm_id.push_back(lm.lm_id);
+            lm_descriptors.push_back(lm.lm_descriptor);
         }
     }
 

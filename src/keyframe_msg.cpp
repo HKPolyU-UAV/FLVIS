@@ -20,21 +20,45 @@ void KeyFrameMsg::pub(CameraFrame& frame, ros::Time stamp)
     vector<uint64_t> lm_id;
     vector<Vec2> lm_2d;
     vector<Vec3> lm_3d;
-    frame.getKeyFrameInf(lm_id,lm_2d,lm_3d);
-    kf.lm_count = lm_id.size();
+    vector<Mat>  lm_descriptors;
+     cout << "herea" << endl;
+    frame.getKeyFrameInf(lm_id,lm_2d,lm_3d,lm_descriptors);
+    kf.lm_count =  static_cast<int32_t>(lm_id.size());
 
     //    for(size_t i=0; i<lm_id.size(); i++)
     //    {
     //        cout << lm_id.at(i) << " " << lm_2d.at(i).transpose() << " "  << lm_3d.at(i).transpose() << endl;
     //    }
-    cout  << endl;
 
     kf.lm_id_data.layout.dim.push_back(std_msgs::MultiArrayDimension());
-    kf.lm_id_data.layout.dim[0].size = lm_id.size();
-    kf.lm_id_data.layout.dim[0].stride = 1;
-    kf.lm_id_data.layout.dim[0].label = "iduint64_t";
+    kf.lm_id_data.layout.dim[0].label = "lm_id";
+    kf.lm_id_data.layout.dim[0].size = static_cast<uint32_t>(lm_id.size());
+    kf.lm_id_data.layout.dim[0].stride = static_cast<uint32_t>(lm_id.size());
+
     kf.lm_id_data.data.clear();
     kf.lm_id_data.data.insert(kf.lm_id_data.data.end(),lm_id.begin(),lm_id.end());
+
+    kf.lm_descriptor_data.layout.dim.push_back(std_msgs::MultiArrayDimension());
+    kf.lm_descriptor_data.layout.dim.push_back(std_msgs::MultiArrayDimension());
+
+    kf.lm_descriptor_data.layout.dim[0].label = "lm_descriptor";
+    kf.lm_descriptor_data.layout.dim[0].size = static_cast<uint32_t>(lm_id.size());
+    kf.lm_descriptor_data.layout.dim[0].stride = static_cast<uint32_t>(32*lm_id.size());
+    kf.lm_descriptor_data.layout.dim[1].label = "32uint_descriptor";
+    kf.lm_descriptor_data.layout.dim[1].size = 1;
+    kf.lm_descriptor_data.layout.dim[1].stride = 32;
+
+
+    for(size_t i=0; i<lm_id.size(); i++)
+    {
+        //cout << "i:" << lm_descriptors.at(i).type() << "  " << "size:" << lm_descriptors.at(i).size << endl;
+        //cout << "i " << lm_descriptors.at(i) << endl;
+        for(int j=0; j<32; j++)
+        {
+            kf.lm_descriptor_data.data.push_back(lm_descriptors.at(i).at<uint8_t>(0,j));
+            //cout << unsigned(lm_descriptors.at(i).at<uint8_t>(0,j)) << " ";
+        }
+    }
 
     for(size_t i=0; i<lm_id.size(); i++)
     {
@@ -50,7 +74,7 @@ void KeyFrameMsg::pub(CameraFrame& frame, ros::Time stamp)
         vp3d.z = p3d[2];
         kf.lm_3d_data.push_back(vp3d);
     }
-    cout << "SE3 T_c_w: " << frame.T_c_w << endl;
+    //cout << "SE3 T_c_w: " << frame.T_c_w << endl;
     Vec3 t=frame.T_c_w.translation();
     Quaterniond uq= frame.T_c_w.unit_quaternion();
     kf.T_c_w.translation.x=t[0];
@@ -69,19 +93,28 @@ void KeyFrameMsg::unpack(vo_nodelet::KeyFrameConstPtr kf_const_ptr,
                          vector<uint64_t> &lm_id,
                          vector<Vec2> &lm_2d,
                          vector<Vec3> &lm_3d,
+                         vector<Mat>  &lm_descriptors,
                          SE3 &T_c_w)
 {
     img.release();
     lm_id.clear();
     lm_2d.clear();
     lm_3d.clear();
+    lm_descriptors.clear();
     int count =  kf_const_ptr->lm_count;
 
     cv_bridge::CvImagePtr cvbridge_image  = cv_bridge::toCvCopy(kf_const_ptr->img, kf_const_ptr->img.encoding);
     img=cvbridge_image->image;
 
-    for(int i=0; i<count; i++)
+    for(size_t i=0; i<count; i++)
     {
+        Mat descriptor = Mat(1,32,CV_8U);
+        for(size_t j=0; j<32; j++)
+        {
+            descriptor.at<uint8_t>(0,j)=kf_const_ptr->lm_descriptor_data.data.at(i*32+j);
+        }
+        lm_descriptors.push_back(descriptor);
+        //cout << lm_descriptors.at(i) << endl;
         lm_id.push_back(kf_const_ptr->lm_id_data.data[i]);
         Vec2 p2d(kf_const_ptr->lm_2d_data.at(i).x,kf_const_ptr->lm_2d_data.at(i).y);
         Vec3 p3d(kf_const_ptr->lm_3d_data.at(i).x,kf_const_ptr->lm_3d_data.at(i).y,kf_const_ptr->lm_3d_data.at(i).z);
