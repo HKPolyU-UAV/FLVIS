@@ -136,7 +136,7 @@ private:
         //15hz Frame Rate
         //if((frameCount%2)==0) return;
         cout << endl << "Frame No: " << frameCount << endl;
-
+        curr_frame->frame_id = frameCount;
         //Greyscale Img
         curr_frame->clear();
         cv_bridge::CvImagePtr cvbridge_image  = cv_bridge::toCvCopy(imgPtr, imgPtr->encoding);

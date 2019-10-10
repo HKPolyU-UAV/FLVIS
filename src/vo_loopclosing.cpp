@@ -35,18 +35,14 @@ private:
     double fx,fy,cx,cy;
     bool optimizer_initialized;
 
-    vector<uint64_t> optimizer_lm_id;
+    vector<int64_t> optimizer_lm_id;
 
     void frame_callback(const vo_nodelet::KeyFrameConstPtr& msg)
     {
-        cv::Mat img;
-        vector<uint64_t> lm_id;
-        vector<Vec2> lm_2d;
-        vector<Vec3> lm_3d;
-        vector<Mat>  lm_descriport;
-        SE3 T_c_w;
-        KeyFrameMsg::unpack(msg,img,lm_id,lm_2d,lm_3d,lm_descriport,T_c_w);
-        imshow("loopclosing", img);
+        KeyFrameStruct kf;
+        KeyFrameMsg::unpack(msg,kf.frame_id,kf.img,kf.lm_id,kf.lm_2d,kf.lm_3d,kf.lm_descriptor,kf.T_c_w);
+
+        imshow("loopclosing", kf.img);
         waitKey(1);
 
         cout << endl << "Local Map BA Callback" << endl;

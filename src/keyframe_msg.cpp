@@ -13,11 +13,13 @@ KeyFrameMsg::KeyFrameMsg(ros::NodeHandle &nh, string topic_name, int buffersize)
 void KeyFrameMsg::pub(CameraFrame& frame, ros::Time stamp)
 {
     vo_nodelet::KeyFrame kf;
+
     kf.header.stamp = stamp;
+    kf.frame_id = frame.frame_id;
     cv_bridge::CvImage cvimg(std_msgs::Header(), "mono8", frame.img);
     cvimg.toImageMsg(kf.img);
 
-    vector<uint64_t> lm_id;
+    vector<int64_t> lm_id;
     vector<Vec2> lm_2d;
     vector<Vec3> lm_3d;
     vector<Mat>  lm_descriptors;
@@ -89,8 +91,9 @@ void KeyFrameMsg::pub(CameraFrame& frame, ros::Time stamp)
 }
 
 void KeyFrameMsg::unpack(vo_nodelet::KeyFrameConstPtr kf_const_ptr,
+                         int64_t &frame_id,
                          Mat &img,
-                         vector<uint64_t> &lm_id,
+                         vector<int64_t> &lm_id,
                          vector<Vec2> &lm_2d,
                          vector<Vec3> &lm_3d,
                          vector<Mat>  &lm_descriptors,
@@ -101,15 +104,16 @@ void KeyFrameMsg::unpack(vo_nodelet::KeyFrameConstPtr kf_const_ptr,
     lm_2d.clear();
     lm_3d.clear();
     lm_descriptors.clear();
-    int count =  kf_const_ptr->lm_count;
 
+    frame_id = kf_const_ptr->frame_id;
     cv_bridge::CvImagePtr cvbridge_image  = cv_bridge::toCvCopy(kf_const_ptr->img, kf_const_ptr->img.encoding);
     img=cvbridge_image->image;
 
-    for(size_t i=0; i<count; i++)
+    int count =  kf_const_ptr->lm_count;
+    for(auto i=0; i<count; i++)
     {
         Mat descriptor = Mat(1,32,CV_8U);
-        for(size_t j=0; j<32; j++)
+        for(auto j=0; j<32; j++)
         {
             descriptor.at<uint8_t>(0,j)=kf_const_ptr->lm_descriptor_data.data.at(i*32+j);
         }
