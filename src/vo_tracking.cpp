@@ -158,8 +158,12 @@ private:
             //-1  0  0
             // 0 -1  0
             R << 0, 0, 1, -1, 0, 0, 0,-1, 0;
+            Mat3x3 R_roll_m30deg;
+            R_roll_m30deg << 1.0000000,  0.0000000,  0.0000000,
+            0.0000000,  0.9553365,  0.2955202,
+            0.0000000, -0.2955202,  0.9553365;
             Vec3   t=Vec3(0,0,1);
-            SE3    T_w_c(R,t);
+            SE3    T_w_c(R*R_roll_m30deg,t);
             curr_frame->T_c_w=T_w_c.inverse();//Tcw = (Twc)^-1
 
             vector<Vec2> pts2d;
@@ -237,7 +241,7 @@ private:
                                  curr_frame->get2dPtsVec(),
                                  newKeyPts,newDescriptor,newPtsCount);
 
-            //            //add landmarks with no position information
+            //add landmarks without 3D information
             Vec3 pt3d_w(0,0,0);
             for(size_t i=0; i<newKeyPts.size(); i++)
             {
@@ -247,7 +251,7 @@ private:
                                                                 false,
                                                                 curr_frame->T_c_w));
             }
-            //
+            //innovate 3D information
             curr_frame->depthInnovation();
 
             //visualize and publish

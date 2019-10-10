@@ -8,6 +8,7 @@
 #include <deque>
 
 #include <include/yamlRead.h>
+#include <include/cv_draw.h>
 
 #include <include/keyframe_msg.h>
 #include <vo_nodelet/KeyFrame.h>
@@ -31,6 +32,7 @@ struct KeyFrameStruct {
     vector<uint64_t> lm_id;
     vector<Vec2> lm_2d;
     vector<Vec3> lm_3d;
+    vector<Mat>  lm_descriptor;
     SE3 T_c_w;
 };
 
@@ -50,15 +52,16 @@ private:
     double fx,fy,cx,cy;
     bool optimizer_initialized;
     g2o::SparseOptimizer optimizer;
-    g2o::BlockSolver_6_3::LinearSolverType * linearSolver;
-    g2o::BlockSolver_6_3* solver_ptr;
+    std::unique_ptr<g2o::BlockSolver_6_3::LinearSolverType> linearSolver;
     g2o::OptimizationAlgorithmLevenberg* solver;
+    g2o::CameraParameters* cam_params;
+
     vector<uint64_t> optimizer_lm_id;
 
     void frame_callback(const vo_nodelet::KeyFrameConstPtr& msg)
     {
         KeyFrameStruct kf;
-        KeyFrameMsg::unpack(msg,kf.img,kf.lm_id,kf.lm_2d,kf.lm_3d,kf.T_c_w);
+        KeyFrameMsg::unpack(msg,kf.img,kf.lm_id,kf.lm_2d,kf.lm_3d,kf.lm_descriptor,kf.T_c_w);
         kfs.push_back(kf);
 
 
@@ -66,33 +69,42 @@ private:
         {
             if(optimizer_initialized)
             {
-                //add new land marks
-                //
-
+                //remove landmark outside the window
+                //remove corresponding edges
             }
             else//initialize the optimizer
-            {//get all pose and landmarks
-//                linearSolver = new g2o::LinearSolverEigen<g2o::BlockSolver_6_3::PoseMatrixType>();
-//                solver_ptr = new g2o::BlockSolver_6_3(linearSolver);
-//                solver = new g2o::OptimizationAlgorithmLevenberg(solver_ptr);
+            {
+                //add new land marks
+                //add pose
+
+                //get all pose and landmarks
+//                optimizer.setVerbose(false);
+//                solver = new g2o::OptimizationAlgorithmLevenberg(
+//                            g2o::make_unique<g2o::BlockSolver_6_3>(std::move(linearSolver)));
 //                optimizer.setAlgorithm(solver);
+//                cam_params = new g2o::CameraParameters (focal_length, principal_point, 0.);
+//                cam_params->setId(0);
 
             }
-            for(int i=0; i<8; i++)
+            //visualization
+            for(size_t i=0; i<8; i++)
             {
-
-
                 Mat dst;
                 pyrDown( kfs.at(i).img, dst, Size( image_width/2, image_height/2));
-                cout << "here" << i <<endl;
                 cvtColor(dst,dst,CV_GRAY2BGR);
+                vector<Vec2> lm_2d_half;
+                for(size_t j=0; j<kfs.at(i).lm_2d.size(); j++)
+                {
+                    Vec2 p2d = kfs.at(i).lm_2d.at(j);
+                    Vec2 p2d_half = 0.5*p2d;
+                    lm_2d_half.push_back(p2d_half);
+                }
+                drawKeyPts(dst,vVec2_2_vcvP2f(lm_2d_half));
                 int start_x = i%4*(image_width/2)+(i%4);
                 int start_y = i/4*(image_height/2);
-                cout << start_x << "," << start_y << "|" << dst.cols <<"," << dst.rows << endl;
                 Mat diplay_img_roi(diplay_img, Rect(start_x, start_y, dst.cols, dst.rows));
-                cout << "here" << i <<endl;
                 dst.copyTo(diplay_img_roi);
-                cout << "here" << i <<endl;
+
             }
             imshow("dispaly_img", diplay_img);
             waitKey(1);

@@ -43,8 +43,9 @@ private:
         vector<uint64_t> lm_id;
         vector<Vec2> lm_2d;
         vector<Vec3> lm_3d;
+        vector<Mat>  lm_descriport;
         SE3 T_c_w;
-        KeyFrameMsg::unpack(msg,img,lm_id,lm_2d,lm_3d,T_c_w);
+        KeyFrameMsg::unpack(msg,img,lm_id,lm_2d,lm_3d,lm_descriport,T_c_w);
         imshow("loopclosing", img);
         waitKey(1);
 
