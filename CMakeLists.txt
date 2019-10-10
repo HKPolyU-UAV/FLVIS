@@ -66,7 +66,6 @@ add_library(vo_nodelet
     src/vo_loopclosing.cpp
     src/feature_dem.cpp
     src/depth_camera.cpp
-    src/unique_id.cpp
     src/landmark.cpp
     src/landmark_in_frame.cpp
     src/camera_frame.cpp

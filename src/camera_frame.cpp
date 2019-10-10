@@ -385,7 +385,7 @@ vector<Mat>  CameraFrame::getDescriptorVec(void)
     return ret;
 }
 
-void CameraFrame::getKeyFrameInf(vector<uint64_t> &lm_id, vector<Vec2> &lm_2d, vector<Vec3> &lm_3d, vector<Mat> &lm_descriptors)
+void CameraFrame::getKeyFrameInf(vector<int64_t> &lm_id, vector<Vec2> &lm_2d, vector<Vec3> &lm_3d, vector<Mat> &lm_descriptors)
 {
     lm_id.clear();
     lm_2d.clear();
