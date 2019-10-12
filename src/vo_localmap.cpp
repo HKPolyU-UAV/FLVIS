@@ -36,6 +36,8 @@
 using namespace cv;
 using namespace std;
 
+static int64_t optimizer_edge_idx;
+
 namespace vo_nodelet_ns
 {
 
@@ -63,8 +65,6 @@ private:
 
     vector<int64_t> optimizer_lm_id;
     int64_t optimizer_table[8][8];
-    static int64_t optimizer_edge_idx;
-
 
 
     void frame_callback(const vo_nodelet::KeyFrameConstPtr& msg)
@@ -74,7 +74,6 @@ private:
         KeyFrameMsg::unpack(msg,kf.frame_id,kf.img,kf.lm_id,kf.lm_2d,kf.lm_3d,kf.lm_descriptor,kf.T_c_w);
 
         kfs.push_back(kf);
-
 
         if(kfs.size()>7)//fix window BA
         {
@@ -97,33 +96,32 @@ private:
                 //    p8    0    0  Eid  ..  Eid
                 for(int f_idx = 0; f_idx<7; f_idx++)//add pose
                 {
-                    g2o::VertexSE3Expmap* v_pose = new g2o::VertexSE3Expmap();
-                    v_pose->setId(kfs.at(f_idx).frame_id);
-                    if (f_idx==0)
-                    {
-                        v_pose->setFixed(true);
-                    }
-                    v_pose->setEstimate(g2o::SE3Quat());
-                    optimizer.addVertex(v_pose);
+                    //                    g2o::VertexSE3Expmap* v_pose = new g2o::VertexSE3Expmap();
+                    //                    v_pose->setId(kfs.at(f_idx).frame_id);
+                    //                    if (f_idx==0)
+                    //                    {
+                    //                        v_pose->setFixed(true);
+                    //                    }
+                    //                    v_pose->setEstimate(g2o::SE3Quat());
+                    //                    optimizer.addVertex(v_pose);
                     for(int lm_idx=0; lm_idx < 10; lm_idx++)//add landmarks
                     {
-//                        g2o* point = new g2o::pointType(); // 伪码
-//                        point->setId(index++);
-//                        point->setEstimate(/*something*/);
-//                        // point->setMarginalized(true); // 该点在解方程时进行Schur消元
-
-//                        optimizer->addVertex(point);
+                        //                        g2o* point = new g2o::pointType(); // 伪码
+                        //                        point->setId(index++);
+                        //                        point->setEstimate(/*something*/);
+                        //                        // point->setMarginalized(true); // 该点在解方程时进行Schur消元
+                        //                        optimizer->addVertex(point);
                     }
                 }
                 optimizer_initialized = 1;
 
 
-//                optimizer.setVerbose(false);
-//                solver = new g2o::OptimizationAlgorithmLevenberg(
-//                            g2o::make_unique<g2o::BlockSolver_6_3>(std::move(linearSolver)));
-//                optimizer.setAlgorithm(solver);
-//                cam_params = new g2o::CameraParameters (((fx+fy)/2), Vec2(cx,cy), 0.);
-//                cam_params->setId(0);
+                //                optimizer.setVerbose(false);
+                //                solver = new g2o::OptimizationAlgorithmLevenberg(
+                //                            g2o::make_unique<g2o::BlockSolver_6_3>(std::move(linearSolver)));
+                //                optimizer.setAlgorithm(solver);
+                //                cam_params = new g2o::CameraParameters (((fx+fy)/2), Vec2(cx,cy), 0.);
+                //                cam_params->setId(0);
 
             }
             //visualization

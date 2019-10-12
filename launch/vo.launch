@@ -29,7 +29,7 @@
     </node>
 
     <!-- LoopClosingNode -->
-    <node pkg="nodelet" type="nodelet" args="load vo_nodelet/VOLoopClosingNodeletClass vo_manager"
+<!--    <node pkg="nodelet" type="nodelet" args="load vo_nodelet/VOLoopClosingNodeletClass vo_manager"
         name="VOLoopClosingNodeletClass_loader" output="screen">
     </node>-->
 

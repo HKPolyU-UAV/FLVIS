@@ -22,6 +22,8 @@ using namespace DBoW3;
 using namespace cv;
 using namespace std;
 
+static uint64_t kf_id;
+
 namespace vo_nodelet_ns
 {
 
@@ -70,8 +72,6 @@ private:
     bool optimizer_initialized;
 
     vector<int64_t> optimizer_lm_id;
-
-    static uint64_t kf_id;
 
     //DBow related para
     Vocabulary voc;
