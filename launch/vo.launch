@@ -26,11 +26,12 @@
         name="VOLocalMapNodeletClass_loader" output="screen">
     </node>
 
-    <!-- LocalMapNode -->
-    <node pkg="nodelet" type="nodelet" args="load vo_nodelet/VOLoopClosingNodeletClass vo_manager"
+    <!-- LoopClosingNode -->
+<!--    <node pkg="nodelet" type="nodelet" args="load vo_nodelet/VOLoopClosingNodeletClass vo_manager"
         name="VOLoopClosingNodeletClass_loader" output="screen">
-    </node>
+    </node>-->
 
-    <node pkg="rosbag" type="play" name="rosbag" args="$(find vo_nodelet)/bag/2019-08-22-14-40-44.bag"/>
+
+    <node pkg="rosbag" type="play" name="rosbag" args="$(find vo_nodelet)/bag/2019-08-22-14-40-44.bag -r 1.5"/>
 
 </launch>

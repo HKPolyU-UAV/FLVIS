@@ -60,7 +60,11 @@ private:
     g2o::OptimizationAlgorithmLevenberg* solver;
     g2o::CameraParameters* cam_params;
 
-    vector<uint64_t> optimizer_lm_id;
+    vector<int64_t> optimizer_lm_id;
+    int64_t optimizer_table[8][8];
+    static int64_t optimizer_edge_idx;
+
+
 
     void frame_callback(const vo_nodelet::KeyFrameConstPtr& msg)
     {
@@ -81,8 +85,23 @@ private:
             }
             else//initialize the optimizer
             {
+                optimizer_edge_idx = 1;
+                //         l1   l2   l3  ..   ln
+                //    p1  Eid  Eid    0  ..    0
+                //    p2  Eid  Eid  Eid  ..  Eid
+                //    p3    0  Eid  Eid  ..  Eid
+                //    ..   ..   ..   ..  ..  Eid
+                //    p8    0    0  Eid  ..  Eid
                 for(int f_idx = 0; f_idx<7; f_idx++)//add pose
                 {
+                    g2o::VertexSE3Expmap* v_pose = new g2o::VertexSE3Expmap();
+                    v_pose->setId(kfs.at(f_idx).frame_id);
+                    if (f_idx==0)
+                    {
+                        v_pose->setFixed(true);
+                    }
+                    v_pose->setEstimate(g2o::SE3Quat());
+                    optimizer.addVertex(v_pose);
                     for(int lm_idx=0; lm_idx < 10; lm_idx++)//add landmarks
                     {
 //                        g2o* point = new g2o::pointType(); // 伪码
@@ -93,6 +112,8 @@ private:
 //                        optimizer->addVertex(point);
                     }
                 }
+                optimizer_initialized = 1;
+
 
                 optimizer.setVerbose(false);
                 solver = new g2o::OptimizationAlgorithmLevenberg(
