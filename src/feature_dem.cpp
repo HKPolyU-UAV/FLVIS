@@ -102,7 +102,7 @@ void FeatureDEM::filterAndFillIntoRegion(const Mat& img,
     {
       float Harris_R;
       calHarrisR(img,pt,Harris_R);
-      if(Harris_R>50.0)
+      if(Harris_R>10.0)
       {
         int regionNum= 4*floor(pt.y/regionHeight) + (pt.x/regionWidth);
         regionKeyPts[regionNum].push_back(make_pair(pt,Harris_R));

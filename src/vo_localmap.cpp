@@ -40,6 +40,7 @@ namespace vo_nodelet_ns
 {
 
 
+
 std::deque<KeyFrameStruct> kfs;
 
 class VOLocalMapNodeletClass : public nodelet::Nodelet
@@ -69,7 +70,9 @@ private:
     void frame_callback(const vo_nodelet::KeyFrameConstPtr& msg)
     {
         KeyFrameStruct kf;
+
         KeyFrameMsg::unpack(msg,kf.frame_id,kf.img,kf.lm_id,kf.lm_2d,kf.lm_3d,kf.lm_descriptor,kf.T_c_w);
+
         kfs.push_back(kf);
 
 
@@ -143,8 +146,8 @@ private:
                 dst.copyTo(diplay_img_roi);
 
             }
-            imshow("dispaly_img", diplay_img);
-            waitKey(1);
+            //imshow("dispaly_img", diplay_img);
+            //waitKey(1);
 
             kfs.pop_front();
             //DISPLAY 8 IMAGES

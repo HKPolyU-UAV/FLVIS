@@ -8,6 +8,7 @@
     <param name="/fy"              type="double" value="238.68667602539062"/>
     <param name="/cx"              type="double" value="239.08380126953125"/>
     <param name="/cy"              type="double" value="134.68154907226562"/>
+    <param name="/voc"             type="string" value="$(find vo_nodelet)/voc/ORBvoc.bin"/>
 
 
     <!-- Manager -->
@@ -27,11 +28,12 @@
     </node>
 
     <!-- LoopClosingNode -->
-<!--    <node pkg="nodelet" type="nodelet" args="load vo_nodelet/VOLoopClosingNodeletClass vo_manager"
+    <node pkg="nodelet" type="nodelet" args="load vo_nodelet/VOLoopClosingNodeletClass vo_manager"
         name="VOLoopClosingNodeletClass_loader" output="screen">
     </node>-->
 
 
-    <node pkg="rosbag" type="play" name="rosbag" args="$(find vo_nodelet)/bag/2019-08-22-14-40-44.bag -r 1.5"/>
+    <node pkg="rosbag" type="play" name="rosbag" args="$(find vo_nodelet)/bag/2019-08-22-14-40-44.bag"/>
+
 
 </launch>
