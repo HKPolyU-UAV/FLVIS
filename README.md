@@ -41,6 +41,15 @@ cmake ..
 make -j4
 sudo make install
 ````
+#### DBow3
+````
+cd DBow3
+mkdir build
+cd build
+cmake ..
+make -j4
+sudo make install
+````
 ### Compile
 ````
 cd ~/catkin_ws
