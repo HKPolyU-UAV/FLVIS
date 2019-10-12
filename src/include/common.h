@@ -56,6 +56,14 @@ inline void descriptors_to_vMat(const Mat& descriptorMat, vector<Mat>& vecDescri
         vecDescriptorMat.push_back(descriptorMat.row(i));
     }
 }
+//transfer vector of Mat to descriptors
+inline void vMat_to_descriptors(const Mat& descriptorMat, vector<Mat>& vecDescriptorMat)
+{
+  for(int i=0; i<vecDescriptorMat.size();i++)
+  {
+      descriptorMat.row(i)) = vecDescriptorMat[i];
+  }
+}
 
 //transfor 2d point to cvP2f
 inline Point2f Vec2_to_cvP2f(const Vec2 pt)

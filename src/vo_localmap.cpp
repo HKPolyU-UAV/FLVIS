@@ -31,6 +31,7 @@ struct KeyFrameStruct {
     vector<uint64_t> lm_id;
     vector<Vec2> lm_2d;
     vector<Vec3> lm_3d;
+    vector<Mat> lm_descriptors;
     SE3 T_c_w;
 };
 
@@ -58,7 +59,7 @@ private:
     void frame_callback(const vo_nodelet::KeyFrameConstPtr& msg)
     {
         KeyFrameStruct kf;
-        KeyFrameMsg::unpack(msg,kf.img,kf.lm_id,kf.lm_2d,kf.lm_3d,kf.T_c_w);
+        KeyFrameMsg::unpack(msg,kf.img,kf.lm_id,kf.lm_2d,kf.lm_3d,kf.lm_descriptors,kf.T_c_w);
         kfs.push_back(kf);
 
 
@@ -94,8 +95,8 @@ private:
                 dst.copyTo(diplay_img_roi);
                 cout << "here" << i <<endl;
             }
-            imshow("dispaly_img", diplay_img);
-            waitKey(1);
+            //imshow("dispaly_img", diplay_img);
+            //waitKey(1);
 
             kfs.pop_front();
             //DISPLAY 8 IMAGES
