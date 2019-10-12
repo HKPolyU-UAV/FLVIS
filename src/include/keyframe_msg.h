@@ -8,7 +8,16 @@
 #include <camera_frame.h>
 
 
-
+struct KeyFrameStruct {
+    cv::Mat img;
+    int64_t frame_id;
+    int lm_count;
+    vector<int64_t> lm_id;
+    vector<Vec2> lm_2d;
+    vector<Vec3> lm_3d;
+    vector<Mat>  lm_descriptor;
+    SE3 T_c_w;
+};
 
 class KeyFrameMsg
 {
@@ -18,8 +27,9 @@ public:
     KeyFrameMsg(ros::NodeHandle& nh, string topic_name, int buffersize=2);
     void pub(CameraFrame& frame, ros::Time stamp=ros::Time::now());
     static void unpack(vo_nodelet::KeyFrameConstPtr kf_const_ptr,
+                       int64_t &frame_id,
                        cv::Mat& img,
-                       vector<uint64_t>& lm_id,
+                       vector<int64_t>& lm_id,
                        vector<Vec2>& lm_2d,
                        vector<Vec3>& lm_3d,
                        vector<Mat> & lm_descriptors,

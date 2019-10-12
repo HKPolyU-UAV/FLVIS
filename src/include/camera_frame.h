@@ -13,7 +13,7 @@ class CameraFrame
 public:
     typedef std::shared_ptr<CameraFrame> Ptr;
 
-
+    int64_t frame_id;
     Mat img;
     Mat d_img;
     int width;
@@ -51,7 +51,7 @@ public:
                 vector<Mat> & descriptors,
                 vector<Vec3>& pt3d,
                 vector<unsigned char>& mask3d);
-    void getKeyFrameInf(vector<uint64_t>& lm_id, vector<Vec2>& lm_2d, vector<Vec3>& lm_3d, vector<Mat> &lm_descriptors);
+    void getKeyFrameInf(vector<int64_t>& lm_id, vector<Vec2>& lm_2d, vector<Vec3>& lm_3d, vector<Mat> &lm_descriptors);
 
     vector<Point2f> get2dPtsVec_cvP2f(void);
     vector<Point3f> get3dPtsVec_cvP3f(void);

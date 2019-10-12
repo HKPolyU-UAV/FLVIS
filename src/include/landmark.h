@@ -2,7 +2,6 @@
 #define LANDMARK_H
 
 #include <include/common.h>
-#include <include/unique_id.h>
 
 #define LMSTATE_NO_DEPTH  (0)
 #define LMSTATE_NORMAL    (1)
@@ -12,7 +11,7 @@ class LandMark
 
 public:
 
-  uint64_t lm_id;
+  int64_t lm_id;
   //long lm_id
   Vec3 lm_3d_w;
   Mat  lm_descriptor;

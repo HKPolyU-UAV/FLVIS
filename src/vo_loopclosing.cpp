@@ -69,7 +69,7 @@ private:
     double fx,fy,cx,cy;
     bool optimizer_initialized;
 
-    vector<uint64_t> optimizer_lm_id;
+    vector<int64_t> optimizer_lm_id;
 
     static uint64_t kf_id;
 
@@ -208,16 +208,18 @@ private:
 
     void frame_callback(const vo_nodelet::KeyFrameConstPtr& msg)
     {
+
         //KeyFrameLC* kf = new KeyFrameLC();
         shared_ptr<KeyFrameLC> kf;
         Mat img;
-        vector<uint64_t> lm_id;
+        vector<int64_t> lm_id;
         vector<Vec2> lm_2d;
         vector<Vec3> lm_3d;
         vector<Mat> lm_descriptors;
         SE3 T_c_w;
         BowVector kf_bv;
-        KeyFrameMsg::unpack(msg,img,lm_id,lm_2d,lm_3d,lm_descriptors,T_c_w);
+        int64_t kf_id2;
+        KeyFrameMsg::unpack(msg,kf_id2,img,lm_id,lm_2d,lm_3d,lm_descriptors,T_c_w);
         voc.transform(lm_descriptors,kf_bv);
         kf->kf_id = kf_id++;
         kf->lm_id = lm_id;
@@ -237,6 +239,8 @@ private:
             sim_matrix[i][kf_id-1] = score;
           }
         }
+
+
 
 
 
