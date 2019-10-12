@@ -14,23 +14,20 @@
     <!-- Manager -->
     <node pkg="nodelet" type="nodelet" name="vo_manager"  args="manager" output="screen"/>
 
+
+
     <!-- TrackingNode -->
     <node pkg="nodelet" type="nodelet" args="load vo_nodelet/VOTrackingNodeletClass vo_manager"
-          name="VOTrackingNodeletClass_loader" output="log">
-          <remap from="/vo/depth_image"  to="/camera/aligned_depth_to_infra1/image_raw"/>
-          <remap from="/vo/image"        to="/camera/infra1/image_rect_raw"/>
+      name="VOTrackingNodeletClass_loader" output="log">
+      <remap from="/vo/depth_image"  to="/camera/aligned_depth_to_infra1/image_raw"/>
+      <remap from="/vo/image"        to="/camera/infra1/image_rect_raw"/>
     </node>
 
+<!-- LocalMapNode -->
+<node pkg="nodelet" type="nodelet" args="load vo_nodelet/VOLocalMapNodeletClass vo_manager"
+    name="VOLocalMapNodeletClass_loader" output="screen">
+</node>
 
-    <!-- LocalMapNode -->
-    <node pkg="nodelet" type="nodelet" args="load vo_nodelet/VOLocalMapNodeletClass vo_manager"
-        name="VOLocalMapNodeletClass_loader" output="screen">
-    </node>
-
-    <!-- LoopClosingNode -->
-    <node pkg="nodelet" type="nodelet" args="load vo_nodelet/VOLoopClosingNodeletClass vo_manager"
-        name="VOLoopClosingNodeletClass_loader" output="screen">
-    </node>
 
 
     <node pkg="rosbag" type="play" name="rosbag" args="$(find vo_nodelet)/bag/2019-08-22-14-40-44.bag"/>

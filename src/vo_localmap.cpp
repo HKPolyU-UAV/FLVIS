@@ -97,12 +97,12 @@ private:
                     }
                 }
 
-                optimizer.setVerbose(false);
-                solver = new g2o::OptimizationAlgorithmLevenberg(
-                            g2o::make_unique<g2o::BlockSolver_6_3>(std::move(linearSolver)));
-                optimizer.setAlgorithm(solver);
-                cam_params = new g2o::CameraParameters (((fx+fy)/2), Vec2(cx,cy), 0.);
-                cam_params->setId(0);
+//                optimizer.setVerbose(false);
+//                solver = new g2o::OptimizationAlgorithmLevenberg(
+//                            g2o::make_unique<g2o::BlockSolver_6_3>(std::move(linearSolver)));
+//                optimizer.setAlgorithm(solver);
+//                cam_params = new g2o::CameraParameters (((fx+fy)/2), Vec2(cx,cy), 0.);
+//                cam_params->setId(0);
 
             }
             //visualization

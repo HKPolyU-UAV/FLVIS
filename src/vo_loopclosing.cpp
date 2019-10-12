@@ -28,8 +28,8 @@ namespace vo_nodelet_ns
 struct KeyFrameLC
 {
   KeyFrameLC(){}
-  uint64_t kf_id;
-  vector<uint64_t> lm_id;
+  int64_t kf_id;
+  vector<int64_t> lm_id;
   vector<Vec2> lm_2d;
   vector<Vec3> lm_3d;
   vector<Mat> lm_descriptors;
