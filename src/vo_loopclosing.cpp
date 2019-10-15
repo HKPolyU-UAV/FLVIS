@@ -209,36 +209,36 @@ private:
     void frame_callback(const vo_nodelet::KeyFrameConstPtr& msg)
     {
 
-        //KeyFrameLC* kf = new KeyFrameLC();
-        shared_ptr<KeyFrameLC> kf;
-        Mat img;
-        vector<int64_t> lm_id;
-        vector<Vec2> lm_2d;
-        vector<Vec3> lm_3d;
-        vector<Mat> lm_descriptors;
-        SE3 T_c_w;
-        BowVector kf_bv;
-        int64_t kf_id2;
-        KeyFrameMsg::unpack(msg,kf_id2,img,lm_id,lm_2d,lm_3d,lm_descriptors,T_c_w);
-        voc.transform(lm_descriptors,kf_bv);
-        kf->kf_id = kf_id++;
-        kf->lm_id = lm_id;
-        kf->lm_2d = lm_2d;
-        kf->lm_3d = lm_3d;
-        kf->lm_descriptors = lm_descriptors;
-        kf->T_c_w = T_c_w;
-        kf->kf_bv = kf_bv;
-        kf_map.push_back(kf);
-        //int idx = kf->kf_id;
-        for (uint64_t i = 0; i < kf_map.size(); i++)
-        {
-          if(kf_map[i] != nullptr)
-          {
-            double score = voc.score(kf_bv,kf_map[i]->kf_bv);
-            sim_matrix[kf_id-1][i] = score;
-            sim_matrix[i][kf_id-1] = score;
-          }
-        }
+//        //KeyFrameLC* kf = new KeyFrameLC();
+//        shared_ptr<KeyFrameLC> kf;
+//        Mat img;
+//        vector<int64_t> lm_id;
+//        vector<Vec2> lm_2d;
+//        vector<Vec3> lm_3d;
+//        vector<Mat> lm_descriptors;
+//        SE3 T_c_w;
+//        BowVector kf_bv;
+//        int64_t kf_id2;
+//        KeyFrameMsg::unpack(msg,kf_id2,img,lm_id,lm_2d,lm_3d,lm_descriptors,T_c_w);
+//        voc.transform(lm_descriptors,kf_bv);
+//        kf->kf_id = kf_id++;
+//        kf->lm_id = lm_id;
+//        kf->lm_2d = lm_2d;
+//        kf->lm_3d = lm_3d;
+//        kf->lm_descriptors = lm_descriptors;
+//        kf->T_c_w = T_c_w;
+//        kf->kf_bv = kf_bv;
+//        kf_map.push_back(kf);
+//        //int idx = kf->kf_id;
+//        for (uint64_t i = 0; i < kf_map.size(); i++)
+//        {
+//          if(kf_map[i] != nullptr)
+//          {
+//            double score = voc.score(kf_bv,kf_map[i]->kf_bv);
+//            sim_matrix[kf_id-1][i] = score;
+//            sim_matrix[i][kf_id-1] = score;
+//          }
+//        }
 
 
 
