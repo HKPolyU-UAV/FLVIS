@@ -61,7 +61,7 @@ inline void vMat_to_descriptors(const Mat& descriptorMat, vector<Mat>& vecDescri
 {
   for(int i=0; i<vecDescriptorMat.size();i++)
   {
-      descriptorMat.row(i) = vecDescriptorMat[i];
+      descriptorMat.row(i) = vecDescriptorMat[i]+ 0 ;
   }
 }
 

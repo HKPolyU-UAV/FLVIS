@@ -199,6 +199,7 @@ void FeatureDEM::redetect(const Mat& img,
     KeyPoint::convert(newPts_cvP2f,tmpKPs);
     Ptr<DescriptorExtractor> extractor = ORB::create();
     extractor->compute(img, tmpKPs, tmpDescriptors);
+    cout<<"tracking feature size: "<<tmpDescriptors.size().height<<" "<<tmpDescriptors.size().width<<endl;
     for(size_t i=0; i<tmpKPs.size(); i++)
     {
       Vec2 pt(tmpKPs.at(i).pt.x,tmpKPs.at(i).pt.y);

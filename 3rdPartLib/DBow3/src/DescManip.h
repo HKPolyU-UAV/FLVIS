@@ -81,7 +81,7 @@ uint32_t DescManip::distance_8uc1(const cv::Mat &a, const cv::Mat &b){
          pb = b.ptr<uint64_t>();
 
          uint64_t v, ret = 0;
-         int n=a.cols / sizeof(uint64_t);
+         uint64_t n=a.cols / sizeof(uint64_t);
          for(size_t i = 0; i < n; ++i, ++pa, ++pb)
          {
            v = *pa ^ *pb;
