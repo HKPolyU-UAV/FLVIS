@@ -224,7 +224,12 @@ private:
             cv::Mat r_ = cv::Mat::zeros(3, 1, CV_64FC1);
             cv::Mat t_ = cv::Mat::zeros(3, 1, CV_64FC1);
             SE3_to_rvec_tvec(last_frame->T_c_w, r_ , t_ );
-            solvePnPRansac(p3d,p2d,cameraMatrix,distCoeffs,r_,t_,false,100,8.0,0.99,cv::noArray(),SOLVEPNP_P3P);
+
+            Mat inliers;
+            solvePnPRansac(p3d,p2d,cameraMatrix,distCoeffs,r_,t_,false,100,8.0,0.99,inliers,SOLVEPNP_P3P);
+            cout<<"point size: "<<p3d.size()<<" inliers size in ransac: "<<inliers.size()<<endl;
+            //            //bundleAdjustment ( pts_3d, pts_2d, K, R, t );
+
             curr_frame->T_c_w = SE3_from_rvec_tvec(r_,t_);
             //Remove Outliers ||reprojection error|| > MAD of all reprojection error
             vector<Vec2> outlier_reproject;

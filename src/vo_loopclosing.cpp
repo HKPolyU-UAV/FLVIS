@@ -16,6 +16,12 @@
 // DBoW3
 #include "../3rdPartLib/DBow3/src/DBoW3.h"
 #include "../3rdPartLib/DBow3/src/DescManip.h"
+#include "../3rdPartLib/DBow3/src/Vocabulary.h"
+#include "../3rdPartLib/DBow3/src/BowVector.h"
+#include "../3rdPartLib/DBow3/src/ScoringObject.h"
+#include "../3rdPartLib/DBow3/src/Database.h"
+
+
 
 
 using namespace DBoW3;
@@ -27,18 +33,7 @@ static uint64_t kf_id;
 namespace vo_nodelet_ns
 {
 
-struct KeyFrameLC
-{
-  KeyFrameLC(){}
-  int64_t kf_id;
-  vector<int64_t> lm_id;
-  vector<Vec2> lm_2d;
-  vector<Vec3> lm_3d;
-  vector<Mat> lm_descriptors;
-  SE3 T_c_w;
-  BowVector kf_bv;
 
-};
 struct sort_simmat_by_score
 {
     inline bool operator()(const Vector2d& a, const Vector2d& b){
@@ -55,8 +50,11 @@ struct sort_descriptor_by_queryIdx
 #define lcKFDist (6)
 #define lcKFMaxDist (50)
 #define lcKFLast (20)
-#define lcNKFClosest (4)
+#define lcNKFClosest (3)
 #define ratioMax (0.7)
+#define ratioRansac (0.6)
+#define minPts (30)
+
 class VOLoopClosingNodeletClass : public nodelet::Nodelet
 {
 public:
@@ -76,23 +74,28 @@ private:
     //DBow related para
     Vocabulary voc;
     Database db;// faster search
-    vector<vector<double>> sim_matrix;//for sim visualization
+    vector<vector<double>> sim_matrix;//for similarity visualization
     //KF database
-    vector<shared_ptr<KeyFrameLC>> kf_map;
+    vector<shared_ptr<KeyFrameStruct>> kf_map;
+    vector<BowVector> kfbv_map;
+    vector<Vec3> loop_ids;
+    vector<SE3> loop_poses;
 
 
 
-    bool isLoopCandidate(uint64_t kf_curr_idx, uint64_t &kf_prev_idx)
+    bool isLoopCandidate( uint64_t &kf_prev_idx)
     {
       bool is_lc_candidate = false;
+      int g_size = kf_map.size();
       vector<Vector2d> max_sim_mat;
-      for (uint64_t i = 0; i < kf_map.size() - lcKFDist; i++)
+      if(g_size < 20) return is_lc_candidate;
+      for (uint64_t i = 0; i < (uint64_t)(g_size - lcKFDist); i++)
       {
           if (kf_map[i] != nullptr)
           {
               Vector2d aux;
               aux(0) = i;
-              aux(1) = sim_matrix[i][kf_curr_idx];
+              aux(1) = sim_matrix[i][g_size-1];
               max_sim_mat.push_back(aux);
           }
       }
@@ -101,20 +104,17 @@ private:
 
       // find the minimum score in the covisibility graph (and/or 3 previous keyframes)
       double lc_min_score = 1.0;
-      for (uint64_t i = 0; i < kf_map.size(); i++)
+      for (uint64_t i = (uint64_t)(g_size - lcKFDist); i < (uint64_t)(g_size); i++)
       {
-        if (i >= kf_map.size() -lcKFDist)
-        {
-          double score_i = sim_matrix[i][kf_curr_idx];
-          if (score_i < lc_min_score && score_i > 0.001)
-          lc_min_score = score_i;
-        }
+          double score_i = sim_matrix[i][g_size-1];
+          if (score_i < lc_min_score && score_i > 0.001) lc_min_score = score_i;
       }
 
       int idx_max = int(max_sim_mat[0](0));
       int nkf_closest = 0;
       if (max_sim_mat[0](1) >= lc_min_score)
       {
+        cout<<"may be a loop: "<<endl;
         // there must be at least lc_nkf_closest KFs conected to the LC candidate with a score above lc_dbow_score_min
         for (uint64_t i = 1; i < max_sim_mat.size(); i++)
         {
@@ -138,42 +138,51 @@ private:
             << "Nkf_closest:  " << nkf_closest;
        cout << endl
             << "idx_max:  " << idx_max << endl;
+       cout << "max score of previous kfs: "<<max_sim_mat[0](1)<<endl;
        return is_lc_candidate;
     }
 
-    bool isLoopClosure(shared_ptr<KeyFrameLC> kf0, shared_ptr<KeyFrameLC> kf1,SE3 &kf01)
+    bool isLoopClosure(shared_ptr<KeyFrameStruct> kf0, shared_ptr<KeyFrameStruct> kf1,SE3 &se_ji)
     {
+      //kf0 previous kf, kf1 current kf,
+      bool is_lc = false;
       int common_pt = 0;
 
-      if (!(kf1->lm_descriptors.size() == 0) && !(kf0->lm_descriptors.size() == 0))
+      if (!(kf1->lm_descriptor.size() == 0) && !(kf0->lm_descriptor.size() == 0))
       {
 
           BFMatcher *bfm = new BFMatcher(NORM_HAMMING, false); // cross-check
-          Mat pdesc_l1, pdesc_l2;
+          Mat pdesc_l1= Mat::zeros(Size(32,kf0->lm_descriptor.size()),CV_8U);
+          Mat pdesc_l2= Mat::zeros(Size(32,kf1->lm_descriptor.size()),CV_8U);
           vector<vector<DMatch>> pmatches_12, pmatches_21;
           // 12 and 21 matches
-          vMat_to_descriptors(pdesc_l1,kf0->lm_descriptors);
-          vMat_to_descriptors(pdesc_l2,kf1->lm_descriptors);
+          vMat_to_descriptors(pdesc_l1,kf0->lm_descriptor);
+          vMat_to_descriptors(pdesc_l2,kf1->lm_descriptor);
+          cout<<"size: "<<pdesc_l1.size().height<<" "<<pdesc_l1.size().width<<endl;
+          cout<<"size: "<<pdesc_l2.size().height<<" "<<pdesc_l2.size().width<<endl;
           bfm->knnMatch(pdesc_l1, pdesc_l2, pmatches_12, 2);
           bfm->knnMatch(pdesc_l2, pdesc_l1, pmatches_21, 2);
 
           // resort according to the queryIdx
           sort(pmatches_12.begin(), pmatches_12.end(), sort_descriptor_by_queryIdx());
           sort(pmatches_21.begin(), pmatches_21.end(), sort_descriptor_by_queryIdx());
+
           // bucle around pmatches
-          for (int i = 0; i < pmatches_12.size(); i++)
+
+          vector<Point3f> p3d;
+          vector<Point2f> p2d;
+          p3d.clear();
+          p2d.clear();
+
+          for (size_t i = 0; i < pmatches_12.size(); i++)
           {
               // check if they are mutual best matches
               int lr_qdx = pmatches_12[i][0].queryIdx;
               int lr_tdx = pmatches_12[i][0].trainIdx;
               int rl_tdx = pmatches_21[lr_tdx][0].trainIdx;
 
-              // check if they are mutual best matches and the minimum distance
-              //            double dist_nn = pmatches_12[i][0].distance;
-              //            double dist_12 = pmatches_12[i][0].distance / pmatches_12[i][1].distance;
-              // check the f2f max disparity condition
-              vector<Point3f> p3d;
-              vector<Point2f> p2d;
+              // check if they are mutual best matches and satisfy the distance ratio test
+
               if (lr_qdx == rl_tdx)
               {
                   if(pmatches_12[i][0].distance/pmatches_12[i][1].distance < ratioMax)
@@ -190,13 +199,42 @@ private:
 
               }
 
-              cv::Mat r_ = cv::Mat::zeros(3, 1, CV_64FC1);
-              cv::Mat t_ = cv::Mat::zeros(3, 1, CV_64FC1);
-              SE3_to_rvec_tvec(kf0->T_c_w, r_ , t_ );
-              solvePnPRansac(p3d,p2d,cameraMatrix,distCoeffs,r_,t_,false,100,8.0,0.99,cv::noArray(),SOLVEPNP_P3P);
           }
+          cv::Mat r_ = cv::Mat::zeros(3, 1, CV_64FC1);
+          cv::Mat t_ = cv::Mat::zeros(3, 1, CV_64FC1);
+          Mat inliers;
+          SE3_to_rvec_tvec(kf0->T_c_w, r_ , t_ );
+          solvePnPRansac(p3d,p2d,cameraMatrix,distCoeffs,r_,t_,false,100,3.0,0.99,inliers,SOLVEPNP_P3P);
+          cout<<"selected points size: "<<p3d.size()<<" inliers size: "<<inliers.rows<<" unseletced size: "<<pmatches_12.size()<<endl;
+
+
+          if(inliers.rows/p3d.size() < ratioRansac || inliers.rows < minPts ) return is_lc;
+
+          SE3 se_iw = kf0->T_c_w;
+          SE3 se_jw = SE3_from_rvec_tvec(r_,t_);
+          SE3 se_jw_p = kf1->T_c_w;
+
+          se_ji = se_jw*se_iw.inverse();
+          SE3 se_j_correct = se_jw*se_jw_p.inverse();
+
+          is_lc = true;
       }
+      return is_lc;
     }
+
+
+
+    void expandGraph()
+    {
+      int g_size = (int) kfbv_map.size();
+
+      // sim matrix
+      sim_matrix.resize(g_size);
+      for (int i = 0; i < g_size; i++)
+          sim_matrix[i].resize(g_size);
+
+    }
+
 
 
 
@@ -209,36 +247,37 @@ private:
     void frame_callback(const vo_nodelet::KeyFrameConstPtr& msg)
     {
 
-//        //KeyFrameLC* kf = new KeyFrameLC();
-//        shared_ptr<KeyFrameLC> kf;
-//        Mat img;
-//        vector<int64_t> lm_id;
-//        vector<Vec2> lm_2d;
-//        vector<Vec3> lm_3d;
-//        vector<Mat> lm_descriptors;
-//        SE3 T_c_w;
-//        BowVector kf_bv;
-//        int64_t kf_id2;
-//        KeyFrameMsg::unpack(msg,kf_id2,img,lm_id,lm_2d,lm_3d,lm_descriptors,T_c_w);
-//        voc.transform(lm_descriptors,kf_bv);
-//        kf->kf_id = kf_id++;
-//        kf->lm_id = lm_id;
-//        kf->lm_2d = lm_2d;
-//        kf->lm_3d = lm_3d;
-//        kf->lm_descriptors = lm_descriptors;
-//        kf->T_c_w = T_c_w;
-//        kf->kf_bv = kf_bv;
-//        kf_map.push_back(kf);
-//        //int idx = kf->kf_id;
-//        for (uint64_t i = 0; i < kf_map.size(); i++)
-//        {
-//          if(kf_map[i] != nullptr)
-//          {
-//            double score = voc.score(kf_bv,kf_map[i]->kf_bv);
-//            sim_matrix[kf_id-1][i] = score;
-//            sim_matrix[i][kf_id-1] = score;
-//          }
-//        }
+
+        KeyFrameStruct kf;
+        uint64_t kf_prev_idx;
+        BowVector kf_bv;
+        SE3 loop_pose;
+        KeyFrameMsg::unpack(msg,kf.frame_id,kf.img,kf.lm_id,kf.lm_2d,kf.lm_3d,kf.lm_descriptor,kf.T_c_w);
+        shared_ptr<KeyFrameStruct> kf_ptr = make_shared<KeyFrameStruct>(kf);
+
+        voc.transform(kf_ptr->lm_descriptor,kf_bv);
+        kf_map.push_back(kf_ptr);
+        kfbv_map.push_back(kf_bv);
+        expandGraph();
+        for (uint64_t i = 0; i < kf_map.size(); i++)
+        {
+          if(kf_map[i] != nullptr)
+          {
+            double score = voc.score(kf_bv,kfbv_map[i]);
+            sim_matrix[kfbv_map.size()-1][i] = score;
+            sim_matrix[i][kfbv_map.size()-1] = score;
+          }
+        }
+        bool is_lc_candidate = isLoopCandidate(kf_prev_idx);
+        uint64_t kf_curr_idx = kf_map.size()-1;
+        //if(!is_lc_candidate) return;
+        //just test loop pose estimation
+        if(kf_curr_idx > 10) bool is_lc = isLoopClosure(kf_map[kf_curr_idx],kf_map[kf_curr_idx-5],loop_pose);
+
+        loop_ids.push_back(Vec3(kf_curr_idx - 5, kf_curr_idx, 1));
+        loop_poses.push_back(loop_pose);
+
+
 
 
 
