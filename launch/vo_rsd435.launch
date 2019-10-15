@@ -1,6 +1,6 @@
 <launch>
 
-    <!--<include file="$(find realsense2_camera)/launch/d435_sn841512070537.launch"/>-->
+    <include file="$(find realsense2_camera)/launch/d435_sn841512070537.launch"/>
 
     <param name="/yamlconfigfile"     type="string" value="$(find vo_nodelet)/launch/vio_config.yaml"/>
     <param name="/image_width"     type="int" value="480"/>
@@ -12,19 +12,16 @@
     <param name="/voc"             type="string" value="$(find vo_nodelet)/voc/ORBvoc.bin"/>
 
     <!-- Manager -->
-    <node pkg="nodelet" type="nodelet" name="vo_manager"  args="manager" output="screen"/>
+    <node pkg="nodelet" type="nodelet" name="vo_manager"  args="manager" output="screen" launch-prefix="bash -c 'sleep 2; $0 $@' " />
 
     <!-- TrackingNode -->
     <node pkg="nodelet" type="nodelet" args="load vo_nodelet/VOTrackingNodeletClass vo_manager"
-      name="VOTrackingNodeletClass_loader" output="log">
+      name="VOTrackingNodeletClass_loader" output="log" launch-prefix="bash -c 'sleep 3; $0 $@' " >
       <remap from="/vo/depth_image"  to="/camera/aligned_depth_to_infra1/image_raw"/>
       <remap from="/vo/image"        to="/camera/infra1/image_rect_raw"/>
     </node>
 
-    <!-- LocalMapNode -->
-    <node pkg="nodelet" type="nodelet" args="load vo_nodelet/VOLocalMapNodeletClass vo_manager"
-        name="VOLocalMapNodeletClass_loader" output="screen">
-    </node>
+
 
 
 </launch>
