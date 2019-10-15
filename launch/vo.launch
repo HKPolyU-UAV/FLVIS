@@ -22,9 +22,9 @@
     </node>
 
     <!-- LocalMapNode -->
-    <node pkg="nodelet" type="nodelet" args="load vo_nodelet/VOLocalMapNodeletClass vo_manager"
+<!--    <node pkg="nodelet" type="nodelet" args="load vo_nodelet/VOLocalMapNodeletClass vo_manager"
         name="VOLocalMapNodeletClass_loader" output="screen">
-    </node>
+    </node>-->
 
     <!-- LoopClosingNode -->
 <!--    <node pkg="nodelet" type="nodelet" args="load vo_nodelet/VOLoopClosingNodeletClass vo_manager"
@@ -32,6 +32,14 @@
     </node>-->
 
 
-<!--    <node pkg="rosbag" type="play" name="rosbag" args="$(find vo_nodelet)/bag/2019-08-22-14-40-44.bag"/>-->
+    <node pkg="rosbag" type="play" name="rosbag" args="$(find vo_nodelet)/bag/2019-10-15-21-25-22_room1.bag"/>
+    <!--<node pkg="rosbag" type="play" name="rosbag" args="$(find vo_nodelet)/bag/2019-10-15-21-33-46_tunnel2.bag"/>-->
+    <!--<node pkg="rosbag" type="play" name="rosbag" args="$(find vo_nodelet)/bag/2019-10-15-21-39-16_4th2.bag"/>-->
+    <!--<node pkg="rosbag" type="play" name="rosbag" args="$(find vo_nodelet)/bag/2019-10-15-21-40-43_4th3.bag"/>-->
+
+    <!--<node pkg="rosbag" type="play" name="rosbag" args="$(find vo_nodelet)/bag/2019-10-15-21-27-06_room2.bag"/>-->
+    <!--<node pkg="rosbag" type="play" name="rosbag" args="$(find vo_nodelet)/bag/2019-10-15-21-31-32_tunnel1.bag"/>-->
+    <!--<node pkg="rosbag" type="play" name="rosbag" args="$(find vo_nodelet)/bag/2019-10-15-21-37-49_4th1.bag"/>-->
+
 
 </launch>
