@@ -14,8 +14,6 @@
     <!-- Manager -->
     <node pkg="nodelet" type="nodelet" name="vo_manager"  args="manager" output="screen"/>
 
-
-
     <!-- TrackingNode -->
     <node pkg="nodelet" type="nodelet" args="load vo_nodelet/VOTrackingNodeletClass vo_manager"
       name="VOTrackingNodeletClass_loader" output="log">
@@ -34,9 +32,6 @@
     </node>-->
 
 
-
-
-    <node pkg="rosbag" type="play" name="rosbag" args="$(find vo_nodelet)/bag/2019-08-22-14-40-44.bag"/>
-
+<!--    <node pkg="rosbag" type="play" name="rosbag" args="$(find vo_nodelet)/bag/2019-08-22-14-40-44.bag"/>-->
 
 </launch>
