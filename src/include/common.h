@@ -13,6 +13,8 @@
 #include "../3rdPartLib/Sophus/sophus/so3.h"
 #include "../3rdPartLib/Sophus/sophus/se3.h"
 
+#include <g2o/types/sba/types_six_dof_expmap.h>
+
 using namespace Eigen;
 using namespace std;
 using namespace cv;
@@ -20,6 +22,7 @@ using namespace Sophus;
 
 typedef Eigen::Matrix<double, 2, 1> Vec2;
 typedef Eigen::Matrix<double, 3, 1> Vec3;
+typedef Eigen::Matrix<int, 3, 1> Vec3I;
 typedef Eigen::Matrix<double, 4, 1> Vec4;
 typedef Eigen::Matrix<double, 6, 1> Vec6;
 typedef Eigen::Matrix<double, 9, 1> Vec9;
@@ -59,9 +62,9 @@ inline void descriptors_to_vMat(const Mat& descriptorMat, vector<Mat>& vecDescri
 //transfer vector of Mat to descriptors
 inline void vMat_to_descriptors(const Mat& descriptorMat, vector<Mat>& vecDescriptorMat)
 {
-  for(int i=0; i<vecDescriptorMat.size();i++)
+  for(uint64_t i=0; i<vecDescriptorMat.size();i++)
   {
-      descriptorMat.row(i) = vecDescriptorMat[i]+ 0 ;
+      descriptorMat.row(i) = vecDescriptorMat[i] + 0;// if delete 0, descriptorMat.row(i) will be zeros.
   }
 }
 
@@ -139,6 +142,21 @@ inline void SE3_to_rvec_tvec(const SE3 pose, Mat &rvec, Mat &tvec)
     tvec = Vec3_to_cvMat(pose.translation());
     Mat R_ = Mat3x3_to_cvMat(q.toRotationMatrix());
     cv::Rodrigues ( R_, rvec );
+}
+
+inline SE3 SE3_from_g2o(g2o::SE3Quat &g2o_pose)
+{
+  Eigen::Matrix<double,4,4> eigMat = g2o_pose.to_homogeneous_matrix();
+  return SE3(eigMat.block(0,0,3,3),eigMat.col(3).head(3));
+
+}
+inline g2o::SE3Quat SE3_to_g2o(SE3 &se3_pose)
+{
+  Quaterniond q = se3_pose.unit_quaternion();
+  Vector3d t = se3_pose.translation();
+
+  return g2o::SE3Quat(q, t);
+
 }
 
 

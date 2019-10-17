@@ -163,7 +163,7 @@ void FeatureDEM::redetect(const Mat& img,
         Point2f pt = kps.at(j);
         float Harris_R;
         calHarrisR(img,pt,Harris_R);
-        if(Harris_R>20.0)
+        //if(Harris_R>20.0)
         {
           kpsHarrisRinRegion.push_back(make_pair(pt,Harris_R));
         }
