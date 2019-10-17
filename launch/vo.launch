@@ -14,8 +14,6 @@
     <!-- Manager -->
     <node pkg="nodelet" type="nodelet" name="vo_manager"  args="manager" output="screen"/>
 
-
-
     <!-- TrackingNode -->
     <node pkg="nodelet" type="nodelet" args="load vo_nodelet/VOTrackingNodeletClass vo_manager"
       name="VOTrackingNodeletClass_loader" output="log">
@@ -23,8 +21,9 @@
       <remap from="/vo/image"        to="/camera/infra1/image_rect_raw"/>
     </node>
 
-    <!-- LocalMapNode
-    <node pkg="nodelet" type="nodelet" args="load vo_nodelet/VOLocalMapNodeletClass vo_manager"
+
+    <!-- LocalMapNode -->
+<!--    <node pkg="nodelet" type="nodelet" args="load vo_nodelet/VOLocalMapNodeletClass vo_manager"
         name="VOLocalMapNodeletClass_loader" output="screen">
     </node>-->
 
@@ -34,9 +33,14 @@
     </node>
 
 
+    <node pkg="rosbag" type="play" name="rosbag" args="$(find vo_nodelet)/bag/2019-10-15-21-25-22_room1.bag"/>
+    <!--<node pkg="rosbag" type="play" name="rosbag" args="$(find vo_nodelet)/bag/2019-10-15-21-33-46_tunnel2.bag"/>-->
+    <!--<node pkg="rosbag" type="play" name="rosbag" args="$(find vo_nodelet)/bag/2019-10-15-21-39-16_4th2.bag"/>-->
+    <!--<node pkg="rosbag" type="play" name="rosbag" args="$(find vo_nodelet)/bag/2019-10-15-21-40-43_4th3.bag"/>-->
 
-
-    <node pkg="rosbag" type="play" name="rosbag" args="$(find vo_nodelet)/bag/2019-08-22-14-40-44.bag"/>
+    <!--<node pkg="rosbag" type="play" name="rosbag" args="$(find vo_nodelet)/bag/2019-10-15-21-27-06_room2.bag"/>-->
+    <!--<node pkg="rosbag" type="play" name="rosbag" args="$(find vo_nodelet)/bag/2019-10-15-21-31-32_tunnel1.bag"/>-->
+    <!--<node pkg="rosbag" type="play" name="rosbag" args="$(find vo_nodelet)/bag/2019-10-15-21-37-49_4th1.bag"/>-->
 
 
 </launch>

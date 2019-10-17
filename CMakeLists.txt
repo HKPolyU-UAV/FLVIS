@@ -98,6 +98,8 @@ add_library(vo_nodelet
     src/rviz_tf.cpp
     src/triangulation.cpp
     src/keyframe_msg.cpp
+    src/poselmbag.cpp
+    src/bundle_adjustment.cpp
     )
 
 target_link_libraries(vo_nodelet

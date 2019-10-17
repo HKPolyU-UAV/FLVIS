@@ -141,6 +141,7 @@ void CameraFrame::CalReprjInlierOutlier(double &mean_prjerr, vector<Vec2> &outli
     double sh = sh_over_med * valid_distances.at(half);
     //cout << "MAD SH=" << sh << endl;
     if(sh>=5.0) sh=5.0;
+    if(sh<=2.0) sh=2.0;
     for(int i=this->landmarks.size()-1; i>=0; i--)
     {
         if(distances.at(i)>sh)
@@ -205,7 +206,7 @@ void CameraFrame::recover3DPts_c_FromTriangulation(vector<Vec3> &pt3ds, vector<b
         SE3 T_c_w1=landmarks.at(i).lm_1st_obs_frame_pose;
         Vec3 baseline = T_c_w1.translation()-T_c_w.translation();
         double baseline_dis = sqrt(pow(baseline[0],2)+pow(baseline[1],2)+pow(baseline[2],2));
-        if(baseline_dis>=1.0)
+        if(baseline_dis>=0.5)
         {
             Vec3 pt3d_w = Triangulation::triangulationPt(landmarks.at(i).lm_1st_obs_2d,landmarks.at(i).lm_2d,
                                                          landmarks.at(i).lm_1st_obs_frame_pose,T_c_w,
@@ -288,6 +289,19 @@ void CameraFrame::getValid2d3dPair_cvPf(vector<Point2f> &p2d, vector<Point3f> &p
         {
             p2d.push_back(Point2f(lm.lm_2d[0],lm.lm_2d[1]));
             p3d.push_back(Point3f(lm.lm_3d_w[0],lm.lm_3d_w[1],lm.lm_3d_w[2]));
+        }
+    }
+}
+
+void CameraFrame::getValidInliersPair(vector<LandMarkInFrame> &lms)
+{
+    lms.clear();
+    for(size_t i=0; i<landmarks.size(); i++)
+    {
+        LandMarkInFrame lm=landmarks.at(i);
+        if(lm.hasDepthInf() && lm.lm_tracking_state==LM_TRACKING_INLIER)
+        {
+            lms.push_back(lm);
         }
     }
 }

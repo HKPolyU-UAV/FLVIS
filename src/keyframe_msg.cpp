@@ -23,7 +23,7 @@ void KeyFrameMsg::pub(CameraFrame& frame, ros::Time stamp)
     vector<Vec2> lm_2d;
     vector<Vec3> lm_3d;
     vector<Mat>  lm_descriptors;
-     cout << "herea" << endl;
+
     frame.getKeyFrameInf(lm_id,lm_2d,lm_3d,lm_descriptors);
     kf.lm_count =  static_cast<int32_t>(lm_id.size());
 
@@ -91,13 +91,14 @@ void KeyFrameMsg::pub(CameraFrame& frame, ros::Time stamp)
 }
 
 void KeyFrameMsg::unpack(vo_nodelet::KeyFrameConstPtr kf_const_ptr,
-                         int64_t &frame_id,
-                         Mat &img,
+                         int64_t         &frame_id,
+                         Mat             &img,
+                         int             &lm_count,
                          vector<int64_t> &lm_id,
-                         vector<Vec2> &lm_2d,
-                         vector<Vec3> &lm_3d,
-                         vector<Mat>  &lm_descriptors,
-                         SE3 &T_c_w)
+                         vector<Vec2>    &lm_2d,
+                         vector<Vec3>    &lm_3d,
+                         vector<Mat>     &lm_descriptors,
+                         SE3             &T_c_w)
 {
     img.release();
     lm_id.clear();
@@ -108,7 +109,7 @@ void KeyFrameMsg::unpack(vo_nodelet::KeyFrameConstPtr kf_const_ptr,
     frame_id = kf_const_ptr->frame_id;
     cv_bridge::CvImagePtr cvbridge_image  = cv_bridge::toCvCopy(kf_const_ptr->img, kf_const_ptr->img.encoding);
     img=cvbridge_image->image;
-
+    lm_count = kf_const_ptr->lm_count;
     int count =  kf_const_ptr->lm_count;
     for(auto i=0; i<count; i++)
     {

@@ -29,6 +29,7 @@
 #include <include/cv_draw.h>
 #include <vo_nodelet/KeyFrame.h>
 #include <include/keyframe_msg.h>
+#include <include/bundle_adjustment.h>
 
 using namespace cv;
 using namespace std;
@@ -129,13 +130,13 @@ private:
 
     void image_input_callback(const sensor_msgs::ImageConstPtr & imgPtr, const sensor_msgs::ImageConstPtr & depthImgPtr)
     {
-        tic_toc_ros tt_cb;
+        //tic_toc_ros tt_cb;
 
         frameCount++;
 
         //15hz Frame Rate
         //if((frameCount%2)==0) return;
-        cout << endl << "Frame No: " << frameCount << endl;
+        //cout << endl << "Frame No: " << frameCount << endl;
         curr_frame->frame_id = frameCount;
         //Greyscale Img
         curr_frame->clear();
@@ -159,9 +160,9 @@ private:
             // 0 -1  0
             R << 0, 0, 1, -1, 0, 0, 0,-1, 0;
             Mat3x3 R_roll_m30deg;
-            R_roll_m30deg << 1.0000000,  0.0000000,  0.0000000,
-            0.0000000,  0.9553365,  0.2955202,
-            0.0000000, -0.2955202,  0.9553365;
+            R_roll_m30deg << 1.0,  0.0,  0.0,
+            0.0,  1,  0,
+            0.0, 0.0,  1;
             Vec3   t=Vec3(0,0,1);
             SE3    T_w_c(R*R_roll_m30deg,t);
             curr_frame->T_c_w=T_w_c.inverse();//Tcw = (Twc)^-1
@@ -223,16 +224,18 @@ private:
             cv::Mat r_ = cv::Mat::zeros(3, 1, CV_64FC1);
             cv::Mat t_ = cv::Mat::zeros(3, 1, CV_64FC1);
             SE3_to_rvec_tvec(last_frame->T_c_w, r_ , t_ );
+
             Mat inliers;
             solvePnPRansac(p3d,p2d,cameraMatrix,distCoeffs,r_,t_,false,100,8.0,0.99,inliers,SOLVEPNP_P3P);
             cout<<"point size: "<<p3d.size()<<" inliers size in ransac: "<<inliers.size()<<endl;
             //            //bundleAdjustment ( pts_3d, pts_2d, K, R, t );
-            curr_frame->T_c_w = SE3_from_rvec_tvec(r_,t_);
 
+            curr_frame->T_c_w = SE3_from_rvec_tvec(r_,t_);
             //Remove Outliers ||reprojection error|| > MAD of all reprojection error
             vector<Vec2> outlier_reproject;
             double mean_error;
             curr_frame->CalReprjInlierOutlier(mean_error,outlier_reproject,2.0);
+            bundleAdjustment::BAInFrame(*curr_frame);
             //cout << "Reprojection Error " << mean_error << endl;
 
             //Refill the keyPoints
@@ -291,7 +294,7 @@ private:
         waitKey(1);
         last_frame.swap(curr_frame);
 
-        tt_cb.toc();
+        //tt_cb.toc();
     }//image_input_callback(const sensor_msgs::ImageConstPtr & imgPtr, const sensor_msgs::ImageConstPtr & depthImgPtr)
 
 
