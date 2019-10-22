@@ -17,6 +17,15 @@ find_package (CSparse REQUIRED )
 find_package (Sophus REQUIRED )
 find_package (yaml-cpp REQUIRED )
 find_package (DBoW3 REQUIRED)
+# pcl
+find_package( PCL REQUIRED)
+include_directories( ${PCL_INCLUDE_DIRS} )
+add_definitions( ${PCL_DEFINITIONS} )
+
+FIND_PACKAGE(octomap REQUIRED )
+#FIND_PACKAGE(octovis REQUIRED )
+INCLUDE_DIRECTORIES(${OCTOMAP_INCLUDE_DIRS})
+
 
 
 find_package(catkin REQUIRED COMPONENTS
@@ -103,6 +112,8 @@ target_link_libraries(vo_nodelet
     ${YAML_CPP_LIBRARIES}
     ${DBoW3_LIBRARIES}
     ${G2O_LIBS}
+    ${PCL_LIBRARIES}
+    ${OCTOMAP_LIBRARIES}
     )
 
 #add_executable(testSophus

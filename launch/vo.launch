@@ -21,6 +21,7 @@
       <remap from="/vo/image"        to="/camera/infra1/image_rect_raw"/>
     </node>
 
+
     <!-- LocalMapNode -->
     <node pkg="nodelet" type="nodelet" args="load vo_nodelet/VOLocalMapNodeletClass vo_manager"
         name="VOLocalMapNodeletClass_loader" output="screen">

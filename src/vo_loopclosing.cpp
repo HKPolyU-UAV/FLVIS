@@ -6,6 +6,7 @@
 
 #include <iostream>
 #include <deque>
+#include <stdint.h>
 
 #include <include/yamlRead.h>
 
@@ -20,6 +21,34 @@
 #include "../3rdPartLib/DBow3/src/BowVector.h"
 #include "../3rdPartLib/DBow3/src/ScoringObject.h"
 #include "../3rdPartLib/DBow3/src/Database.h"
+//g2o
+#include <g2o/config.h>
+#include <g2o/core/sparse_optimizer.h>
+#include <g2o/core/block_solver.h>
+#include <g2o/core/solver.h>
+#include <g2o/core/robust_kernel_impl.h>
+#include <g2o/core/optimization_algorithm_levenberg.h>
+#include <g2o/core/optimization_algorithm_gauss_newton.h>
+
+#include <g2o/solvers/dense/linear_solver_dense.h>
+#include <g2o/solvers/cholmod/linear_solver_cholmod.h>
+#include <g2o/solvers/csparse/linear_solver_csparse.h>
+
+#include <g2o/types/slam3d/vertex_pointxyz.h>
+#include <g2o/types/slam3d/vertex_se3.h>
+#include <g2o/types/slam3d/edge_se3.h>
+#include <g2o/types/sba/types_six_dof_expmap.h>
+
+
+//#include <pcl/visualization/cloud_viewer.h>
+//#include <pcl/io/pcd_io.h>
+
+//#include <pcl/common/transforms.h>
+//#include <pcl/point_types.h>
+//#include <pcl/filters/voxel_grid.h>
+//#include <pcl/filters/statistical_outlier_removal.h>
+#include <condition_variable>
+#include <octomap/octomap.h>
 
 
 
@@ -55,6 +84,7 @@ struct sort_descriptor_by_queryIdx
 #define ratioRansac (0.6)
 #define minPts (30)
 
+
 class VOLoopClosingNodeletClass : public nodelet::Nodelet
 {
 public:
@@ -78,8 +108,13 @@ private:
     //KF database
     vector<shared_ptr<KeyFrameStruct>> kf_map;
     vector<BowVector> kfbv_map;
-    vector<Vec3> loop_ids;
+    //loop info
+    vector<Vec3I> loop_ids;
     vector<SE3> loop_poses;
+    //uint64_t kf_prev_idx, kf_curr_idx;
+
+
+
 
 
 
@@ -88,7 +123,7 @@ private:
       bool is_lc_candidate = false;
       int g_size = kf_map.size();
       vector<Vector2d> max_sim_mat;
-      if(g_size < 20) return is_lc_candidate;
+      if(g_size < 40) return is_lc_candidate;
       for (uint64_t i = 0; i < (uint64_t)(g_size - lcKFDist); i++)
       {
           if (kf_map[i] != nullptr)
@@ -214,7 +249,8 @@ private:
           SE3 se_jw = SE3_from_rvec_tvec(r_,t_);
           SE3 se_jw_p = kf1->T_c_w;
 
-          se_ji = se_jw*se_iw.inverse();
+          se_ji = se_jw*se_iw.inverse();// i previous kf, j current kf, sji = sjw*swi; from prev to curr
+          //se_ij = se_ji.inverse();
           SE3 se_j_correct = se_jw*se_jw_p.inverse();
 
           is_lc = true;
@@ -235,6 +271,314 @@ private:
 
     }
 
+    //noticed g2o pgo use swi swj as vertices, where swi transform p from i to w
+    //use sij as edge
+    //error function is sij^-1 * (swi^-1*swj)
+    //so we need to use Tcw.inverse() as vertices, and sji.inverse as edge
+    void loopClosureOnEssentialGraphG2O()
+    {
+      uint64_t kf_prev_idx = 2 * kf_map.size();
+      uint64_t kf_curr_idx = 0;
+      for(size_t i = 0; i < loop_ids.size(); i++)
+      {
+        if(loop_ids[i](0) < kf_prev_idx)
+          kf_prev_idx = loop_ids[i](0);
+        if(loop_ids[i](1) > kf_curr_idx)
+          kf_curr_idx = loop_ids[i](1);
+      }
+      cout<<"first and last id in the loop: "<<kf_prev_idx<<" "<<kf_curr_idx<<endl;
+
+
+      g2o::SparseOptimizer optimizer;
+      optimizer.setVerbose(true);
+
+
+      std::unique_ptr<g2o::BlockSolver_6_3::LinearSolverType> linearSolver(new g2o::LinearSolverCholmod<g2o::BlockSolver_6_3::PoseMatrixType>());
+      std::unique_ptr<g2o::BlockSolver_6_3> solver_ptr(new g2o::BlockSolver_6_3(std::move(linearSolver)));
+      g2o::OptimizationAlgorithmLevenberg *solver = new g2o::OptimizationAlgorithmLevenberg(std::move(solver_ptr));
+
+      solver->setUserLambdaInit(1e-10);
+      optimizer.setAlgorithm(solver);
+
+      // grab the KFs included in the optimization
+      vector<int> kf_list;
+      for (int i = kf_prev_idx; i <= kf_curr_idx; i++)
+      {
+          if (kf_map[i] != nullptr)
+          {
+              // check if it is a LC vertex
+              bool is_lc_i = false;
+              bool is_lc_j = false;
+              int id = 0;
+              for (auto it = loop_ids.begin(); it != loop_ids.end(); it++, id++)
+              {
+                  if ((*it)(0) == i)
+                  {
+                      is_lc_i = true;
+                      break;
+                  }
+                  if ((*it)(1) == i)
+                  {
+                      is_lc_j = true;
+                      break;
+                  }
+              }
+              kf_list.push_back(i);
+              // create SE3 vertex
+              g2o::VertexSE3 *v_se3 = new g2o::VertexSE3();
+              v_se3->setId(i);
+              v_se3->setMarginalized(false);
+
+              if (is_lc_j)
+              {
+                  // update pose of LC vertex
+                  v_se3->setFixed(false);
+                  SE3 tmp = kf_map[i]->T_c_w.inverse();
+                  v_se3->setEstimate(SE3_to_g2o(tmp));
+              }
+              else
+              {
+                  SE3 tmp = kf_map[i]->T_c_w.inverse();
+                  v_se3->setEstimate(SE3_to_g2o(tmp));
+                  //if ((is_lc_i && loop_ids.back()[0] == i) || i == 0)
+                  if(i == 0)
+                      v_se3->setFixed(true);
+                  else
+                      v_se3->setFixed(false);
+              }
+              optimizer.addVertex(v_se3);
+          }
+      }
+
+
+      // introduce edges
+      for (int i = kf_prev_idx; i <= kf_curr_idx; i++)
+      {
+          for (int j = i + 1; j <= kf_curr_idx; j++)
+          {
+              if (kf_map[i] != nullptr && kf_map[j] != nullptr)
+              {
+                  // kf2kf constraint
+                  SE3 sji = kf_map[j]->T_c_w*kf_map[i]->T_c_w.inverse();//se_jw*se_iw.inverse();
+                  // add edge
+                  // _inverseMeasurement * from->estimate().inverse() * to->estimate();
+                  // z^-1 * (x_i^-1 * x_j)
+                  // error sij^-1 * (swi)^-1 * swj
+                  //
+                  SE3 sij = sji.inverse();
+                  g2o::EdgeSE3* e_se3 = new g2o::EdgeSE3();
+                  //g2o::EdgeSE3 *e_se3 = new g2o::EdgeSE3();
+                  e_se3->setVertex(0, optimizer.vertex(i));
+                  e_se3->setVertex(1, optimizer.vertex(j));
+                  e_se3->setMeasurement(SE3_to_g2o(sij));
+                  //e_se3->information() = map_keyframes[j]->xcov_kf_w;
+                  e_se3->setInformation(Matrix6d::Identity());
+                  optimizer.addEdge(e_se3);
+              }
+          }
+      }
+
+      // introduce loop closure edges
+      int id = 0;
+      for (auto it = loop_ids.begin(); it != loop_ids.end(); it++, id++)
+      {
+          // add edge
+          g2o::EdgeSE3 *e_se3 = new g2o::EdgeSE3();
+          e_se3->setVertex(0, optimizer.vertex((*it)(0)));
+          e_se3->setVertex(1, optimizer.vertex((*it)(1)));
+          SE3 loop_pose = loop_poses[id].inverse();
+          e_se3->setMeasurement(SE3_to_g2o(loop_pose));
+          e_se3->information() = Matrix6d::Identity();
+          optimizer.addEdge(e_se3);
+      }
+
+
+      // optimize graph
+      optimizer.initializeOptimization();
+      optimizer.computeInitialGuess();
+      optimizer.computeActiveErrors();
+      optimizer.optimize(100);
+
+      // recover pose and update map
+      // Matrix4d Tkfw_corr;
+      for (auto kf_it = kf_list.begin(); kf_it != kf_list.end(); kf_it++)
+      {
+          g2o::VertexSE3 *v_se3 = static_cast<g2o::VertexSE3 *>(optimizer.vertex((*kf_it)));
+          g2o::SE3Quat Twc_g2o = v_se3->estimateAsSE3Quat();
+          SE3 Tcw_prev = kf_map[(*kf_it)]->T_c_w;
+          SE3 Twc_pgo = SE3_from_g2o(Twc_g2o);
+          SE3 Tcw_corr =Twc_pgo.inverse()*Tcw_prev.inverse();//Tpgo_prev =
+
+          //kf_map[(*kf_it)]->T_c_w = Tcw_pgo.inverse();
+          //cout<<"after g2o pgo: ";
+          //cout<<Tcw_corr<<endl;
+
+
+
+      }
+
+
+
+
+
+
+
+
+
+
+
+
+    }
+    void loopClosureOnCovGraphG2O()
+    {
+      uint64_t kf_prev_idx = 2 * kf_map.size();
+      uint64_t kf_curr_idx = 0;
+      for(size_t i = 0; i < loop_ids.size(); i++)
+      {
+        if(loop_ids[i](0) < kf_prev_idx)
+          kf_prev_idx = loop_ids[i](0);
+        if(loop_ids[i](1) > kf_curr_idx)
+          kf_curr_idx = loop_ids[i](1);
+      }
+      cout<<"first and last id in the loop: "<<kf_prev_idx<<" "<<kf_curr_idx<<endl;
+
+
+      g2o::SparseOptimizer optimizer;
+      optimizer.setVerbose(true);
+
+
+      std::unique_ptr<g2o::BlockSolver_6_3::LinearSolverType> linearSolver(new g2o::LinearSolverCholmod<g2o::BlockSolver_6_3::PoseMatrixType>());
+      std::unique_ptr<g2o::BlockSolver_6_3> solver_ptr(new g2o::BlockSolver_6_3(std::move(linearSolver)));
+      g2o::OptimizationAlgorithmLevenberg *solver = new g2o::OptimizationAlgorithmLevenberg(std::move(solver_ptr));
+
+      solver->setUserLambdaInit(1e-10);
+      optimizer.setAlgorithm(solver);
+
+      //noticed g2o pgo use swi swj as vertices, where swi transform p from i to w
+      //use sij as edge
+      //error function is sij^-1 * (swi^-1*swj)
+      //so we need to use Tcw.inverse() as vertices, and sji.inverse as edge
+
+      // grab the KFs included in the optimization
+      vector<int> kf_list;
+      for (int i = kf_prev_idx; i <= kf_curr_idx; i++)
+      {
+          if (kf_map[i] != nullptr)
+          {
+              // check if it is a LC vertex
+              bool is_lc_i = false;
+              bool is_lc_j = false;
+              int id = 0;
+              for (auto it = loop_ids.begin(); it != loop_ids.end(); it++, id++)
+              {
+                  if ((*it)(0) == i)
+                  {
+                      is_lc_i = true;
+                      break;
+                  }
+                  if ((*it)(1) == i)
+                  {
+                      is_lc_j = true;
+                      break;
+                  }
+              }
+              kf_list.push_back(i);
+              // create SE3 vertex
+              g2o::VertexSE3 *v_se3 = new g2o::VertexSE3();
+              v_se3->setId(i);
+              v_se3->setMarginalized(false);
+
+              // _inverseMeasurement * from->estimate().inverse() * to->estimate();
+              // z^-1 * (x_i^-1 * x_j)
+              SE3 siw = kf_map[i]->T_c_w.inverse();
+
+              if (is_lc_j)
+              {
+                  // update pose of LC vertex
+                  v_se3->setFixed(false);
+
+                  v_se3->setEstimate(SE3_to_g2o(siw));
+              }
+              else
+              {
+                  v_se3->setEstimate(SE3_to_g2o(siw));
+                  //if ((is_lc_i && loop_ids.back()[0] == i) || i == 0)
+                  if(i == 0)
+                      v_se3->setFixed(true);
+                  else
+                      v_se3->setFixed(false);
+              }
+              optimizer.addVertex(v_se3);
+          }
+      }
+
+
+      // introduce edges
+      for (int i = kf_prev_idx; i <= kf_curr_idx; i++)
+      {
+          for (int j = i + 1; j <= kf_curr_idx, j <= kf_prev_idx +5 ; j++)
+          {
+              if (kf_map[i] != nullptr && kf_map[j] != nullptr)
+              {
+                  // kf2kf constraint
+                  SE3 sji = kf_map[j]->T_c_w*kf_map[i]->T_c_w.inverse();//se_jw*se_iw.inverse();
+                  SE3 sij = sji.inverse();
+                  // add edge
+                  g2o::EdgeSE3* e_se3 = new g2o::EdgeSE3();
+                  //g2o::EdgeSE3 *e_se3 = new g2o::EdgeSE3();
+                  e_se3->setVertex(0, optimizer.vertex(i));
+                  e_se3->setVertex(1, optimizer.vertex(j));
+                  e_se3->setMeasurement(SE3_to_g2o(sij));
+                  //e_se3->information() = map_keyframes[j]->xcov_kf_w;
+                  e_se3->setInformation(Matrix6d::Identity());
+                  optimizer.addEdge(e_se3);
+              }
+          }
+      }
+
+      // introduce loop closure edges
+      int id = 0;
+      for (auto it = loop_ids.begin(); it != loop_ids.end(); it++, id++)
+      {
+          // add edge
+          g2o::EdgeSE3 *e_se3 = new g2o::EdgeSE3();
+          e_se3->setVertex(0, optimizer.vertex((*it)(0)));
+          e_se3->setVertex(1, optimizer.vertex((*it)(1)));
+          SE3 loop_pose = loop_poses[id].inverse();
+          e_se3->setMeasurement(SE3_to_g2o(loop_pose));
+          e_se3->information() = Matrix6d::Identity();
+          optimizer.addEdge(e_se3);
+      }
+
+
+      // optimize graph
+      optimizer.initializeOptimization();
+      optimizer.computeInitialGuess();
+      optimizer.computeActiveErrors();
+      optimizer.optimize(100);
+
+      // recover pose and update map
+      // Matrix4d Tkfw_corr;
+      for (auto kf_it = kf_list.begin(); kf_it != kf_list.end(); kf_it++)
+      {
+          g2o::VertexSE3 *v_se3 = static_cast<g2o::VertexSE3 *>(optimizer.vertex((*kf_it)));
+          g2o::SE3Quat Twc_g2o = v_se3->estimateAsSE3Quat();
+          SE3 Tcw_prev = kf_map[(*kf_it)]->T_c_w;
+          SE3 Twc_pgo = SE3_from_g2o(Twc_g2o);
+          SE3 Tcw_corr =Twc_pgo.inverse()*Tcw_prev.inverse();//Tpgo_prev =
+
+          //kf_map[(*kf_it)]->T_c_w = Twc_pgo.inverse();
+          //cout<<"after g2o pgo: ";
+          //cout<<Tcw_corr<<endl;
+
+
+
+      }
+
+
+
+    }
+
 
 
 
@@ -249,10 +593,11 @@ private:
 
 
         KeyFrameStruct kf;
-        uint64_t kf_prev_idx;
         BowVector kf_bv;
         SE3 loop_pose;
-        //KeyFrameMsg::unpack(msg,kf.frame_id,kf.img,kf.lm_id,kf.lm_2d,kf.lm_3d,kf.lm_descriptor,kf.T_c_w);
+
+        KeyFrameMsg::unpack(msg,kf.frame_id,kf.img,kf.lm_count,kf.lm_id,kf.lm_2d,kf.lm_3d,kf.lm_descriptor,kf.T_c_w);
+
         shared_ptr<KeyFrameStruct> kf_ptr = make_shared<KeyFrameStruct>(kf);
 
         voc.transform(kf_ptr->lm_descriptor,kf_bv);
@@ -268,14 +613,31 @@ private:
             sim_matrix[i][kfbv_map.size()-1] = score;
           }
         }
+        uint64_t kf_prev_idx;
         bool is_lc_candidate = isLoopCandidate(kf_prev_idx);
+        bool is_lc = false;
         uint64_t kf_curr_idx = kf_map.size()-1;
         //if(!is_lc_candidate) return;
         //just test loop pose estimation
-        if(kf_curr_idx > 10) bool is_lc = isLoopClosure(kf_map[kf_curr_idx],kf_map[kf_curr_idx-5],loop_pose);
+        if(kf_curr_idx > 20) bool is_lc = isLoopClosure(kf_map[kf_curr_idx-5],kf_map[kf_curr_idx],loop_pose);
+        {
+          loop_ids.push_back(Vec3I(kf_curr_idx-5, kf_curr_idx, 1));
+          loop_poses.push_back(loop_pose);
+          loopClosureOnCovGraphG2O();
+        }
 
-        loop_ids.push_back(Vec3(kf_curr_idx - 5, kf_curr_idx, 1));
-        loop_poses.push_back(loop_pose);
+        // real loop clpsure correction, but need to tune paras
+//        if(kf_curr_idx > 10) is_lc = isLoopClosure(kf_map[kf_prev_idx], kf_map[kf_curr_idx], loop_pose);
+//        if(!is_lc) return;
+//        if(is_lc)
+//        {
+//          loop_ids.push_back(Vec3I(kf_prev_idx, kf_curr_idx, 1));
+//          loop_poses.push_back(loop_pose);
+//          loopClosureOnCovGraphG2O();
+//        }
+
+
+
 
 
 
