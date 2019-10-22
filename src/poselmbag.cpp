@@ -67,7 +67,7 @@ void PoseLMBag::addPose(int64_t id_in, SE3 pose_in)
         {
             this->pose_sub_bag_initialized = true;
             this->oldest = 0;
-            this->newest = 7;
+            this->newest = (POSE_LOOP_BUFFER_SIZE-1);
         }
     }
 }
@@ -86,10 +86,16 @@ void PoseLMBag::getAllPoses(vector<POSE_ITEM> &poses_out)
     }
 }
 
-int PoseLMBag::getOldestIdx(void)
+int PoseLMBag::getNewestPoseInOptimizerIdx(void)
+{
+    return this->newest;
+}
+
+int PoseLMBag::getOldestPoseInOptimizerIdx(void)
 {
     return this->oldest;
 }
+
 
 int64_t PoseLMBag::getPoseIdByReleventFrameId(int64_t frame_id)
 {

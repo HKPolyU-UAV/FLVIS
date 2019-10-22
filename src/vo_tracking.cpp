@@ -28,18 +28,25 @@
 #include <include/yamlRead.h>
 #include <include/cv_draw.h>
 #include <vo_nodelet/KeyFrame.h>
+#include <vo_nodelet/CorrectionInf.h>
 #include <include/keyframe_msg.h>
 #include <include/bundle_adjustment.h>
+#include <include/correction_inf_msg.h>
 
 using namespace cv;
 using namespace std;
-
-
 
 enum TRACKINGSTATE{UnInit, Working, trackingFail};
 
 namespace vo_nodelet_ns
 {
+
+
+
+struct ID_POSE {
+  int    frame_id;
+  SE3    T_c_w;
+} ;
 
 
 class VOTrackingNodeletClass : public nodelet::Nodelet
@@ -54,6 +61,7 @@ private:
     message_filters::Subscriber<sensor_msgs::Image> depth_sub;
     typedef message_filters::sync_policies::ExactTime<sensor_msgs::Image, sensor_msgs::Image> MyExactSyncPolicy;
     message_filters::Synchronizer<MyExactSyncPolicy> * exactSync_;
+    ros::Subscriber correction_inf_sub;
 
     //State Machine
     enum TRACKINGSTATE   vo_tracking_state;
@@ -67,6 +75,10 @@ private:
     Mat distCoeffs;
     int image_width,image_height;
     CameraFrame::Ptr curr_frame,last_frame;
+    //Pose Records and Correction Information
+    deque<ID_POSE> pose_records;
+    bool has_feedback;
+    CorrectionInfStruct correction_inf;
 
     //Visualization
     Mat currShowImg;
@@ -76,6 +88,8 @@ private:
     KeyFrameMsg* kf_pub;
     image_transport::ImageTransport *it;
     image_transport::Publisher cv_pub;
+
+
 
     virtual void onInit()
     {
@@ -108,6 +122,7 @@ private:
 
         frameCount = 0;
         vo_tracking_state = UnInit;
+        has_feedback = false;
 
         //Publish
         path_pub  = new RVIZPath(nh,"/vo_path");
@@ -123,9 +138,29 @@ private:
         depth_sub.subscribe(nh, "/vo/depth_image", 1);
         exactSync_ = new message_filters::Synchronizer<MyExactSyncPolicy>(MyExactSyncPolicy(3), image_sub, depth_sub);
         exactSync_->registerCallback(boost::bind(&VOTrackingNodeletClass::image_input_callback, this, _1, _2));
+        //Correction information
+        correction_inf_sub = nh.subscribe<vo_nodelet::CorrectionInf>(
+                    "/vo_localmap_feedback",
+                    1,
+                    boost::bind(&VOTrackingNodeletClass::correction_feedback_callback, this, _1));
         cout << "init Subscribe" << endl;
 
         cout << "onInit() finished" << endl;
+    }
+
+    void correction_feedback_callback(const vo_nodelet::CorrectionInf::ConstPtr& msg)
+    {
+        cout << " correction_feedback_callback " << endl;
+        //unpacking and update the structure
+        CorrectionInfMsg::unpack(msg,
+                                 correction_inf.frame_id,
+                                 correction_inf.T_c_w,
+                                 correction_inf.lm_count,
+                                 correction_inf.lm_id,
+                                 correction_inf.lm_3d,
+                                 correction_inf.lm_outlier_count,
+                                 correction_inf.lm_outlier_id);
+        has_feedback=true;
     }
 
     void image_input_callback(const sensor_msgs::ImageConstPtr & imgPtr, const sensor_msgs::ImageConstPtr & depthImgPtr)
@@ -197,6 +232,41 @@ private:
 
         case Working:
         {
+            /*Recover from LocalMap Feedback msg
+             *
+            */
+            if(has_feedback)
+            {
+                //find pose;
+                int corr_id = correction_inf.frame_id;
+                int old_pose_idx = 0;
+                for(int i=(pose_records.size()-1); i>=0; i--)
+                {
+                    if(pose_records.at(i).frame_id==corr_id)
+                    {
+                        old_pose_idx=i;
+                        break;
+                    }
+                }
+                SE3 old_T_c_w = pose_records.at(old_pose_idx).T_c_w;
+                SE3 old_T_c_w_inv = old_T_c_w.inverse();
+                SE3 update_T_c_w = correction_inf.T_c_w;
+                //update pose records
+                for(int i=old_pose_idx; i<pose_records.size(); i++)
+                {
+                    SE3 T_diff= pose_records.at(i).T_c_w * old_T_c_w_inv;
+                    pose_records.at(i).T_c_w = T_diff * update_T_c_w;
+                }
+                //update last_frame pose and landmake p3d throuth transformation
+                SE3 T_diff= last_frame->T_c_w * old_T_c_w_inv;
+                last_frame->T_c_w = T_diff * update_T_c_w;
+                last_frame->correctLMP3DWByLMP3DCandT();
+                //update last_frame landmake lm_3d_w and mask outlier
+                last_frame->forceCorrectLM3DW(correction_inf.lm_count,correction_inf.lm_id,correction_inf.lm_3d);
+                last_frame->forceMarkOutlier(correction_inf.lm_outlier_count,correction_inf.lm_outlier_id);
+                //maek last_frame outlier
+                has_feedback = false;
+            }
             /* F2F Workflow
                      STEP1: Track Match and Update to curr_frame
                      STEP2: 2D3D-PNP+F2FBA
@@ -257,6 +327,18 @@ private:
             }
             //innovate 3D information
             curr_frame->depthInnovation();
+
+
+            //record the pose
+            ID_POSE tmp;
+            tmp.frame_id = curr_frame->frame_id;
+            tmp.T_c_w = curr_frame->T_c_w;
+            pose_records.push_back(tmp);
+            if(pose_records.size() >= 100)
+            {
+                pose_records.pop_front();
+            }
+
 
             //visualize and publish
             vector<Vec2> outlier;

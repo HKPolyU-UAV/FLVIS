@@ -261,8 +261,9 @@ void CameraFrame::depthInnovation(void)
             //transfor to Camera frame
             Vec3 lm_c = DepthCamera::world2cameraT_c_w(landmarks.at(i).lm_3d_w,this->T_c_w);
             //apply IIR Filter
-            Vec3 lm_c_update = lm_c*0.8+lm_c_measure*0.2;
+            Vec3 lm_c_update = lm_c*0.7+lm_c_measure*0.3;
             //update to world frame
+            landmarks.at(i).lm_3d_c = lm_c_update;
             landmarks.at(i).lm_3d_w = DepthCamera::camera2worldT_c_w(lm_c_update,this->T_c_w);
             landmarks.at(i).lmState = LMSTATE_NORMAL;
         }
@@ -277,6 +278,50 @@ void CameraFrame::depthInnovation(void)
     }
 }
 
+void CameraFrame::correctLMP3DWByLMP3DCandT(void)
+{
+    SE3 T=this->T_c_w;
+    for(auto lm:landmarks)
+    {
+        if(lm.hasDepthInf())
+        {
+            lm.lm_3d_w = DepthCamera::camera2worldT_c_w(lm.lm_3d_c,T);
+        }
+    }
+}
+
+void CameraFrame::forceCorrectLM3DW(const int &cnt, const vector<int64_t> &ids, const vector<Vec3> &lms_3d)
+{
+    if(cnt<=0) return;
+    for(int i=0; i<cnt; i++)
+    {
+        int correct_lm_id=ids.at(i);
+        for(auto lm:landmarks)
+        {
+            if(lm.lm_id==correct_lm_id)
+            {
+                lm.lm_3d_w=lms_3d.at(i);
+                break;
+            }
+        }
+    }
+}
+
+void CameraFrame::forceMarkOutlier(const int &cnt, const vector<int64_t> &ids)
+{
+    if(cnt<=0) return;
+    for(int i=0; i<cnt; i++)
+    {
+        int correct_lm_id=ids.at(i);
+        for(auto lm:landmarks)
+        {
+            if(lm.lm_id==correct_lm_id)
+            {
+                lm.lm_tracking_state=LM_TRACKING_OUTLIER;
+            }
+        }
+    }
+}
 
 void CameraFrame::getValid2d3dPair_cvPf(vector<Point2f> &p2d, vector<Point3f> &p3d)
 {

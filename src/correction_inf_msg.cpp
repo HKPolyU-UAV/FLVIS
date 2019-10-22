@@ -53,12 +53,12 @@ void CorrectionInfMsg::pub(const int64_t         &frame_id_in,
 
     c_inf.lm_outlier_count = lm_outlier_count_in;
 
-    c_inf.lm_id_data.layout.dim.push_back(std_msgs::MultiArrayDimension());
-    c_inf.lm_id_data.layout.dim[0].label = "lm_outlier_id";
-    c_inf.lm_id_data.layout.dim[0].size = static_cast<uint32_t>(lm_outlier_id_in.size());
-    c_inf.lm_id_data.layout.dim[0].stride = static_cast<uint32_t>(lm_outlier_id_in.size());
-    c_inf.lm_id_data.data.clear();
-    c_inf.lm_id_data.data.insert(c_inf.lm_outlier_id_data.data.end(),lm_outlier_id_in.begin(),lm_outlier_id_in.end());
+    c_inf.lm_outlier_id_data.layout.dim.push_back(std_msgs::MultiArrayDimension());
+    c_inf.lm_outlier_id_data.layout.dim[0].label = "lm_outlier_id";
+    c_inf.lm_outlier_id_data.layout.dim[0].size = static_cast<uint32_t>(lm_outlier_id_in.size());
+    c_inf.lm_outlier_id_data.layout.dim[0].stride = static_cast<uint32_t>(lm_outlier_id_in.size());
+    c_inf.lm_outlier_id_data.data.clear();
+    c_inf.lm_outlier_id_data.data.insert(c_inf.lm_outlier_id_data.data.end(),lm_outlier_id_in.begin(),lm_outlier_id_in.end());
 
     this->correction_inf_pub.publish(c_inf);
 }

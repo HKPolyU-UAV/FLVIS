@@ -9,6 +9,7 @@
 
 #include <include/yamlRead.h>
 #include <include/cv_draw.h>
+#include <include/correction_inf_msg.h>
 
 #include <include/keyframe_msg.h>
 #include <vo_nodelet/KeyFrame.h>
@@ -39,19 +40,25 @@
 using namespace cv;
 using namespace std;
 
-#define FIX_WINDOW_OPTIMIZER_SIZE (8)
+#define FIX_WINDOW_OPTIMIZER_SIZE (5)
 
-static int64_t optimizer_edge_idx;
 static int64_t edge_id;
 
 
 namespace vo_nodelet_ns
 {
 
-
-
 std::deque<KeyFrameStruct> kfs;
-PoseLMBag pose_lm_bag;
+PoseLMBag bag;
+
+
+enum LMOPTIMIZER_STATE{
+    UN_INITIALIZED,
+    SLIDING_WINDOW,
+    OPTIMIZING,
+    FAIL };
+
+
 
 class VOLocalMapNodeletClass : public nodelet::Nodelet
 {
@@ -61,12 +68,18 @@ public:
 
 private:
     ros::Subscriber sub_kf;
+    CorrectionInfMsg* pub_correction_inf;
+
+
     int image_width,image_height;
-    Mat cameraMatrix,distCoeffs;
     Mat diplay_img;
+
+
     double fx,fy,cx,cy;
-    bool optimizer_initialized;
     g2o::CameraParameters* cam_params;
+    LMOPTIMIZER_STATE optimizer_state;
+    g2o::SparseOptimizer optimizer;
+    vector<g2o::EdgeProjectXYZ2UV*> edges;
 
 
     void frame_callback(const vo_nodelet::KeyFrameConstPtr& msg)
@@ -83,41 +96,36 @@ private:
                             kf.T_c_w);
 
         kfs.push_back(kf);
-        if(kfs.size()>=FIX_WINDOW_OPTIMIZER_SIZE)//fix window BA
+        cout << "IN CALL BACK FUNCTION" << endl;
+        switch(optimizer_state)
         {
-            if(optimizer_initialized)
+        case UN_INITIALIZED:
+            if(kfs.size()>=FIX_WINDOW_OPTIMIZER_SIZE)
             {
-                //remove outside of window vertex (poses & landmarks) and edges
-                //add new vertex and edges
-
-            }
-            else//initialize the optimizer
-            {
-
                 typedef g2o::BlockSolver< g2o::BlockSolverTraits<6,3> > Block;
                 std::unique_ptr<Block::LinearSolverType> linearSolver ( new g2o::LinearSolverEigen<Block::PoseMatrixType>());
                 std::unique_ptr<Block> solver_ptr ( new Block ( std::move(linearSolver)));
                 g2o::OptimizationAlgorithmLevenberg* solver = new g2o::OptimizationAlgorithmLevenberg ( std::move(solver_ptr));
-                g2o::SparseOptimizer optimizer;
                 optimizer.setAlgorithm ( solver );
 
-
-                cout << "-----------------------------------------------------------------------------------------" << endl;
+                cout << "Init the Optimizer-------------------------------------------------------------------------" << endl;
                 for(int f_idx = 0; f_idx<FIX_WINDOW_OPTIMIZER_SIZE; f_idx++)//add pose
                 {
-                    pose_lm_bag.addPose(kfs.at(f_idx).frame_id,kfs.at(f_idx).T_c_w);
-                    cout << "lm_cout " << kfs.at(f_idx).lm_count << " " << kfs.at(f_idx).lm_3d.size() << endl;
+                    bag.addPose(kfs.at(f_idx).frame_id,
+                                kfs.at(f_idx).T_c_w);
+                    //cout << "lm_cout " << kfs.at(f_idx).lm_count << " " << kfs.at(f_idx).lm_3d.size() << endl;
                     for(int lm_idx=0; lm_idx < kfs.at(f_idx).lm_count; lm_idx++)//add landmarks
                     {
-                        pose_lm_bag.addLM(kfs.at(f_idx).lm_id.at(lm_idx),kfs.at(f_idx).lm_3d.at(lm_idx));
+                        bag.addLM(kfs.at(f_idx).lm_id.at(lm_idx),
+                                  kfs.at(f_idx).lm_3d.at(lm_idx));
                     }
                 }
-                //add pose vertex;
+                //STEP1: Add Camera Pose Vertex;
                 vector<POSE_ITEM> poses;
-                int oldest_idx1 = pose_lm_bag.getOldestIdx();
+                int oldest_idx1 = bag.getOldestPoseInOptimizerIdx();
                 int oldest_idx2 = (oldest_idx1+1);
                 if(oldest_idx2 == FIX_WINDOW_OPTIMIZER_SIZE) oldest_idx2 = 0;
-                pose_lm_bag.getAllPoses(poses);
+                bag.getAllPoses(poses);
                 for(std::vector<POSE_ITEM>::iterator it = poses.begin(); it != poses.end(); ++it)
                 {
                     g2o::VertexSE3Expmap* v_pose = new g2o::VertexSE3Expmap();
@@ -130,9 +138,9 @@ private:
                                                      it->pose.translation()));
                     optimizer.addVertex(v_pose);
                 }
-                //add landmark vertex;
+                //STEP2: Add LandMark Vertex;
                 vector<LM_ITEM> lms;
-                pose_lm_bag.getAllLMs(lms);
+                bag.getAllLMs(lms);
                 for(std::vector<LM_ITEM>::iterator it = lms.begin(); it != lms.end(); ++it) {
                     g2o::VertexSBAPointXYZ* point = new g2o::VertexSBAPointXYZ();
                     point->setId (it->id);
@@ -140,105 +148,139 @@ private:
                     point->setMarginalized ( true );
                     optimizer.addVertex (point);
                 }
-                pose_lm_bag.debug_output();
-                //add camera model
+
+                //STEP3: Add All Observation Edge;
                 g2o::CameraParameters* camera = new g2o::CameraParameters(((fx+fy)/2.0), Eigen::Vector2d(cx, cy), 0 );
                 camera->setId(0);
                 optimizer.addParameter(camera);
-                //add edge model
                 edge_id = 0;
-                vector<g2o::EdgeProjectXYZ2UV*> edges;
+                edges.clear();
                 for(int f_idx = 0; f_idx<FIX_WINDOW_OPTIMIZER_SIZE; f_idx++)//add pose
                 {
-                    int64_t pose_idx = pose_lm_bag.getPoseIdByReleventFrameId(kfs.at(f_idx).frame_id);
-                    cout << pose_idx << endl;
+                    int64_t pose_vertex_idx = bag.getPoseIdByReleventFrameId(kfs.at(f_idx).frame_id);
+                    //cout << pose_vertex_idx << endl;
                     for(int lm_idx=0; lm_idx < kfs.at(f_idx).lm_count; lm_idx++)//add landmarks
                     {
                         g2o::EdgeProjectXYZ2UV*  edge = new g2o::EdgeProjectXYZ2UV();
                         edge->setId(edge_id);
                         edge_id++;
-                        edge->setVertex( 0, dynamic_cast<g2o::VertexSBAPointXYZ*> (optimizer.vertex(kfs.at(f_idx).lm_id.at(lm_idx))));
-                        edge->setVertex( 1, dynamic_cast<g2o::VertexSE3Expmap*>   (optimizer.vertex(pose_idx)));
-                        edge->setMeasurement( Eigen::Vector2d(kfs.at(f_idx).lm_2d.at(lm_idx)[0], kfs.at(f_idx).lm_2d.at(lm_idx)[1]));
-                        edge->setInformation( Eigen::Matrix2d::Identity() );
+                        int64_t lm_vertex_idx = kfs.at(f_idx).lm_id.at(lm_idx);
+                        edge->setVertex(0,dynamic_cast<g2o::VertexSBAPointXYZ*>(optimizer.vertex(  lm_vertex_idx)));
+                        edge->setVertex(1,dynamic_cast<g2o::VertexSE3Expmap*>  (optimizer.vertex(pose_vertex_idx)));
+                        edge->setMeasurement(kfs.at(f_idx).lm_2d.at(lm_idx));
+                        edge->setInformation(Eigen::Matrix2d::Identity() );
                         edge->setParameterId(0,0);
                         edge->setRobustKernel(new g2o::RobustKernelHuber());
                         optimizer.addEdge(edge);
                         edges.push_back(edge);
                     }
                 }
-                optimizer_initialized = true;
-                for ( auto e:edges )
-                {
-                    e->computeError();
-                    cout<<"error = "<<e->chi2()<<endl;
-                }
-                cout<<"start optimization"<<endl;
-                optimizer.setVerbose(true);
-                optimizer.initializeOptimization();
-                optimizer.optimize(10);
-                cout<<"end"<<endl;
-
-                //transformation of newest frame
-                //                g2o::VertexSE3Expmap* v = dynamic_cast<g2o::VertexSE3Expmap*>( optimizer.vertex(1) );
-                //                Eigen::Isometry3d pose = v->estimate();
-                //                cout<<"Pose="<<endl<<pose.matrix()<<endl;
-                //landmark position
-                //                for ( size_t i=0; i<20; i++ )
-                //                {
-                //                    g2o::VertexSBAPointXYZ* v = dynamic_cast<g2o::VertexSBAPointXYZ*> (optimizer.vertex(i+2));
-                //                    cout<<"vertex id "<<i+2<<", pos = ";
-                //                    Eigen::Vector3d pos = v->estimate();
-                //                    cout<<pos(0)<<","<<pos(1)<<","<<pos(2)<<endl;
+                //output error
+                //                for (auto e:edges){
+                //                    e->computeError();
+                //                    cout<<"error = "<<e->chi2()<<endl;
                 //                }
-                //calculatie inliers
-                int inliers = 0;
-                for ( auto e:edges )
-                {
-                    e->computeError();
-                    if (e->chi2()>3.0)
-                    {
-                        cout<<"error = "<<e->chi2()<<endl;
-                    }
-                    else
-                    {
-                        inliers++;
-                    }
-                }
-                cout << inliers << endl;
+                optimizer_state = OPTIMIZING;
             }
-            if(optimizer_initialized)
-            {//dealing with the output
-
-            }
-            //visualization
-            for(size_t i=0; i<8; i++)
+            else//if(kfs.size()>=FIX_WINDOW_OPTIMIZER_SIZE)
             {
-                Mat dst;
-                pyrDown( kfs.at(i).img, dst, Size( image_width/2, image_height/2));
-                cvtColor(dst,dst,CV_GRAY2BGR);
-                vector<Vec2> lm_2d_half;
-                for(size_t j=0; j<kfs.at(i).lm_2d.size(); j++)
-                {
-                    Vec2 p2d = kfs.at(i).lm_2d.at(j);
-                    Vec2 p2d_half = 0.5*p2d;
-                    lm_2d_half.push_back(p2d_half);
-                }
-                drawKeyPts(dst,vVec2_2_vcvP2f(lm_2d_half));
-                int start_x = i%4*(image_width/2)+(i%4);
-                int start_y = i/4*(image_height/2);
-                Mat diplay_img_roi(diplay_img, Rect(start_x, start_y, dst.cols, dst.rows));
-                dst.copyTo(diplay_img_roi);
+                return;
             }
-            //imshow("dispaly_img", diplay_img);
-            //waitKey(1);
+            break;//switch(optimizer_state) case UN_INITIALIZED:
+        case SLIDING_WINDOW:
+            std::cout << "construct optimizer";
+            optimizer_state = OPTIMIZING;
+            //STEP1: Delete Oldest Frame
 
-            kfs.pop_front();
-            //DISPLAY 8 IMAGES
+            //STEP2: Add Newest Frame
+
+            break;//switch(optimizer_state) case SLIDING_WINDOW:
+        case FAIL:
+            std::cout << "--------------------" << endl;
+            break;//switch(optimizer_state) case FAIL:
         }
+        if(optimizer_state==OPTIMIZING)
+        {
+            CorrectionInfStruct correction_inf;
+            correction_inf.frame_id=kfs.end()->frame_id;
 
-        cout << endl << "Local Map BA Callback" << endl;
-    }
+            cout<<"start optimization"<<endl;
+            optimizer.setVerbose(false);
+            optimizer.initializeOptimization();
+            optimizer.optimize(10);
+            cout<<"10 loops"<<endl;
+            //remove outliers
+            int outlier_cnt = 0;
+            int inliers_cnt = 0;
+            for(auto e:edges)
+            {
+                e->computeError();
+                if (e->chi2()>1.0){
+                    cout<<"error = "<<e->chi2()<<endl;
+                    int id=  e->vertex(0)->id();//outlier landmark id;
+                    correction_inf.lm_outlier_id.push_back(id);
+                    outlier_cnt++;
+                }else{
+                    inliers_cnt++;
+                }
+            }
+            correction_inf.lm_outlier_count=outlier_cnt;
+            optimizer.optimize(5);
+
+            //update pose of newest frame
+
+            g2o::VertexSE3Expmap* v = dynamic_cast<g2o::VertexSE3Expmap*>( optimizer.vertex(bag.getNewestPoseInOptimizerIdx()));
+            Eigen::Isometry3d pose = v->estimate();
+            correction_inf.T_c_w = SE3(pose.rotation(),pose.translation());
+
+            //landmark position
+            vector<LM_ITEM> lms;
+            bag.getAllLMs(lms);
+            correction_inf.lm_count = lms.size();
+            for (auto lm:lms)
+            {
+                g2o::VertexSBAPointXYZ* v = dynamic_cast<g2o::VertexSBAPointXYZ*> (optimizer.vertex(lm.id));
+                Eigen::Vector3d pos = v->estimate();
+                int64_t id = v->id();
+                correction_inf.lm_id.push_back(id);
+                correction_inf.lm_3d.push_back(pos);
+            }
+            optimizer_state=SLIDING_WINDOW;
+            pub_correction_inf->pub(correction_inf.frame_id,
+                                    correction_inf.T_c_w,
+                                    correction_inf.lm_count,
+                                    correction_inf.lm_id,
+                                    correction_inf.lm_3d,
+                                    correction_inf.lm_outlier_count,
+                                    correction_inf.lm_outlier_id);
+
+            //visualization
+            if(0)
+            {
+                for(size_t i=0; i<8; i++)
+                {
+                    Mat dst;
+                    pyrDown( kfs.at(i).img, dst, Size( image_width/2, image_height/2));
+                    cvtColor(dst,dst,CV_GRAY2BGR);
+                    vector<Vec2> lm_2d_half;
+                    for(size_t j=0; j<kfs.at(i).lm_2d.size(); j++)
+                    {
+                        Vec2 p2d = kfs.at(i).lm_2d.at(j);
+                        Vec2 p2d_half = 0.5*p2d;
+                        lm_2d_half.push_back(p2d_half);
+                    }
+                    drawKeyPts(dst,vVec2_2_vcvP2f(lm_2d_half));
+                    int start_x = i%4*(image_width/2)+(i%4);
+                    int start_y = i/4*(image_height/2);
+                    Mat diplay_img_roi(diplay_img, Rect(start_x, start_y, dst.cols, dst.rows));
+                    dst.copyTo(diplay_img_roi);
+                }
+                imshow("dispaly_img", diplay_img);
+                waitKey(1);
+            }
+        }//if(optimizer_state==OPTIMIZING)
+        kfs.pop_front();
+    }//call back function
 
     virtual void onInit()
     {
@@ -248,6 +290,7 @@ private:
         nh.getParam("/yamlconfigfile",   configFilePath);
         image_width  = getIntVariableFromYaml(configFilePath,"image_width");
         image_height = getIntVariableFromYaml(configFilePath,"image_height");
+        Mat cameraMatrix,distCoeffs;
         cameraMatrix = cameraMatrixFromYamlIntrinsics(configFilePath);
         distCoeffs = distCoeffsFromYaml(configFilePath);
         fx = cameraMatrix.at<double>(0,0);
@@ -259,7 +302,9 @@ private:
              << "image_width: "  << image_width << " image_height: "  << image_height << endl
              << "fx: "  << fx << " fy: "  << fy <<  " cx: "  << cx <<  " cy: "  << cy << endl;
         diplay_img.create(image_height+1,image_width*2+5,CV_8UC(3));
-        optimizer_initialized = false;
+
+        pub_correction_inf = new CorrectionInfMsg(nh,"/vo_localmap_feedback");
+        optimizer_state = UN_INITIALIZED;
 
         sub_kf = nh.subscribe<vo_nodelet::KeyFrame>(
                     "/vo_kf",
