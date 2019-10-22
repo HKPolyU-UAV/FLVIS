@@ -252,7 +252,7 @@ private:
         uint64_t kf_prev_idx;
         BowVector kf_bv;
         SE3 loop_pose;
-        KeyFrameMsg::unpack(msg,kf.frame_id,kf.img,kf.lm_id,kf.lm_2d,kf.lm_3d,kf.lm_descriptor,kf.T_c_w);
+        //KeyFrameMsg::unpack(msg,kf.frame_id,kf.img,kf.lm_id,kf.lm_2d,kf.lm_3d,kf.lm_descriptor,kf.T_c_w);
         shared_ptr<KeyFrameStruct> kf_ptr = make_shared<KeyFrameStruct>(kf);
 
         voc.transform(kf_ptr->lm_descriptor,kf_bv);
@@ -276,14 +276,6 @@ private:
 
         loop_ids.push_back(Vec3(kf_curr_idx - 5, kf_curr_idx, 1));
         loop_poses.push_back(loop_pose);
-
-
-
-
-
-
-
-
 
 
 
