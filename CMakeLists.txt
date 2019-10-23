@@ -45,6 +45,7 @@ find_package(catkin REQUIRED COMPONENTS
 add_message_files(
   FILES
   KeyFrame.msg
+  CorrectionInf.msg
 )
 
 generate_messages(
@@ -100,6 +101,7 @@ add_library(vo_nodelet
     src/keyframe_msg.cpp
     src/poselmbag.cpp
     src/bundle_adjustment.cpp
+    src/correction_inf_msg.cpp
     )
 
 target_link_libraries(vo_nodelet

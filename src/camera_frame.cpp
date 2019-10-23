@@ -29,7 +29,7 @@ void CameraFrame::trackMatchAndEraseOutlier(Mat& newImage,
     TermCriteria criteria = TermCriteria((TermCriteria::COUNT) + (TermCriteria::EPS), 10, 0.03);
     calcOpticalFlowPyrLK(img, newImage,
                          this->get2dPtsVec_cvP2f(), trackedLM_cvP2f,
-                         mask_tracked, err, Size(31,31), 3, criteria);
+                         mask_tracked, err, Size(31,31), 2, criteria);
 
     //STEP2
     vector<unsigned char> mask_hasDescriptor;
@@ -64,8 +64,9 @@ void CameraFrame::trackMatchAndEraseOutlier(Mat& newImage,
     vector<unsigned char> mask_matchCheck;
     for(size_t i=0; i<trackedLMDescriptors.size(); i++)
     {
-        if(norm(landmarks.at(i).lm_descriptor, trackedLMDescriptors.at(i), NORM_HAMMING) <= 100)
+        if(norm(landmarks.at(i).lm_descriptor, trackedLMDescriptors.at(i), NORM_HAMMING) <= 15)
         {
+            landmarks.at(i).lm_descriptor = trackedLMDescriptors.at(i);
             mask_matchCheck.push_back(1);
         }else
         {
@@ -263,6 +264,7 @@ void CameraFrame::depthInnovation(void)
             //apply IIR Filter
             Vec3 lm_c_update = lm_c*0.8+lm_c_measure*0.2;
             //update to world frame
+            landmarks.at(i).lm_3d_c = lm_c_update;
             landmarks.at(i).lm_3d_w = DepthCamera::camera2worldT_c_w(lm_c_update,this->T_c_w);
             landmarks.at(i).lmState = LMSTATE_NORMAL;
         }
@@ -277,6 +279,52 @@ void CameraFrame::depthInnovation(void)
     }
 }
 
+void CameraFrame::correctLMP3DWByLMP3DCandT(void)
+{
+    SE3 T=this->T_c_w;
+    for(auto lm:landmarks)
+    {
+        if(lm.hasDepthInf())
+        {
+            lm.lm_3d_w = DepthCamera::camera2worldT_c_w(lm.lm_3d_c,T);
+        }
+    }
+}
+
+void CameraFrame::forceCorrectLM3DW(const int &cnt, const vector<int64_t> &ids, const vector<Vec3> &lms_3d)
+{
+    if(cnt<=0) return;
+    for(int i=0; i<cnt; i++)
+    {
+        int correct_lm_id=ids.at(i);
+        for(size_t i=0; i<landmarks.size(); i++)
+        {
+            if(landmarks.at(i).lm_id==correct_lm_id)
+            {
+                cout <<"match!" << endl;
+                landmarks.at(i).lm_3d_w=lms_3d.at(i);
+                break;
+            }
+        }
+    }
+}
+
+void CameraFrame::forceMarkOutlier(const int &cnt, const vector<int64_t> &ids)
+{
+    if(cnt<=0) return;
+    for(int i=0; i<cnt; i++)
+    {
+        int correct_lm_id=ids.at(i);
+        for(size_t i=0; i<landmarks.size(); i++)
+        {
+            if(landmarks.at(i).lm_id==correct_lm_id)
+            {
+                cout <<"match!" << endl;
+                landmarks.at(i).lm_tracking_state=LM_TRACKING_OUTLIER;
+            }
+        }
+    }
+}
 
 void CameraFrame::getValid2d3dPair_cvPf(vector<Point2f> &p2d, vector<Point3f> &p3d)
 {

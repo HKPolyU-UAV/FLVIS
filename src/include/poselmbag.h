@@ -7,7 +7,7 @@
 
 using namespace std;
 
-#define POSE_LOOP_BUFFER_SIZE (8)
+#define POSE_LOOP_BUFFER_SIZE (6)
 
 struct LM_ITEM {
   int64_t id;
@@ -37,15 +37,23 @@ public:
     PoseLMBag();
 
     bool hasTheLM(int64_t id_in, int &idx);
-    void addLM(int64_t id_in, Vec3 p3d_w_in);
-    void addPose(int64_t id_in, SE3 pose_in);
+    bool addLMObservation(int64_t id_in, Vec3 p3d_w_in);
+    bool removeLMObservation(int64_t id_in);
+
+    void addPose(int64_t id_in, SE3 pose_in);//This will cover the oldest pose
+
 
     void getAllLMs(vector<LM_ITEM> &lms_out);
     void getAllPoses(vector<POSE_ITEM> &poses_out);
-
-    int getOldestIdx(void);
+    int getNewestPoseInOptimizerIdx(void);
+    int getOldestPoseInOptimizerIdx(void);
     int64_t getPoseIdByReleventFrameId(int64_t frame_id);
+
+
+
+
     void debug_output(void);
+
 
 private:
 

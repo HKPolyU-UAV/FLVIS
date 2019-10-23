@@ -1,4 +1,5 @@
 #include <include/feature_dem.h>
+#include <opencv2/features2d/features2d.hpp>
 
 // Driver function to sort the vector elements by
 // second element of pair in descending order
@@ -152,7 +153,8 @@ void FeatureDEM::redetect(const Mat& img,
             if(regionKeyPts[i].size()<=MIN_REGION_FREATURES_NUM)
             {
                 //detect in the region;
-                Ptr<FastFeatureDetector> detector= FastFeatureDetector::create();
+                //Ptr<FastFeatureDetector> detector= FastFeatureDetector::create();
+                Ptr<ORB> detector= ORB::create();
                 vector<pair<Point2f,float>> kpsHarrisRinRegion;
                 kpsHarrisRinRegion.clear();
                 vector<KeyPoint> FASTFeatures;
@@ -199,7 +201,8 @@ void FeatureDEM::redetect(const Mat& img,
     }
     else//detect all features
     {
-        Ptr<FastFeatureDetector> detector= FastFeatureDetector::create();
+        //Ptr<FastFeatureDetector> detector= FastFeatureDetector::create();
+        Ptr<ORB> detector= ORB::create();
         vector<KeyPoint> FASTFeatures;
         vector<Point2f>  kps;
         detector->detect(img, FASTFeatures);

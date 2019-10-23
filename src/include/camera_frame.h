@@ -44,6 +44,9 @@ public:
                                           vector<bool>& maskHas3DInf);
 
     void depthInnovation(void);
+    void correctLMP3DWByLMP3DCandT(void);//correct lm_3d_w by lm_3d_w and T_c_w
+    void forceCorrectLM3DW(const int& cnt, const vector<int64_t>& ids, const vector<Vec3>& lms_3d);
+    void forceMarkOutlier( const int& cnt, const vector<int64_t>& ids);
 
     //IO
     void getValid2d3dPair_cvPf(vector<Point2f>& p2d,vector<Point3f>& p3d);

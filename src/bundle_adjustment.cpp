@@ -16,7 +16,7 @@ void bundleAdjustment::BAInFrame(CameraFrame &frame)
     double cy=frame.d_camera.camera_cy;
     vector<LandMarkInFrame> lms_in_frame;
     frame.getValidInliersPair(lms_in_frame);
-    cout << lms_in_frame.size() << "|" << frame.landmarks.size() << endl;
+//    cout << lms_in_frame.size() << "|" << frame.landmarks.size() << endl;
     if(lms_in_frame.size()<10)
     {
         return;
@@ -61,11 +61,23 @@ void bundleAdjustment::BAInFrame(CameraFrame &frame)
             optimizer.addEdge(edge);
             edges.push_back(edge);
         }
-        cout<<"start optimization"<<endl;
+//        cout<<"start optimization"<<endl;
         optimizer.setVerbose(false);
         optimizer.initializeOptimization();
         optimizer.optimize(2);
-        cout<<"end"<<endl;
+        for (auto e:edges)
+        {
+            e->computeError();
+            if (e->chi2()>2.0){
+                optimizer.removeEdge(e);
+                e->id();
+            }
+        }
+        optimizer.initializeOptimization();
+        optimizer.optimize(2);
+//        optimizer.initializeOptimization();
+//        optimizer.optimize(2);
+//        cout<<"end"<<endl;
         g2o::VertexSE3Expmap* v = dynamic_cast<g2o::VertexSE3Expmap*>( optimizer.vertex(0) );
         Eigen::Isometry3d pose = v->estimate();
 

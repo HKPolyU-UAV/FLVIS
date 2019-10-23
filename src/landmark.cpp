@@ -1,6 +1,6 @@
 #include <include/landmark.h>
 
-static int64_t id_index=1;
+static int64_t id_index=100;
 
 LandMark::LandMark()
 {

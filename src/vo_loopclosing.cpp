@@ -613,7 +613,9 @@ private:
         KeyFrameStruct kf;
         BowVector kf_bv;
         SE3 loop_pose;
+
         KeyFrameMsg::unpack(msg,kf.frame_id,kf.img,kf.lm_count,kf.lm_id,kf.lm_2d,kf.lm_3d,kf.lm_descriptor,kf.T_c_w);
+
         shared_ptr<KeyFrameStruct> kf_ptr = make_shared<KeyFrameStruct>(kf);
         // new feature detector and descriptor
         tic_toc_ros tt_kpdes;
@@ -684,14 +686,6 @@ private:
           loop_poses.push_back(loop_pose);
           loopClosureOnCovGraphG2O();
         }
-
-
-
-
-
-
-
-
 
 
 
