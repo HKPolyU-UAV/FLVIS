@@ -21,9 +21,11 @@ bool PoseLMBag::hasTheLM(int64_t id_in, int &idx)
     }
     return false;
 }
-void PoseLMBag::addLM(int64_t id_in, Vec3 p3d_w_in)
+
+bool PoseLMBag::addLMObservation(int64_t id_in, Vec3 p3d_w_in)
 {
     int idx;
+    bool add_lm_to_optimizer=false;
     if(this->hasTheLM(id_in,idx))
     {//update lm with average 3d inf
         Vec3 p3d_w;
@@ -39,10 +41,27 @@ void PoseLMBag::addLM(int64_t id_in, Vec3 p3d_w_in)
         lm_item.count = 1;
         lm_item.p3d_w = p3d_w_in;
         this->lm_sub_bag.push_back(lm_item);
+        add_lm_to_optimizer=true;
     }
+    return add_lm_to_optimizer;
 }
 
-
+bool PoseLMBag::removeLMObservation(int64_t id_in)
+{
+    bool remove_lm_from_optimizer=false;
+    int idx;
+    if(this->hasTheLM(id_in,idx))
+    {
+        lm_sub_bag.at(idx).count--;
+        if(lm_sub_bag.at(idx).count==0)
+        {
+            cout << "remove from bag" << endl;
+            lm_sub_bag.erase(lm_sub_bag.begin() + idx);
+            remove_lm_from_optimizer = true;
+        }
+    }
+    return remove_lm_from_optimizer;
+}
 
 void PoseLMBag::addPose(int64_t id_in, SE3 pose_in)
 {
@@ -118,8 +137,9 @@ void PoseLMBag::debug_output(void)
     for(int i=0; i<POSE_LOOP_BUFFER_SIZE; i++)
     {
         cout << "pose id " << pose_sub_bag[i].pose_id
-             << " relevent frame id: " << pose_sub_bag[i].relevent_frame_id << endl
-             << pose_sub_bag[i].pose << endl;;
+             << " relevent frame id: " << pose_sub_bag[i].relevent_frame_id
+             << " Twc: " << pose_sub_bag[i].pose.inverse().so3().log().transpose()
+             << " | " << pose_sub_bag[i].pose.inverse().translation().transpose() << endl;;
     }
     cout << "LMs:" << endl;
     for(std::vector<LM_ITEM>::iterator it = this->lm_sub_bag.begin(); it != this->lm_sub_bag.end(); ++it)

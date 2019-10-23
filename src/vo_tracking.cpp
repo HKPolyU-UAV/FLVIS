@@ -44,8 +44,8 @@ namespace vo_nodelet_ns
 
 
 struct ID_POSE {
-  int    frame_id;
-  SE3    T_c_w;
+    int    frame_id;
+    SE3    T_c_w;
 } ;
 
 
@@ -75,6 +75,7 @@ private:
     Mat distCoeffs;
     int image_width,image_height;
     CameraFrame::Ptr curr_frame,last_frame;
+    SE3 T_c_w_last_keyframe;
     //Pose Records and Correction Information
     deque<ID_POSE> pose_records;
     bool has_feedback;
@@ -112,7 +113,7 @@ private:
              << "image_width: "  << image_width << " image_height: "  << image_height << endl
              << "fx: "  << fx << " fy: "  << fy <<  " cx: "  << cx <<  " cy: "  << cy << endl;
 
-        featureDEM  = new FeatureDEM(image_width,image_height,10);
+        featureDEM  = new FeatureDEM(image_width,image_height,4);
 
         curr_frame = std::make_shared<CameraFrame>();
         last_frame = std::make_shared<CameraFrame>();
@@ -150,7 +151,7 @@ private:
 
     void correction_feedback_callback(const vo_nodelet::CorrectionInf::ConstPtr& msg)
     {
-        cout << " correction_feedback_callback " << endl;
+        cout << "Tracking: correction_feedback_callback " << endl;
         //unpacking and update the structure
         CorrectionInfMsg::unpack(msg,
                                  correction_inf.frame_id,
@@ -160,7 +161,21 @@ private:
                                  correction_inf.lm_3d,
                                  correction_inf.lm_outlier_count,
                                  correction_inf.lm_outlier_id);
+        cout << "Tracking: correction frame id:" << correction_inf.frame_id << endl;
+        cout<<  "Tracking: correction Twc: " << correction_inf.T_c_w.inverse().so3().log().transpose() << " | "
+             << correction_inf.T_c_w.inverse().translation().transpose() << endl;
+        cout << "Tracking: correction landmark count:"  << correction_inf.lm_count << endl;
+//        for(int i=0; i< correction_inf.lm_count; i++)
+//        {
+//            cout << "lm_id"  << correction_inf.lm_id.at(i) <<"  "<< correction_inf.lm_3d.at(i).transpose() << endl;
+//        }
+//        cout << "correction landmark outlier_count:" << correction_inf.lm_outlier_count << endl;
+//        for(int i=0; i< correction_inf.lm_outlier_count; i++)
+//        {
+//            cout << "lm_outlier_id"  << correction_inf.lm_outlier_id.at(i) << endl;
+//        }
         has_feedback=true;
+        cout << "Tracking: end callback function" << endl;
     }
 
     void image_input_callback(const sensor_msgs::ImageConstPtr & imgPtr, const sensor_msgs::ImageConstPtr & depthImgPtr)
@@ -196,8 +211,8 @@ private:
             R << 0, 0, 1, -1, 0, 0, 0,-1, 0;
             Mat3x3 R_roll_m30deg;
             R_roll_m30deg << 1.0,  0.0,  0.0,
-            0.0,  1,  0,
-            0.0, 0.0,  1;
+                    0.0,  1,  0,
+                    0.0, 0.0,  1;
             Vec3   t=Vec3(0,0,1);
             SE3    T_w_c(R*R_roll_m30deg,t);
             curr_frame->T_c_w=T_w_c.inverse();//Tcw = (Twc)^-1
@@ -223,6 +238,9 @@ private:
             drawKeyPts(currShowImg, vVec2_2_vcvP2f(pts2d));
             frame_pub->pubFramePtsPoseT_c_w(curr_frame->getValid3dPts(),curr_frame->T_c_w,currStamp);
             path_pub->pubPathT_c_w(curr_frame->T_c_w,currStamp);
+
+            kf_pub->pub(*curr_frame,currStamp);
+            T_c_w_last_keyframe = curr_frame->T_c_w;
 
             vo_tracking_state = Working;
             cout << "vo_tracking_state = Working" << endl;
@@ -258,12 +276,22 @@ private:
                     pose_records.at(i).T_c_w = T_diff * update_T_c_w;
                 }
                 //update last_frame pose and landmake p3d throuth transformation
+                cout << "#############################"  << endl;
+                for(auto lm:last_frame->landmarks)
+                {
+                    //cout << lm.lm_id << "befor FB "<< lm.lm_3d_w.transpose() << endl;
+                }
                 SE3 T_diff= last_frame->T_c_w * old_T_c_w_inv;
                 last_frame->T_c_w = T_diff * update_T_c_w;
                 last_frame->correctLMP3DWByLMP3DCandT();
                 //update last_frame landmake lm_3d_w and mask outlier
-                last_frame->forceCorrectLM3DW(correction_inf.lm_count,correction_inf.lm_id,correction_inf.lm_3d);
-                last_frame->forceMarkOutlier(correction_inf.lm_outlier_count,correction_inf.lm_outlier_id);
+//                last_frame->forceCorrectLM3DW(correction_inf.lm_count,correction_inf.lm_id,correction_inf.lm_3d);
+//                last_frame->forceMarkOutlier(correction_inf.lm_outlier_count,correction_inf.lm_outlier_id);
+                cout << "****************************"  << endl;
+                for(auto lm:last_frame->landmarks)
+                {
+                    //cout << lm.lm_id << "after FB " << lm.lm_3d_w.transpose() << endl;
+                }
                 //maek last_frame outlier
                 has_feedback = false;
             }
@@ -353,10 +381,24 @@ private:
             frame_pub->pubFramePtsPoseT_c_w(curr_frame->getValid3dPts(),curr_frame->T_c_w);
             path_pub->pubPathT_c_w(curr_frame->T_c_w,currStamp);
             tf_pub->pubTFT_c_w(curr_frame->T_c_w,currStamp);
-            if(frameCount%4==0)
+
+            SE3 T_diff_key_curr = T_c_w_last_keyframe*(curr_frame->T_c_w.inverse());
+            Vec3 t=T_diff_key_curr.translation();
+            Vec3 r=T_diff_key_curr.so3().log();
+            double t_norm = fabs(t[0]) + fabs(t[1]) + fabs(t[2]);
+            double r_norm = fabs(r[0]) + fabs(r[1]) + fabs(r[2]);
+            if(t_norm>=0.05 || r_norm>=0.5)
             {
                 kf_pub->pub(*curr_frame,currStamp);
+                T_c_w_last_keyframe = curr_frame->T_c_w;
+                cout << "Tracking: F " << frameCount << " as KF, t_norm: " << t_norm << " r_norm: "<< r_norm
+                     << " Twc: " << curr_frame->T_c_w.inverse().so3().log().transpose() << " | "
+                     << curr_frame->T_c_w.inverse().translation().transpose() << endl;
             }
+            //            if(frameCount%4==0)
+            //            {
+            //                kf_pub->pub(*curr_frame,currStamp);
+            //            }
             break;
         }
 

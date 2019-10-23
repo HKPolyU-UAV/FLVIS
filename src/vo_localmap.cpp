@@ -25,9 +25,8 @@
 #include "g2o/solvers/dense/linear_solver_dense.h"
 #include "g2o/types/icp/types_icp.h"
 #include "g2o/solvers/structure_only/structure_only_solver.h"
-#include "g2o/solvers/csparse/linear_solver_csparse.h"
-#include "g2o/solvers/csparse/g2o_csparse_api.h"
-#include "g2o/solvers/eigen/linear_solver_eigen.h"
+#include "g2o/solvers/cholmod/linear_solver_cholmod.h"
+
 
 #include <g2o/types/slam3d/vertex_pointxyz.h>
 #include <g2o/types/slam3d/vertex_se3.h>
@@ -40,7 +39,7 @@
 using namespace cv;
 using namespace std;
 
-#define FIX_WINDOW_OPTIMIZER_SIZE (5)
+#define FIX_WINDOW_OPTIMIZER_SIZE (6)
 
 static int64_t edge_id;
 
@@ -53,10 +52,10 @@ PoseLMBag bag;
 
 
 enum LMOPTIMIZER_STATE{
-    UN_INITIALIZED,
-    SLIDING_WINDOW,
-    OPTIMIZING,
-    FAIL };
+    UN_INITIALIZED = 1,
+    SLIDING_WINDOW = 2,
+    OPTIMIZING = 3,
+    FAIL = 4};
 
 
 
@@ -95,141 +94,206 @@ private:
                             kf.lm_descriptor,
                             kf.T_c_w);
 
+
         kfs.push_back(kf);
-        cout << "IN CALL BACK FUNCTION" << endl;
+        cout << "LocalMap: inframe_callback function" << endl;
+        cout << "LocalMap: optimizer_state is: " << optimizer_state << endl;
+
         switch(optimizer_state)
         {
+        case OPTIMIZING:
+            break;
         case UN_INITIALIZED:
-            if(kfs.size()>=FIX_WINDOW_OPTIMIZER_SIZE)
-            {
-                typedef g2o::BlockSolver< g2o::BlockSolverTraits<6,3> > Block;
-                std::unique_ptr<Block::LinearSolverType> linearSolver ( new g2o::LinearSolverEigen<Block::PoseMatrixType>());
-                std::unique_ptr<Block> solver_ptr ( new Block ( std::move(linearSolver)));
-                g2o::OptimizationAlgorithmLevenberg* solver = new g2o::OptimizationAlgorithmLevenberg ( std::move(solver_ptr));
-                optimizer.setAlgorithm ( solver );
+            if(1){
+                cout << "LocalMap: optimizer uninitialized" << endl;
+                if(kfs.size()>=FIX_WINDOW_OPTIMIZER_SIZE)
+                {
+                    std::unique_ptr<g2o::BlockSolver_6_3::LinearSolverType> linearSolver(new g2o::LinearSolverCholmod<g2o::BlockSolver_6_3::PoseMatrixType>());
+                    std::unique_ptr<g2o::BlockSolver_6_3> solver_ptr(new g2o::BlockSolver_6_3(std::move(linearSolver)));
+                    g2o::OptimizationAlgorithmLevenberg *solver = new g2o::OptimizationAlgorithmLevenberg(std::move(solver_ptr));
+                    optimizer.setAlgorithm (solver);
+                    for(int f_idx = 0; f_idx<FIX_WINDOW_OPTIMIZER_SIZE; f_idx++)//add pose
+                    {
+                        bag.addPose(kfs.at(f_idx).frame_id,
+                                    kfs.at(f_idx).T_c_w);
+                        //cout << "lm_cout " << kfs.at(f_idx).lm_count << " " << kfs.at(f_idx).lm_3d.size() << endl;
+                        for(int lm_idx=0; lm_idx < kfs.at(f_idx).lm_count; lm_idx++)//add landmarks
+                        {
+                            bag.addLMObservation(kfs.at(f_idx).lm_id.at(lm_idx),
+                                                 kfs.at(f_idx).lm_3d.at(lm_idx));
+                        }
+                    }
+                    cout << "LocalMap: Initialize Optimizer*****" << endl;
+                    //STEP1: Add Camera Pose Vertex;
+                    vector<POSE_ITEM> poses;
+                    int oldest_idx1 = bag.getOldestPoseInOptimizerIdx();
+                    int oldest_idx2 = (oldest_idx1+1);
+                    if(oldest_idx2 == FIX_WINDOW_OPTIMIZER_SIZE) oldest_idx2 = 0;
+                    bag.getAllPoses(poses);
+                    for(std::vector<POSE_ITEM>::iterator it = poses.begin(); it != poses.end(); ++it)
+                    {
+                        g2o::VertexSE3Expmap* v_pose = new g2o::VertexSE3Expmap();
+                        v_pose->setId(it->pose_id);//fix first two items
+                        //if ((it->pose_id==oldest_idx1) || (it->pose_id==oldest_idx2))
+                        if (it->pose_id==oldest_idx1)
+                        {
+                            v_pose->setFixed(true);
+                        }
+                        v_pose->setEstimate(g2o::SE3Quat(it->pose.so3().unit_quaternion().toRotationMatrix(),
+                                                         it->pose.translation()));
+                        optimizer.addVertex(v_pose);
+                    }
+                    //STEP2: Add LandMark Vertex;
+                    vector<LM_ITEM> lms;
+                    bag.getAllLMs(lms);
+                    for(std::vector<LM_ITEM>::iterator it = lms.begin(); it != lms.end(); ++it) {
+                        g2o::VertexSBAPointXYZ* point = new g2o::VertexSBAPointXYZ();
+                        point->setId (it->id);
+                        point->setEstimate (it->p3d_w);
+                        point->setMarginalized ( true );
+                        optimizer.addVertex (point);
+                    }
 
-                cout << "Init the Optimizer-------------------------------------------------------------------------" << endl;
-                for(int f_idx = 0; f_idx<FIX_WINDOW_OPTIMIZER_SIZE; f_idx++)//add pose
-                {
-                    bag.addPose(kfs.at(f_idx).frame_id,
-                                kfs.at(f_idx).T_c_w);
-                    //cout << "lm_cout " << kfs.at(f_idx).lm_count << " " << kfs.at(f_idx).lm_3d.size() << endl;
-                    for(int lm_idx=0; lm_idx < kfs.at(f_idx).lm_count; lm_idx++)//add landmarks
+                    //STEP3: Add All Observation Edge;
+                    g2o::CameraParameters* camera = new g2o::CameraParameters(((fx+fy)/2.0), Eigen::Vector2d(cx, cy), 0 );
+                    camera->setId(0);
+                    optimizer.addParameter(camera);
+                    edge_id = 0;
+                    edges.clear();
+                    for(int f_idx = 0; f_idx<FIX_WINDOW_OPTIMIZER_SIZE; f_idx++)//add pose
                     {
-                        bag.addLM(kfs.at(f_idx).lm_id.at(lm_idx),
-                                  kfs.at(f_idx).lm_3d.at(lm_idx));
+                        int64_t pose_vertex_idx = bag.getPoseIdByReleventFrameId(kfs.at(f_idx).frame_id);
+                        //cout << pose_vertex_idx << endl;
+                        for(int lm_idx=0; lm_idx < kfs.at(f_idx).lm_count; lm_idx++)//add landmarks
+                        {
+                            g2o::EdgeProjectXYZ2UV*  edge = new g2o::EdgeProjectXYZ2UV();
+                            edge->setId(edge_id);
+                            edge_id++;
+                            int64_t lm_vertex_idx = kfs.at(f_idx).lm_id.at(lm_idx);
+                            edge->setVertex(0,dynamic_cast<g2o::VertexSBAPointXYZ*>(optimizer.vertex(  lm_vertex_idx)));
+                            edge->setVertex(1,dynamic_cast<g2o::VertexSE3Expmap*>  (optimizer.vertex(pose_vertex_idx)));
+                            edge->setMeasurement(kfs.at(f_idx).lm_2d.at(lm_idx));
+                            edge->setInformation(Eigen::Matrix2d::Identity() );
+                            edge->setParameterId(0,0);
+                            edge->setRobustKernel(new g2o::RobustKernelHuber());
+                            optimizer.addEdge(edge);
+                            edges.push_back(edge);
+                        }
                     }
+                    optimizer_state = OPTIMIZING;
                 }
-                //STEP1: Add Camera Pose Vertex;
-                vector<POSE_ITEM> poses;
-                int oldest_idx1 = bag.getOldestPoseInOptimizerIdx();
-                int oldest_idx2 = (oldest_idx1+1);
-                if(oldest_idx2 == FIX_WINDOW_OPTIMIZER_SIZE) oldest_idx2 = 0;
-                bag.getAllPoses(poses);
-                for(std::vector<POSE_ITEM>::iterator it = poses.begin(); it != poses.end(); ++it)
+                else//if(kfs.size()>=FIX_WINDOW_OPTIMIZER_SIZE)
                 {
-                    g2o::VertexSE3Expmap* v_pose = new g2o::VertexSE3Expmap();
-                    v_pose->setId(it->pose_id);//fix first two items
-                    if ((it->pose_id==oldest_idx1) || (it->pose_id==oldest_idx2))
-                    {
-                        v_pose->setFixed(true);
-                    }
-                    v_pose->setEstimate(g2o::SE3Quat(it->pose.so3().unit_quaternion().toRotationMatrix(),
-                                                     it->pose.translation()));
-                    optimizer.addVertex(v_pose);
+                    return;
                 }
-                //STEP2: Add LandMark Vertex;
-                vector<LM_ITEM> lms;
-                bag.getAllLMs(lms);
-                for(std::vector<LM_ITEM>::iterator it = lms.begin(); it != lms.end(); ++it) {
-                    g2o::VertexSBAPointXYZ* point = new g2o::VertexSBAPointXYZ();
-                    point->setId (it->id);
-                    point->setEstimate (it->p3d_w);
-                    point->setMarginalized ( true );
-                    optimizer.addVertex (point);
-                }
-
-                //STEP3: Add All Observation Edge;
-                g2o::CameraParameters* camera = new g2o::CameraParameters(((fx+fy)/2.0), Eigen::Vector2d(cx, cy), 0 );
-                camera->setId(0);
-                optimizer.addParameter(camera);
-                edge_id = 0;
-                edges.clear();
-                for(int f_idx = 0; f_idx<FIX_WINDOW_OPTIMIZER_SIZE; f_idx++)//add pose
-                {
-                    int64_t pose_vertex_idx = bag.getPoseIdByReleventFrameId(kfs.at(f_idx).frame_id);
-                    //cout << pose_vertex_idx << endl;
-                    for(int lm_idx=0; lm_idx < kfs.at(f_idx).lm_count; lm_idx++)//add landmarks
-                    {
-                        g2o::EdgeProjectXYZ2UV*  edge = new g2o::EdgeProjectXYZ2UV();
-                        edge->setId(edge_id);
-                        edge_id++;
-                        int64_t lm_vertex_idx = kfs.at(f_idx).lm_id.at(lm_idx);
-                        edge->setVertex(0,dynamic_cast<g2o::VertexSBAPointXYZ*>(optimizer.vertex(  lm_vertex_idx)));
-                        edge->setVertex(1,dynamic_cast<g2o::VertexSE3Expmap*>  (optimizer.vertex(pose_vertex_idx)));
-                        edge->setMeasurement(kfs.at(f_idx).lm_2d.at(lm_idx));
-                        edge->setInformation(Eigen::Matrix2d::Identity() );
-                        edge->setParameterId(0,0);
-                        edge->setRobustKernel(new g2o::RobustKernelHuber());
-                        optimizer.addEdge(edge);
-                        edges.push_back(edge);
-                    }
-                }
-                //output error
-                //                for (auto e:edges){
-                //                    e->computeError();
-                //                    cout<<"error = "<<e->chi2()<<endl;
-                //                }
-                optimizer_state = OPTIMIZING;
-            }
-            else//if(kfs.size()>=FIX_WINDOW_OPTIMIZER_SIZE)
-            {
-                return;
             }
             break;//switch(optimizer_state) case UN_INITIALIZED:
+
         case SLIDING_WINDOW:
-            std::cout << "construct optimizer";
-            optimizer_state = OPTIMIZING;
-            //STEP1: Delete Oldest Frame
-
-            //STEP2: Add Newest Frame
-
+            if(1)
+            {
+                cout << "LocalMap: SLIDING WINDOW" << endl;
+                //STEP1: Delete Oldest Frame and idle LM;
+                cout << "LocalMap: Remove Inf From Optimizer*****" << endl;
+                optimizer.removeVertex(dynamic_cast<g2o::VertexSE3Expmap*>(optimizer.vertex(bag.getOldestPoseInOptimizerIdx())));
+                for(auto id:kfs.at(0).lm_id)
+                {
+                    if(bag.removeLMObservation(id))
+                    {
+                        optimizer.removeVertex(dynamic_cast<g2o::VertexSBAPointXYZ*>(optimizer.vertex(id)));
+                    }
+                }
+                cout << "LocalMap: Add Pose to Optimizer*****" << endl;
+                //STEP2: Add new Frame, LM and Observation;
+                bag.addPose(kfs.back().frame_id,
+                            kfs.back().T_c_w);
+                g2o::VertexSE3Expmap* v_pose = new g2o::VertexSE3Expmap();
+                v_pose->setId(bag.getNewestPoseInOptimizerIdx());
+                v_pose->setEstimate(g2o::SE3Quat(kfs.back().T_c_w.so3().unit_quaternion().toRotationMatrix(),
+                                                 kfs.back().T_c_w.translation()));
+                optimizer.addVertex(v_pose);
+                optimizer.vertex(bag.getOldestPoseInOptimizerIdx())->setFixed(true);
+                cout << "LocalMap: Add LM to Optimizer*****" << endl;
+                for(int i=0; i < kfs.back().lm_count; i++)//add landmarks
+                {
+                    if(bag.addLMObservation(kfs.back().lm_id.at(i),
+                                            kfs.back().lm_3d.at(i)))
+                    {
+                        g2o::VertexSBAPointXYZ* v_lm = new g2o::VertexSBAPointXYZ();
+                        v_lm->setId (kfs.back().lm_id.at(i));
+                        v_lm->setEstimate (kfs.back().lm_3d.at(i));
+                        v_lm->setMarginalized ( true );
+                        optimizer.addVertex (v_lm);
+                    }
+                }
+                cout << "LocalMap: Add Edge to Optimizer*****" << endl;
+                g2o::HyperGraph::EdgeSet es = optimizer.edges();
+                vector<g2o::HyperGraph::Edge*> v(es.begin(), es.end());
+                edges.clear();
+                for (auto v_itm:v)
+                {
+                    edges.push_back(dynamic_cast<g2o::EdgeProjectXYZ2UV*>(v_itm));
+                }
+                for(int i=0; i < kfs.back().lm_count; i++)//add landmarks
+                {
+                    g2o::EdgeProjectXYZ2UV*  edge = new g2o::EdgeProjectXYZ2UV();
+                    edge->setId(edge_id);
+                    edge_id++;
+                    int64_t lm_vertex_idx = kfs.back().lm_id.at(i);
+                    edge->setVertex(0,dynamic_cast<g2o::VertexSBAPointXYZ*>
+                                    (optimizer.vertex(  lm_vertex_idx)));
+                    edge->setVertex(1,dynamic_cast<g2o::VertexSE3Expmap*>
+                                    (optimizer.vertex(bag.getNewestPoseInOptimizerIdx())));
+                    edge->setMeasurement(kfs.back().lm_2d.at(i));
+                    edge->setInformation(Eigen::Matrix2d::Identity() );
+                    edge->setParameterId(0,0);
+                    edge->setRobustKernel(new g2o::RobustKernelHuber());
+                    optimizer.addEdge(edge);
+                    edges.push_back(edge);
+                }
+                optimizer_state=OPTIMIZING;
+            }
             break;//switch(optimizer_state) case SLIDING_WINDOW:
         case FAIL:
-            std::cout << "--------------------" << endl;
+            cout << "LocalMap:  --------------------" << endl;
             break;//switch(optimizer_state) case FAIL:
+        default:
+            cout << "LocalMap:  Default?? sth wrong" << endl;
+
         }
         if(optimizer_state==OPTIMIZING)
         {
+            cout << "LocalMap: optimizing" << endl;
             CorrectionInfStruct correction_inf;
-            correction_inf.frame_id=kfs.end()->frame_id;
-
-            cout<<"start optimization"<<endl;
             optimizer.setVerbose(false);
             optimizer.initializeOptimization();
             optimizer.optimize(10);
-            cout<<"10 loops"<<endl;
+            cout << "LocalMap: 10 loops" << endl;
             //remove outliers
             int outlier_cnt = 0;
             int inliers_cnt = 0;
-            for(auto e:edges)
+            for(int i=(edges.size()-1); i>=0; i--)
             {
+                g2o::EdgeProjectXYZ2UV* e = edges.at(i);
                 e->computeError();
                 if (e->chi2()>1.0){
-                    cout<<"error = "<<e->chi2()<<endl;
                     int id=  e->vertex(0)->id();//outlier landmark id;
                     correction_inf.lm_outlier_id.push_back(id);
                     outlier_cnt++;
+                    optimizer.removeEdge(e);
+                    edges.erase(edges.begin()+i);
                 }else{
                     inliers_cnt++;
                 }
             }
             correction_inf.lm_outlier_count=outlier_cnt;
+            optimizer.initializeOptimization();
             optimizer.optimize(5);
-
+            cout << "LocalMap: 15 loops" << endl;
             //update pose of newest frame
+            correction_inf.frame_id=kfs.back().frame_id;
 
-            g2o::VertexSE3Expmap* v = dynamic_cast<g2o::VertexSE3Expmap*>( optimizer.vertex(bag.getNewestPoseInOptimizerIdx()));
+            g2o::VertexSE3Expmap* v = dynamic_cast<g2o::VertexSE3Expmap*>(optimizer.vertex(bag.getNewestPoseInOptimizerIdx()));
             Eigen::Isometry3d pose = v->estimate();
             correction_inf.T_c_w = SE3(pose.rotation(),pose.translation());
 
