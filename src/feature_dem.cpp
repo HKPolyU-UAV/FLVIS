@@ -204,6 +204,7 @@ void FeatureDEM::redetect(const Mat& img,
         vector<Point2f>  kps;
         detector->detect(img, FASTFeatures);
         KeyPoint::convert(FASTFeatures,kps);
+        cout<<"kps size: "<<kps.size()<<"fast size; "<<FASTFeatures.size()<<endl;
         vector<pair<Point2f,float>> regionKeyPts_prepare[16];
         //devide into different region
 

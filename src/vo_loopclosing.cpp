@@ -5,6 +5,7 @@
 #include <opencv2/opencv.hpp>
 
 #include <iostream>
+#include <fstream>
 #include <deque>
 #include <stdint.h>
 
@@ -39,6 +40,7 @@
 #include <g2o/types/slam3d/edge_se3.h>
 #include <g2o/types/sba/types_six_dof_expmap.h>
 
+#include <utils/tic_toc_ros.h>
 
 //#include <pcl/visualization/cloud_viewer.h>
 //#include <pcl/io/pcd_io.h>
@@ -76,12 +78,13 @@ struct sort_descriptor_by_queryIdx
     }
 };
 
-#define lcKFDist (6)
+#define lcKFStart (20)
+#define lcKFDist (15)
 #define lcKFMaxDist (50)
 #define lcKFLast (20)
 #define lcNKFClosest (3)
 #define ratioMax (0.7)
-#define ratioRansac (0.6)
+#define ratioRansac (0.5)
 #define minPts (30)
 
 
@@ -105,6 +108,7 @@ private:
     Vocabulary voc;
     Database db;// faster search
     vector<vector<double>> sim_matrix;//for similarity visualization
+    vector<double> sim_vec;
     //KF database
     vector<shared_ptr<KeyFrameStruct>> kf_map;
     vector<BowVector> kfbv_map;
@@ -145,6 +149,9 @@ private:
           if (score_i < lc_min_score && score_i > 0.001) lc_min_score = score_i;
       }
 
+      lc_min_score = min(lc_min_score, 0.4);
+      if( max_sim_mat[0](1) < max(0.2, lc_min_score)) return is_lc_candidate;
+
       int idx_max = int(max_sim_mat[0](0));
       int nkf_closest = 0;
       if (max_sim_mat[0](1) >= lc_min_score)
@@ -159,8 +166,9 @@ private:
         }
        }
 
+
        // update in case of being loop closure candidate
-       if (nkf_closest >= lcNKFClosest)
+       if (nkf_closest >= lcNKFClosest && max_sim_mat[0](1) > 0.2 )
        {
            is_lc_candidate = true;
            kf_prev_idx = idx_max;
@@ -239,11 +247,19 @@ private:
           cv::Mat t_ = cv::Mat::zeros(3, 1, CV_64FC1);
           Mat inliers;
           SE3_to_rvec_tvec(kf0->T_c_w, r_ , t_ );
+          if(p3d.size() < 5) return is_lc;
           solvePnPRansac(p3d,p2d,cameraMatrix,distCoeffs,r_,t_,false,100,3.0,0.99,inliers,SOLVEPNP_P3P);
           cout<<"selected points size: "<<p3d.size()<<" inliers size: "<<inliers.rows<<" unseletced size: "<<pmatches_12.size()<<endl;
+          cout<<"ratio test: "<<inliers.rows*1.0/p3d.size()<<" "<<"number test "<<inliers.rows<<endl;
 
+          if(inliers.rows*1.0/p3d.size() < ratioRansac || inliers.rows < minPts ) //return is_lc;
+          {
+            cout<<"dont believe: "<<endl;
+            cout<<"ratio test: "<<(double)inliers.rows/(double)p3d.size()<<" "<<"number test "<<inliers.rows<<endl;
+            return is_lc;
+          }
 
-          if(inliers.rows/p3d.size() < ratioRansac || inliers.rows < minPts ) return is_lc;
+          cout<<"after ransac test: "<<endl;
 
           SE3 se_iw = kf0->T_c_w;
           SE3 se_jw = SE3_from_rvec_tvec(r_,t_);
@@ -263,6 +279,7 @@ private:
     void expandGraph()
     {
       int g_size = (int) kfbv_map.size();
+      sim_vec.resize(g_size);
 
       // sim matrix
       sim_matrix.resize(g_size);
@@ -400,7 +417,7 @@ private:
       optimizer.optimize(100);
 
       // recover pose and update map
-      // Matrix4d Tkfw_corr;
+
       for (auto kf_it = kf_list.begin(); kf_it != kf_list.end(); kf_it++)
       {
           g2o::VertexSE3 *v_se3 = static_cast<g2o::VertexSE3 *>(optimizer.vertex((*kf_it)));
@@ -525,7 +542,7 @@ private:
                   SE3 sij = sji.inverse();
                   // add edge
                   g2o::EdgeSE3* e_se3 = new g2o::EdgeSE3();
-                  //g2o::EdgeSE3 *e_se3 = new g2o::EdgeSE3();
+
                   e_se3->setVertex(0, optimizer.vertex(i));
                   e_se3->setVertex(1, optimizer.vertex(j));
                   e_se3->setMeasurement(SE3_to_g2o(sij));
@@ -558,7 +575,7 @@ private:
       optimizer.optimize(100);
 
       // recover pose and update map
-      // Matrix4d Tkfw_corr;
+
       for (auto kf_it = kf_list.begin(); kf_it != kf_list.end(); kf_it++)
       {
           g2o::VertexSE3 *v_se3 = static_cast<g2o::VertexSE3 *>(optimizer.vertex((*kf_it)));
@@ -590,15 +607,38 @@ private:
 
     void frame_callback(const vo_nodelet::KeyFrameConstPtr& msg)
     {
-
-
+        tic_toc_ros tt_cb;
+        tic_toc_ros tt_lc;
+        sim_vec.clear();
         KeyFrameStruct kf;
         BowVector kf_bv;
         SE3 loop_pose;
         KeyFrameMsg::unpack(msg,kf.frame_id,kf.img,kf.lm_count,kf.lm_id,kf.lm_2d,kf.lm_3d,kf.lm_descriptor,kf.T_c_w);
         shared_ptr<KeyFrameStruct> kf_ptr = make_shared<KeyFrameStruct>(kf);
+        // new feature detector and descriptor
+        tic_toc_ros tt_kpdes;
+        Ptr<FastFeatureDetector> detector= FastFeatureDetector::create();
+        vector<KeyPoint> FASTFeatures;
+        vector<Point2f>  kps;
+        detector->detect(kf.img, FASTFeatures);
+        KeyPoint::convert(FASTFeatures,kps);
+        cout<<"fast: "<<FASTFeatures.size()<<"kps: "<<kps.size()<<endl;
+        Mat tmpDescriptors;
+        vector<Mat> newDescriptors;
+        Ptr<DescriptorExtractor> extractor = ORB::create();
+        extractor->compute(kf.img, FASTFeatures, tmpDescriptors);
+        descriptors_to_vMat(tmpDescriptors,newDescriptors);
+        voc.transform(newDescriptors,kf_bv);
+        cout<<"des size: "<<newDescriptors.size()<<"kp size: "<<kps.size()<<"fast size: "<<FASTFeatures.size()<<endl;
+        tt_kpdes.toc();
+        cout<<"tmpDes size: "<<tmpDescriptors.rows<<" "<<tmpDescriptors.cols<<endl;
 
-        voc.transform(kf_ptr->lm_descriptor,kf_bv);
+
+        FASTFeatures.clear();
+        kps.clear();
+        newDescriptors.clear();
+
+        //voc.transform(kf_ptr->lm_descriptor,kf_bv);
         kf_map.push_back(kf_ptr);
         kfbv_map.push_back(kf_bv);
         expandGraph();
@@ -609,30 +649,41 @@ private:
             double score = voc.score(kf_bv,kfbv_map[i]);
             sim_matrix[kfbv_map.size()-1][i] = score;
             sim_matrix[i][kfbv_map.size()-1] = score;
+            sim_vec[i] = score;
+          }
+          else {
+            sim_matrix[kfbv_map.size()-1][i] = 0;
+            sim_matrix[i][kfbv_map.size()-1] = 0;
+            sim_vec[i] = 0;
+
           }
         }
         uint64_t kf_prev_idx;
         bool is_lc_candidate = isLoopCandidate(kf_prev_idx);
+        tt_lc.toc();
+        tic_toc_ros tt_le;
         bool is_lc = false;
         uint64_t kf_curr_idx = kf_map.size()-1;
-        //if(!is_lc_candidate) return;
-        //just test loop pose estimation
-        if(kf_curr_idx > 20) bool is_lc = isLoopClosure(kf_map[kf_curr_idx-5],kf_map[kf_curr_idx],loop_pose);
+
+//        if(kf_curr_idx > lcKFStart) bool is_lc = isLoopClosure(kf_map[kf_curr_idx-5],kf_map[kf_curr_idx],loop_pose);
+//        {
+//          tt_le.toc();
+//          tic_toc_ros tt_pgo;
+//          loop_ids.push_back(Vec3I(kf_curr_idx-5, kf_curr_idx, 1));
+//          loop_poses.push_back(loop_pose);
+//          loopClosureOnCovGraphG2O();
+//          tt_pgo.toc();
+//        }
+
+        // real loop clpsure correction, but need to tune paras
+        if(kf_curr_idx > lcKFStart) is_lc = isLoopClosure(kf_map[kf_prev_idx], kf_map[kf_curr_idx], loop_pose);
+        if(!is_lc) return;
+        if(is_lc)
         {
-          loop_ids.push_back(Vec3I(kf_curr_idx-5, kf_curr_idx, 1));
+          loop_ids.push_back(Vec3I(kf_prev_idx, kf_curr_idx, 1));
           loop_poses.push_back(loop_pose);
           loopClosureOnCovGraphG2O();
         }
-
-        // real loop clpsure correction, but need to tune paras
-//        if(kf_curr_idx > 10) is_lc = isLoopClosure(kf_map[kf_prev_idx], kf_map[kf_curr_idx], loop_pose);
-//        if(!is_lc) return;
-//        if(is_lc)
-//        {
-//          loop_ids.push_back(Vec3I(kf_prev_idx, kf_curr_idx, 1));
-//          loop_poses.push_back(loop_pose);
-//          loopClosureOnCovGraphG2O();
-//        }
 
 
 
@@ -650,6 +701,20 @@ private:
 
         //imshow("loopclosing", img);
         //waitKey(1);
+
+        std::ofstream of;
+        of.open("/home/lsgi/out/sim_mat.txt");
+
+        for(size_t i = 0; i < sim_matrix.size(); i++){
+          for(size_t j = 0;j < sim_matrix.size(); j++){
+            of<<sim_matrix[i][j]<<" ";
+          }
+          of << "\n";
+        }
+
+        of.close();
+
+        tt_cb.toc();
 
         cout << endl << "Loop closing Callback" << endl;
     }
@@ -679,6 +744,8 @@ private:
         kf_id = 0;
         Database dbTmp(voc, true, 0);
         db = dbTmp;
+
+
 
 
 
