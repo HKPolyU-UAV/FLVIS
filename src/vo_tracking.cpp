@@ -33,8 +33,58 @@
 #include <include/bundle_adjustment.h>
 #include <include/correction_inf_msg.h>
 
+
+#include <pcl/io/pcd_io.h>
+
+#include <pcl/common/transforms.h>
+#include <pcl/point_types.h>
+#include <pcl/filters/voxel_grid.h>
+
+#include <condition_variable>
+#include <octomap/octomap.h>
+#include <octomap/OccupancyOcTreeBase.h>
+//#include <octomap/OccupancyOcTreeBase.hxx>
+
 using namespace cv;
 using namespace std;
+//typedef pcl::PointXYZ PointP;
+//typedef pcl::PointXYZRGB PointRGB;
+//typedef pcl::PointXYZI PointI;
+
+//typedef pcl::PointCloud<PointP> PointCloudP;
+//typedef pcl::PointCloud<PointRGB> PointCloudRGB;
+//typedef pcl::PointCloud<PointI> PointCloudI;
+
+
+//namespace octomap {
+//  template <class NODE>
+//  class OcTreeDe : public OcTree {
+//  public:
+
+
+//    void deinsertPointCloud(const Pointcloud& scan, const octomap::point3d& sensor_origin,
+//                                               double maxrange, bool lazy_eval, bool discretize)
+//    {
+//      KeySet free_cells, occupied_cells;
+
+//      if (discretize)
+//        this->computeDiscreteUpdate(scan, sensor_origin, free_cells, occupied_cells, maxrange);
+//      else
+//        this->computeUpdate(scan, sensor_origin, free_cells, occupied_cells, maxrange);
+
+//      // insert data into tree  -----------------------
+//      for (KeySet::iterator it = free_cells.begin(); it != free_cells.end(); ++it) {
+//        this->updateNode(*it, true, lazy_eval);
+//      }
+//      for (KeySet::iterator it = occupied_cells.begin(); it != occupied_cells.end(); ++it) {
+//        this->updateNode(*it, false, lazy_eval);
+//      }
+//    }
+//  };
+
+
+//}
+
 
 enum TRACKINGSTATE{UnInit, Working, trackingFail};
 
@@ -324,15 +374,16 @@ private:
             SE3_to_rvec_tvec(last_frame->T_c_w, r_ , t_ );
 
             Mat inliers;
+
             solvePnPRansac(p3d,p2d,cameraMatrix,distCoeffs,r_,t_,false,100,8.0,0.99,inliers,SOLVEPNP_P3P);
-            //<<"point size: "<<p3d.size()<<" inliers size in ransac: "<<inliers.size()<<endl;
+
 
             curr_frame->T_c_w = SE3_from_rvec_tvec(r_,t_);
             //Remove Outliers ||reprojection error|| > MAD of all reprojection error
             vector<Vec2> outlier_reproject;
             double mean_error;
             curr_frame->CalReprjInlierOutlier(mean_error,outlier_reproject,2.0);
-            bundleAdjustment::BAInFrame(*curr_frame);
+            //bundleAdjustment::BAInFrame(*curr_frame);
             //cout << "Reprojection Error " << mean_error << endl;
 
             //Refill the keyPoints
@@ -419,6 +470,163 @@ private:
 
         //tt_cb.toc();
     }//image_input_callback(const sensor_msgs::ImageConstPtr & imgPtr, const sensor_msgs::ImageConstPtr & depthImgPtr)
+
+//    pcl::PointCloud<PointRGB>::Ptr generatePointCloudRGB(Mat& depth, Mat& rgb)
+//    {
+//      double fx = cameraMatrix.at<double>(0,0);
+//      double fy = cameraMatrix.at<double>(1,1);
+//      double cx = cameraMatrix.at<double>(0,2);
+//      double cy = cameraMatrix.at<double>(1,2);
+//      PointCloudRGB::Ptr tmp(new PointCloudRGB());
+//      for(int m =0; m<depth.rows; m+=5)
+//      {
+//        for(int n = 0; n<depth.cols; n+=5)
+//        {
+//          float d = depth.ptr<float>(m)[n];
+//          if(d<0.01 || d>6)
+//            continue;
+//          pcl::PointXYZRGB p;
+//          p.z = d;
+//          p.x = (n-cx)*d/fx;
+//          p.y = (n-cy)*d/fy;
+//          p.r = rgb.ptr<uchar>(m)[n*3];
+//          p.g = rgb.ptr<uchar>(m)[n*3+1];
+//          p.b = rgb.ptr<uchar>(m)[n*3+2];
+
+//          tmp->points.push_back(p);
+
+//        }
+//      }
+//      tmp->is_dense = false;
+//      return tmp;
+//    }
+//    pcl::PointCloud<PointI>::Ptr generatePointCloudGrey(Mat& depth, Mat& grey)
+//    {
+//      double fx = cameraMatrix.at<double>(0,0);
+//      double fy = cameraMatrix.at<double>(1,1);
+//      double cx = cameraMatrix.at<double>(0,2);
+//      double cy = cameraMatrix.at<double>(1,2);
+//      PointCloudI::Ptr tmp(new PointCloudI());
+//      for(int m =0; m<depth.rows; m+=5)
+//      {
+//        for(int n = 0; n<depth.cols; n+=5)
+//        {
+//          float d = depth.ptr<float>(m)[n];
+//          if(d<0.01 || d>6)
+//            continue;
+//          pcl::PointXYZI p;
+//          p.z = d;
+//          p.x = (n-cx)*d/fx;
+//          p.y = (n-cy)*d/fy;
+//          p.intensity = static_cast<float>(grey.ptr<uchar>(m)[n]);
+//          tmp->points.push_back(p);
+
+//        }
+//      }
+//      tmp->is_dense = false;
+//      return tmp;
+//    }
+//    pcl::PointCloud<PointP>::Ptr generatePointCloudP(Mat& depth)
+//    {
+//      double fx = cameraMatrix.at<double>(0,0);
+//      double fy = cameraMatrix.at<double>(1,1);
+//      double cx = cameraMatrix.at<double>(0,2);
+//      double cy = cameraMatrix.at<double>(1,2);
+//      PointCloudP::Ptr tmp(new PointCloudP());
+//      for(int m =0; m<depth.rows; m+=5)
+//      {
+//        for(int n = 0; n<depth.cols; n+=5)
+//        {
+//          float d = depth.ptr<float>(m)[n];
+//          if(d<0.01 || d>6)
+//            continue;
+//          pcl::PointXYZ p;
+//          p.z = d;
+//          p.x = (n-cx)*d/fx;
+//          p.y = (n-cy)*d/fy;
+
+//          tmp->points.push_back(p);
+
+//        }
+//      }
+//      tmp->is_dense = false;
+//      return tmp;
+//    }
+
+//    pcl::PointCloud<PointP>::Ptr transformPointCloud(SE3 pose, pcl::PointCloud<PointP>& pointCloudP)
+//    {
+//      PointCloudP::Ptr cloud(new PointCloudP);
+//      pcl::transformPointCloud(pointCloudP, *cloud, pose.matrix().inverse().matrix());// transform from cam to world
+//      cloud->is_dense = false;
+//      return cloud;
+//    }
+//    pcl::PointCloud<PointI>::Ptr transformPointCloudI(SE3 pose, pcl::PointCloud<PointI>& pointCloudI)
+//    {
+//      PointCloudI::Ptr cloud(new PointCloudI);
+//      pcl::transformPointCloud(pointCloudI, *cloud, pose.matrix().inverse().matrix());// transform from cam to world
+//      cloud->is_dense = false;
+//      return cloud;
+//    }
+//    pcl::PointCloud<PointRGB>::Ptr transformPointCloudRGB(SE3 pose, pcl::PointCloud<PointRGB>& pointCloudRGB)
+//    {
+//      PointCloudRGB::Ptr cloud(new PointCloudRGB);
+//      pcl::transformPointCloud(pointCloudRGB, *cloud, pose.matrix().inverse().matrix());// transform from cam to world
+//      cloud->is_dense = false;
+//      return cloud;
+//    }
+
+//    void viewer()
+//    {
+//      pcl::visualization::CloudViewer viewer("point cloud viewer");
+
+//    }
+//    octomap::Pointcloud generateOctomapPC(Mat& depth)
+//    {
+//      double fx = cameraMatrix.at<double>(0,0);
+//      double fy = cameraMatrix.at<double>(1,1);
+//      double cx = cameraMatrix.at<double>(0,2);
+//      double cy = cameraMatrix.at<double>(1,2);
+//      octomap::Pointcloud tmp;
+//      for(int m =0; m<depth.rows; m+=5)
+//      {
+//        for(int n = 0; n<depth.cols; n+=5)
+//        {
+//          float d = depth.ptr<float>(m)[n];
+//          if(d<0.01 || d>6)
+//            continue;
+
+//          double z = d;
+//          double x = (n-cx)*d/fx;
+//          double y = (n-cy)*d/fy;
+
+//          octomap::point3d p(x,y,z);
+
+//          tmp.push_back(p);
+
+//        }
+//      }
+
+//    }
+
+//    octomap::Pointcloud transformOctomapPC(SE3 pose, octomap::Pointcloud octoP)
+//    {
+//      Vector3d trans = pose.translation();
+//      Quaterniond rots = pose.unit_quaternion();
+
+//      octomath::Vector3 tran(trans(0),trans(1),trans(2));
+//      octomath::Quaternion rot(rots.w(),rots.x(),rots.y(),rots.z());
+
+//      octomap::pose6d poseOcto(tran, rot);
+
+//      octomap::Pointcloud tmp(octoP);
+//      tmp.transform(poseOcto.inv());
+
+//      return tmp;
+
+//    }
+
+
+
 
 
 };//class VOTrackingNodeletClass

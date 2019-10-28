@@ -8,7 +8,7 @@
     <param name="/fy"              type="double" value="238.68667602539062"/>
     <param name="/cx"              type="double" value="239.08380126953125"/>
     <param name="/cy"              type="double" value="134.68154907226562"/>
-    <param name="/voc"             type="string" value="$(find vo_nodelet)/voc/orbvoc.dbow3"/>
+    <param name="/voc"             type="string" value="$(find vo_nodelet)/voc/voc_orb.dbow3"/>
 
 
     <!-- Manager -->
