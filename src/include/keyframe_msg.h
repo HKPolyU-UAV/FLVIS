@@ -10,6 +10,7 @@
 
 struct KeyFrameStruct {
     cv::Mat         img;
+    cv::Mat         d_img;
     int64_t         frame_id;
     int             lm_count;
     vector<int64_t> lm_id;
@@ -29,6 +30,7 @@ public:
     static void unpack(vo_nodelet::KeyFrameConstPtr kf_const_ptr,
                        int64_t         &frame_id,
                        Mat             &img,
+                       Mat             &d_img,
                        int             &lm_count,
                        vector<int64_t> &lm_id,
                        vector<Vec2>    &lm_2d,

@@ -13,6 +13,7 @@ find_package(G2O REQUIRED)
 
 find_package (OpenCV 3 REQUIRED)
 find_package (Eigen3 REQUIRED)
+
 find_package (CSparse REQUIRED )
 find_package (Sophus REQUIRED )
 find_package (yaml-cpp REQUIRED )

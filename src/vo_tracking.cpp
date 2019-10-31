@@ -34,26 +34,7 @@
 #include <include/correction_inf_msg.h>
 
 
-#include <pcl/io/pcd_io.h>
 
-#include <pcl/common/transforms.h>
-#include <pcl/point_types.h>
-#include <pcl/filters/voxel_grid.h>
-
-#include <condition_variable>
-#include <octomap/octomap.h>
-#include <octomap/OccupancyOcTreeBase.h>
-//#include <octomap/OccupancyOcTreeBase.hxx>
-
-using namespace cv;
-using namespace std;
-//typedef pcl::PointXYZ PointP;
-//typedef pcl::PointXYZRGB PointRGB;
-//typedef pcl::PointXYZI PointI;
-
-//typedef pcl::PointCloud<PointP> PointCloudP;
-//typedef pcl::PointCloud<PointRGB> PointCloudRGB;
-//typedef pcl::PointCloud<PointI> PointCloudI;
 
 
 //namespace octomap {
@@ -163,7 +144,7 @@ private:
              << "image_width: "  << image_width << " image_height: "  << image_height << endl
              << "fx: "  << fx << " fy: "  << fy <<  " cx: "  << cx <<  " cy: "  << cy << endl;
 
-        featureDEM  = new FeatureDEM(image_width,image_height,4);
+        featureDEM  = new FeatureDEM(image_width,image_height,2);
 
         curr_frame = std::make_shared<CameraFrame>();
         last_frame = std::make_shared<CameraFrame>();
@@ -438,13 +419,13 @@ private:
             Vec3 r=T_diff_key_curr.so3().log();
             double t_norm = fabs(t[0]) + fabs(t[1]) + fabs(t[2]);
             double r_norm = fabs(r[0]) + fabs(r[1]) + fabs(r[2]);
-            if(t_norm>=0.05 || r_norm>=0.5)
+            if(t_norm>=0.15 || r_norm>=0.8)
             {
                 kf_pub->pub(*curr_frame,currStamp);
                 T_c_w_last_keyframe = curr_frame->T_c_w;
-                cout << "Tracking: F " << frameCount << " as KF, t_norm: " << t_norm << " r_norm: "<< r_norm
-                     << " Twc: " << curr_frame->T_c_w.inverse().so3().log().transpose() << " | "
-                     << curr_frame->T_c_w.inverse().translation().transpose() << endl;
+//                cout << "Tracking: F " << frameCount << " as KF, t_norm: " << t_norm << " r_norm: "<< r_norm
+//                     << " Twc: " << curr_frame->T_c_w.inverse().so3().log().transpose() << " | "
+//                     << curr_frame->T_c_w.inverse().translation().transpose() << endl;
             }
             //            if(frameCount%4==0)
             //            {

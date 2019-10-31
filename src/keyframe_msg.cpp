@@ -19,6 +19,9 @@ void KeyFrameMsg::pub(CameraFrame& frame, ros::Time stamp)
     cv_bridge::CvImage cvimg(std_msgs::Header(), "mono8", frame.img);
     cvimg.toImageMsg(kf.img);
 
+    cv_bridge::CvImage cv_d_img(std_msgs::Header(), "16UC1", frame.d_img);
+    cv_d_img.toImageMsg(kf.d_img);
+
     vector<int64_t> lm_id;
     vector<Vec2> lm_2d;
     vector<Vec3> lm_3d;
@@ -93,6 +96,7 @@ void KeyFrameMsg::pub(CameraFrame& frame, ros::Time stamp)
 void KeyFrameMsg::unpack(vo_nodelet::KeyFrameConstPtr kf_const_ptr,
                          int64_t         &frame_id,
                          Mat             &img,
+                         Mat             &d_img,
                          int             &lm_count,
                          vector<int64_t> &lm_id,
                          vector<Vec2>    &lm_2d,
@@ -109,6 +113,8 @@ void KeyFrameMsg::unpack(vo_nodelet::KeyFrameConstPtr kf_const_ptr,
     frame_id = kf_const_ptr->frame_id;
     cv_bridge::CvImagePtr cvbridge_image  = cv_bridge::toCvCopy(kf_const_ptr->img, kf_const_ptr->img.encoding);
     img=cvbridge_image->image;
+    cv_bridge::CvImagePtr cvbridge_d_image = cv_bridge::toCvCopy(kf_const_ptr->d_img, kf_const_ptr->d_img.encoding);
+    d_img = cvbridge_d_image->image;
     lm_count = kf_const_ptr->lm_count;
     int count =  kf_const_ptr->lm_count;
     for(auto i=0; i<count; i++)

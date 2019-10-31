@@ -1,6 +1,7 @@
 Header header
 int64  frame_id
 sensor_msgs/Image img
+sensor_msgs/Image d_img
 int32 lm_count
 std_msgs/Int64MultiArray lm_id_data
 geometry_msgs/Vector3[]  lm_2d_data

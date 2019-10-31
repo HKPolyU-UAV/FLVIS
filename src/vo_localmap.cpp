@@ -87,6 +87,7 @@ private:
         KeyFrameMsg::unpack(msg,
                             kf.frame_id,
                             kf.img,
+                            kf.d_img,
                             kf.lm_count,
                             kf.lm_id,
                             kf.lm_2d,

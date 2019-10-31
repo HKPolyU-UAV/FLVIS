@@ -22,15 +22,15 @@
     </node>
 
 
-    <!-- LocalMapNode -->
+    <!-- LocalMapNode
     <node pkg="nodelet" type="nodelet" args="load vo_nodelet/VOLocalMapNodeletClass vo_manager"
         name="VOLocalMapNodeletClass_loader" output="screen">
-    </node>
+    </node> -->
 
     <!-- LoopClosingNode -->
-<!--    <node pkg="nodelet" type="nodelet" args="load vo_nodelet/VOLoopClosingNodeletClass vo_manager"
+    <node pkg="nodelet" type="nodelet" args="load vo_nodelet/VOLoopClosingNodeletClass vo_manager"
         name="VOLoopClosingNodeletClass_loader" output="screen">
-    </node>-->
+    </node>
 
 
     <node pkg="rosbag" type="play" name="rosbag" args="$(find vo_nodelet)/bag/2019-10-15-21-25-22_room1.bag"/>
