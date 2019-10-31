@@ -419,7 +419,9 @@ private:
             Vec3 r=T_diff_key_curr.so3().log();
             double t_norm = fabs(t[0]) + fabs(t[1]) + fabs(t[2]);
             double r_norm = fabs(r[0]) + fabs(r[1]) + fabs(r[2]);
-            if(t_norm>=0.15 || r_norm>=0.8)
+
+            if(t_norm>=0.15 || r_norm>=0.5)
+
             {
                 kf_pub->pub(*curr_frame,currStamp);
                 T_c_w_last_keyframe = curr_frame->T_c_w;
