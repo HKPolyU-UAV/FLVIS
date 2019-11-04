@@ -4,7 +4,7 @@
 #include <ros/ros.h>
 #include <nav_msgs/Path.h>
 #include <eigen3/Eigen/Dense>
-#include <common.h>
+#include <include/common.h>
 
 
 #define DEFAULT_NUM_OF_POSE (9000)
