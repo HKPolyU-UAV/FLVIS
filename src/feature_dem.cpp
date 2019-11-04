@@ -43,10 +43,10 @@ FeatureDEM::FeatureDEM(const int image_width,
         x_end   = gridx[(i%4)+1];
         y_begin = gridy[i/4];
         y_end   = gridy[(i/4)+1];
-        //    cout << "x_begin: " << x_begin << endl;
-        //    cout << "x_end: " << x_end << endl;
-        //    cout << "y_begin: " << y_begin << endl;
-        //    cout << "y_end: " << y_end << endl;
+        cout << "x_begin: " << x_begin << endl;
+        cout << "x_end: " << x_end << endl;
+        cout << "y_begin: " << y_begin << endl;
+        cout << "y_end: " << y_end << endl;
         for(int xx=x_begin; xx<x_end; xx++)
         {
             for(int yy=y_begin; yy<y_end; yy++)
@@ -103,7 +103,7 @@ void FeatureDEM::filterAndFillIntoRegion(const Mat& img,
         {
             float Harris_R;
             calHarrisR(img,pt,Harris_R);
-//            if(Harris_R>10.0)
+            //            if(Harris_R>10.0)
             if(1)
             {
                 int regionNum= 4*floor(pt.y/regionHeight) + (pt.x/regionWidth);
@@ -148,13 +148,15 @@ void FeatureDEM::redetect(const Mat& img,
     //For every region check whether the is
     if(0)//detect feature by region
     {
+        //cout << "redetect by region" << endl;
         for(int i=0; i<16; i++)//for every region
         {
             if(regionKeyPts[i].size()<=MIN_REGION_FREATURES_NUM)
             {
                 //detect in the region;
                 //Ptr<FastFeatureDetector> detector= FastFeatureDetector::create();
-                Ptr<ORB> detector= ORB::create();
+                Ptr<ORB> detector= ORB::create(1000,1.2,4,20);
+                //Ptr<FastFeatureDetector> detector = FastFeatureDetector::create(5);
                 vector<pair<Point2f,float>> kpsHarrisRinRegion;
                 kpsHarrisRinRegion.clear();
                 vector<KeyPoint> FASTFeatures;
@@ -168,7 +170,6 @@ void FeatureDEM::redetect(const Mat& img,
                     Point2f pt = kps.at(j);
                     float Harris_R;
                     calHarrisR(img,pt,Harris_R);
-                    //if(Harris_R>20.0)
                     if(1)
                     {
                         kpsHarrisRinRegion.push_back(make_pair(pt,Harris_R));
@@ -196,13 +197,15 @@ void FeatureDEM::redetect(const Mat& img,
                         if(regionKeyPts[i].size() >= MAX_REGION_FREATURES_NUM) break;
                     }
                 }
+                cout << "for region " << i << ": detect " << kpsHarrisRinRegion.size() <<" new features" << endl;
             }
         }
     }
     else//detect all features
     {
+        //cout << "redetect all features" << endl;
         //Ptr<FastFeatureDetector> detector= FastFeatureDetector::create();
-        Ptr<ORB> detector= ORB::create();
+        Ptr<ORB> detector= ORB::create(2000);
         vector<KeyPoint> FASTFeatures;
         vector<Point2f>  kps;
         detector->detect(img, FASTFeatures);
@@ -329,7 +332,7 @@ void FeatureDEM::detect(const Mat& img, vector<Vec2>& pts, vector<Mat>& descript
 
     Mat tmpDescriptors;
     KeyPoint::convert(tmpPts,tmpKPs);
-    Ptr<DescriptorExtractor> extractor = ORB::create();
+    Ptr<DescriptorExtractor> extractor = ORB::create(2000);
     extractor->compute(img, tmpKPs, tmpDescriptors);
 
     for(size_t i=0; i<tmpKPs.size(); i++)

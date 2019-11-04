@@ -23,8 +23,8 @@
  *  //For every region, select features by Harris index and boundary size
  * */
 
-#define MAX_REGION_FREATURES_NUM (50)
-#define MIN_REGION_FREATURES_NUM (30)
+#define MAX_REGION_FREATURES_NUM (30)
+#define MIN_REGION_FREATURES_NUM (15)
 
 
 #define BOUNDARYBOXSIZE          (5)
