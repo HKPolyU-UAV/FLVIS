@@ -23,7 +23,7 @@ void RVIZFrame::pubFramePoseT_w_c(const SE3 T_w_c,
                                   const ros::Time stamp)
 {
   geometry_msgs::PoseStamped poseStamped;
-  poseStamped.header.frame_id="/world";
+  poseStamped.header.frame_id="map";
   poseStamped.header.stamp = stamp;
 
   Quaterniond q = T_w_c.so3().unit_quaternion();
@@ -54,7 +54,7 @@ void RVIZFrame::pubFramePtsPoseT_w_c(const vector<Vec3>& pts3d,
   pubFramePoseT_w_c(T_w_c);
 
   visualization_msgs::Marker points, line_list,camera_pyramid;
-  points.header.frame_id = line_list.header.frame_id = camera_pyramid.header.frame_id= "/world";
+  points.header.frame_id = line_list.header.frame_id = camera_pyramid.header.frame_id= "map";
   points.header.stamp = line_list.header.stamp = camera_pyramid.header.stamp = stamp;
   points.ns = line_list.ns = camera_pyramid.ns = "points_and_lines";
   points.action = line_list.action = camera_pyramid.action = visualization_msgs::Marker::ADD;
@@ -96,10 +96,10 @@ void RVIZFrame::pubFramePtsPoseT_w_c(const vector<Vec3>& pts3d,
   camera_pos.z=t[2];
 
   Vec3 pyramidPoint_c[4];//camera frame
-  pyramidPoint_c[0] = Vec3(0.08,0.05,0.06);
-  pyramidPoint_c[1] = Vec3(0.08,-0.05,0.06);
-  pyramidPoint_c[2] = Vec3(-0.06,-0.05,0.06);
-  pyramidPoint_c[3] = Vec3(-0.06,0.05,0.06);
+  pyramidPoint_c[0] = Vec3(0.1,0.07,0.07);
+  pyramidPoint_c[1] = Vec3(0.1,-0.07,0.07);
+  pyramidPoint_c[2] = Vec3(-0.1,-0.07,0.07);
+  pyramidPoint_c[3] = Vec3(-0.1,0.07,0.07);
 
   Vec3 pyramidPoint_w;
   geometry_msgs::Point pyramidPointDraw[4];
