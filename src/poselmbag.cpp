@@ -55,7 +55,7 @@ bool PoseLMBag::removeLMObservation(int64_t id_in)
         lm_sub_bag.at(idx).count--;
         if(lm_sub_bag.at(idx).count==0)
         {
-            cout << "remove from bag" << endl;
+            //cout << "remove from bag" << endl;
             lm_sub_bag.erase(lm_sub_bag.begin() + idx);
             remove_lm_from_optimizer = true;
         }
@@ -95,6 +95,18 @@ void PoseLMBag::addPose(int64_t id_in, SE3 pose_in)
 void PoseLMBag::getAllLMs(vector<LM_ITEM> &lms_out)
 {
     lms_out = this->lm_sub_bag;
+}
+
+void PoseLMBag::getMultiViewLMs(vector<LM_ITEM> &lms_out, int view_cnt)
+{
+    lms_out.clear();
+    for(auto lm_in_bag:lm_sub_bag)
+    {
+        if(lm_in_bag.count>=view_cnt)
+        {
+            lms_out.push_back(lm_in_bag);
+        }
+    }
 }
 
 void PoseLMBag::getAllPoses(vector<POSE_ITEM> &poses_out)
