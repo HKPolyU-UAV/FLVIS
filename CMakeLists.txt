@@ -72,7 +72,6 @@ include_directories(SYSTEM
     ${YAML_CPP_INCLUDE_DIR}
     ${DBoW3_INCLUDE_DIR}
     "${CMAKE_CURRENT_SOURCE_DIR}/src/"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/include/"
     )
 
 
@@ -97,12 +96,12 @@ add_library(vo_nodelet
     src/camera_frame.cpp
     src/rviz_frame.cpp
     src/rviz_path.cpp
-    src/rviz_tf.cpp
     src/triangulation.cpp
     src/keyframe_msg.cpp
     src/poselmbag.cpp
     src/bundle_adjustment.cpp
     src/correction_inf_msg.cpp
+    src/octomap_feeder.cpp
     )
 
 target_link_libraries(vo_nodelet
@@ -115,6 +114,7 @@ target_link_libraries(vo_nodelet
     ${G2O_LIBS}
     ${PCL_LIBRARIES}
     ${OCTOMAP_LIBRARIES}
+    ${Boost_SYSTEM_LIBRARY}
     )
 
 #add_executable(testSophus

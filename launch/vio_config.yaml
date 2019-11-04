@@ -5,9 +5,9 @@
 #distortion_model: radtan
 #distortion_coeffs: [0.0, 0.0, 0.0, 0.0]
 
-image_width: 480
-image_height: 270
-intrinsics: [239.0838, 238.686676, 239.0838, 134.681549]#fx fy cx cy
+image_width: 640
+image_height: 360
+intrinsics: [318.7784118652344, 318.2489013671875, 318.7784118652344, 179.57540893554688]#fx fy cx cy
 distortion_coeffs: [0.0, 0.0, 0.0, 0.0]#k1 k2 r1 r2
 
 accelerometer_noise_density: 0.0245
