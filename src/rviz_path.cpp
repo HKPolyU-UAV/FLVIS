@@ -11,7 +11,7 @@ RVIZPath::RVIZPath(ros::NodeHandle& nh, string topic_name, int bufferCount, int 
   {
     numOfPose = maxNumOfPose;
   }
-  path.header.frame_id = "world";
+  path.header.frame_id = "map";
 }
 
 void RVIZPath::pubPathT_c_w(const SE3 T_c_w, const ros::Time stamp)
@@ -22,7 +22,7 @@ void RVIZPath::pubPathT_c_w(const SE3 T_c_w, const ros::Time stamp)
 void RVIZPath::pubPathT_w_c(const SE3 T_w_c, const ros::Time stamp)
 {
   geometry_msgs::PoseStamped poseStamped;
-  poseStamped.header.frame_id="/world";
+  poseStamped.header.frame_id="map";
   poseStamped.header.stamp = ros::Time::now();
 
   Quaterniond q = T_w_c.so3().unit_quaternion();

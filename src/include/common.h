@@ -8,6 +8,9 @@
 #include <eigen3/Eigen/Dense>
 #include <eigen3/Eigen/Geometry>
 
+#include <pcl/point_types.h>
+#include <pcl/point_cloud.h>
+
 #include <opencv2/opencv.hpp>
 
 #include "../3rdPartLib/Sophus/sophus/so3.h"
@@ -47,6 +50,16 @@ typedef Eigen::Matrix<double, 3, 15> Mat3x15;
 typedef Eigen::Matrix<double, 15, 3> Mat15x3;
 typedef Eigen::Matrix<double, 1, 15> Mat1x15;
 typedef Eigen::Matrix<double, 15, 1> Mat15x1;
+
+
+
+typedef pcl::PointXYZ PointP;
+typedef pcl::PointXYZRGB PointRGB;
+typedef pcl::PointXYZI PointI;
+
+typedef pcl::PointCloud<PointP> PointCloudP;
+typedef pcl::PointCloud<PointRGB> PointCloudRGB;
+typedef pcl::PointCloud<PointI> PointCloudI;
 
 
 
