@@ -142,7 +142,7 @@ void CameraFrame::CalReprjInlierOutlier(double &mean_prjerr, vector<Vec2> &outli
     double sh = sh_over_med * valid_distances.at(half);
     //cout << "MAD SH=" << sh << endl;
     if(sh>=5.0) sh=5.0;
-    if(sh<=2.0) sh=2.0;
+    if(sh<=3.0) sh=3.0;
     for(int i=this->landmarks.size()-1; i>=0; i--)
     {
         if(distances.at(i)>sh)
@@ -297,12 +297,11 @@ void CameraFrame::forceCorrectLM3DW(const int &cnt, const vector<int64_t> &ids, 
     for(int i=0; i<cnt; i++)
     {
         int correct_lm_id=ids.at(i);
-        for(size_t i=0; i<landmarks.size(); i++)
+        for(size_t j=0; j<landmarks.size(); j++)
         {
-            if(landmarks.at(i).lm_id==correct_lm_id)
+            if(landmarks.at(j).lm_id==correct_lm_id)
             {
-                cout <<"match!" << endl;
-                landmarks.at(i).lm_3d_w=lms_3d.at(i);
+                landmarks.at(j).lm_3d_w=lms_3d.at(i);
                 break;
             }
         }
@@ -315,12 +314,12 @@ void CameraFrame::forceMarkOutlier(const int &cnt, const vector<int64_t> &ids)
     for(int i=0; i<cnt; i++)
     {
         int correct_lm_id=ids.at(i);
-        for(size_t i=0; i<landmarks.size(); i++)
+        for(size_t j=0; j<landmarks.size(); j++)
         {
-            if(landmarks.at(i).lm_id==correct_lm_id)
+            if(landmarks.at(j).lm_id==correct_lm_id)
             {
-                cout <<"match!" << endl;
-                landmarks.at(i).lm_tracking_state=LM_TRACKING_OUTLIER;
+//                cout <<"match!" << endl;
+                landmarks.at(j).lm_tracking_state=LM_TRACKING_OUTLIER;
             }
         }
     }

@@ -53,14 +53,6 @@
 #include <octomap/octomap.h>
 #include <octomap/OccupancyOcTreeBase.h>
 
-typedef pcl::PointXYZ PointP;
-typedef pcl::PointXYZRGB PointRGB;
-typedef pcl::PointXYZI PointI;
-
-typedef pcl::PointCloud<PointP> PointCloudP;
-typedef pcl::PointCloud<PointRGB> PointCloudRGB;
-typedef pcl::PointCloud<PointI> PointCloudI;
-
 
 using namespace DBoW3;
 using namespace cv;

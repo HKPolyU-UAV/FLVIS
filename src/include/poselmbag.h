@@ -44,6 +44,7 @@ public:
 
 
     void getAllLMs(vector<LM_ITEM> &lms_out);
+    void getMultiViewLMs(vector<LM_ITEM> &lms_out, int view_cnt=3);
     void getAllPoses(vector<POSE_ITEM> &poses_out);
     int getNewestPoseInOptimizerIdx(void);
     int getOldestPoseInOptimizerIdx(void);

@@ -97,8 +97,8 @@ private:
 
 
         kfs.push_back(kf);
-        cout << "LocalMap: inframe_callback function" << endl;
-        cout << "LocalMap: optimizer_state is: " << optimizer_state << endl;
+//        cout << "LocalMap: inframe_callback function" << endl;
+//        cout << "LocalMap: optimizer_state is: " << optimizer_state << endl;
 
         switch(optimizer_state)
         {
@@ -193,9 +193,9 @@ private:
         case SLIDING_WINDOW:
             if(1)
             {
-                cout << "LocalMap: SLIDING WINDOW" << endl;
+                //cout << "LocalMap: SLIDING WINDOW" << endl;
                 //STEP1: Delete Oldest Frame and idle LM;
-                cout << "LocalMap: Remove Inf From Optimizer*****" << endl;
+                //cout << "LocalMap: Remove Inf From Optimizer*****" << endl;
                 optimizer.removeVertex(dynamic_cast<g2o::VertexSE3Expmap*>(optimizer.vertex(bag.getOldestPoseInOptimizerIdx())));
                 for(auto id:kfs.at(0).lm_id)
                 {
@@ -204,7 +204,7 @@ private:
                         optimizer.removeVertex(dynamic_cast<g2o::VertexSBAPointXYZ*>(optimizer.vertex(id)));
                     }
                 }
-                cout << "LocalMap: Add Pose to Optimizer*****" << endl;
+                //cout << "LocalMap: Add Pose to Optimizer*****" << endl;
                 //STEP2: Add new Frame, LM and Observation;
                 bag.addPose(kfs.back().frame_id,
                             kfs.back().T_c_w);
@@ -214,7 +214,7 @@ private:
                                                  kfs.back().T_c_w.translation()));
                 optimizer.addVertex(v_pose);
                 optimizer.vertex(bag.getOldestPoseInOptimizerIdx())->setFixed(true);
-                cout << "LocalMap: Add LM to Optimizer*****" << endl;
+                //cout << "LocalMap: Add LM to Optimizer*****" << endl;
                 for(int i=0; i < kfs.back().lm_count; i++)//add landmarks
                 {
                     if(bag.addLMObservation(kfs.back().lm_id.at(i),
@@ -227,7 +227,7 @@ private:
                         optimizer.addVertex (v_lm);
                     }
                 }
-                cout << "LocalMap: Add Edge to Optimizer*****" << endl;
+                //cout << "LocalMap: Add Edge to Optimizer*****" << endl;
                 g2o::HyperGraph::EdgeSet es = optimizer.edges();
                 vector<g2o::HyperGraph::Edge*> v(es.begin(), es.end());
                 edges.clear();
@@ -264,12 +264,12 @@ private:
         }
         if(optimizer_state==OPTIMIZING)
         {
-            cout << "LocalMap: optimizing" << endl;
+            //cout << "LocalMap: optimizing" << endl;
             CorrectionInfStruct correction_inf;
             optimizer.setVerbose(false);
             optimizer.initializeOptimization();
             optimizer.optimize(10);
-            cout << "LocalMap: 10 loops" << endl;
+            //cout << "LocalMap: 10 loops" << endl;
             //remove outliers
             int outlier_cnt = 0;
             int inliers_cnt = 0;
@@ -277,7 +277,7 @@ private:
             {
                 g2o::EdgeProjectXYZ2UV* e = edges.at(i);
                 e->computeError();
-                if (e->chi2()>1.0){
+                if (e->chi2()>3.0){
                     int id=  e->vertex(0)->id();//outlier landmark id;
                     correction_inf.lm_outlier_id.push_back(id);
                     outlier_cnt++;
@@ -290,7 +290,7 @@ private:
             correction_inf.lm_outlier_count=outlier_cnt;
             optimizer.initializeOptimization();
             optimizer.optimize(5);
-            cout << "LocalMap: 15 loops" << endl;
+            //bcout << "LocalMap: 15 loops" << endl;
             //update pose of newest frame
             correction_inf.frame_id=kfs.back().frame_id;
 
@@ -300,8 +300,10 @@ private:
 
             //landmark position
             vector<LM_ITEM> lms;
-            bag.getAllLMs(lms);
+            bag.getMultiViewLMs(lms,4);
+            //bag.getAllLMs(lms);
             correction_inf.lm_count = lms.size();
+            //cout << "correction_inf" << endl;
             for (auto lm:lms)
             {
                 g2o::VertexSBAPointXYZ* v = dynamic_cast<g2o::VertexSBAPointXYZ*> (optimizer.vertex(lm.id));

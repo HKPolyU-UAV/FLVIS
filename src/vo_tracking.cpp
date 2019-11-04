@@ -23,7 +23,6 @@
 #include <include/feature_dem.h>
 #include <include/rviz_frame.h>
 #include <include/rviz_path.h>
-#include <include/rviz_tf.h>
 #include <include/camera_frame.h>
 #include <include/yamlRead.h>
 #include <include/cv_draw.h>
@@ -32,39 +31,9 @@
 #include <include/keyframe_msg.h>
 #include <include/bundle_adjustment.h>
 #include <include/correction_inf_msg.h>
+#include <include/octomap_feeder.h>
 
 
-
-
-
-//namespace octomap {
-//  template <class NODE>
-//  class OcTreeDe : public OcTree {
-//  public:
-
-
-//    void deinsertPointCloud(const Pointcloud& scan, const octomap::point3d& sensor_origin,
-//                                               double maxrange, bool lazy_eval, bool discretize)
-//    {
-//      KeySet free_cells, occupied_cells;
-
-//      if (discretize)
-//        this->computeDiscreteUpdate(scan, sensor_origin, free_cells, occupied_cells, maxrange);
-//      else
-//        this->computeUpdate(scan, sensor_origin, free_cells, occupied_cells, maxrange);
-
-//      // insert data into tree  -----------------------
-//      for (KeySet::iterator it = free_cells.begin(); it != free_cells.end(); ++it) {
-//        this->updateNode(*it, true, lazy_eval);
-//      }
-//      for (KeySet::iterator it = occupied_cells.begin(); it != occupied_cells.end(); ++it) {
-//        this->updateNode(*it, false, lazy_eval);
-//      }
-//    }
-//  };
-
-
-//}
 
 
 enum TRACKINGSTATE{UnInit, Working, trackingFail};
@@ -116,7 +85,8 @@ private:
     Mat currShowImg;
     RVIZFrame* frame_pub;
     RVIZPath*  path_pub;
-    RVIZTF*    tf_pub;
+    OctomapFeeder* octomap_pub;
+
     KeyFrameMsg* kf_pub;
     image_transport::ImageTransport *it;
     image_transport::Publisher cv_pub;
@@ -144,7 +114,7 @@ private:
              << "image_width: "  << image_width << " image_height: "  << image_height << endl
              << "fx: "  << fx << " fy: "  << fy <<  " cx: "  << cx <<  " cy: "  << cy << endl;
 
-        featureDEM  = new FeatureDEM(image_width,image_height,2);
+        featureDEM  = new FeatureDEM(image_width,image_height,3);
 
         curr_frame = std::make_shared<CameraFrame>();
         last_frame = std::make_shared<CameraFrame>();
@@ -159,8 +129,9 @@ private:
         //Publish
         path_pub  = new RVIZPath(nh,"/vo_path");
         frame_pub = new RVIZFrame(nh,"/vo_camera_pose","/vo_curr_frame");
-        tf_pub    = new RVIZTF();
         kf_pub    = new KeyFrameMsg(nh,"/vo_kf");
+        octomap_pub = new OctomapFeeder(nh,"/vo_octo_tracking","vo_local",1);
+        octomap_pub->d_camera=curr_frame->d_camera;
         it = new image_transport::ImageTransport(nh);
         cv_pub = it->advertise("/vo_img", 1);
 
@@ -182,7 +153,6 @@ private:
 
     void correction_feedback_callback(const vo_nodelet::CorrectionInf::ConstPtr& msg)
     {
-        cout << "Tracking: correction_feedback_callback " << endl;
         //unpacking and update the structure
         CorrectionInfMsg::unpack(msg,
                                  correction_inf.frame_id,
@@ -192,10 +162,11 @@ private:
                                  correction_inf.lm_3d,
                                  correction_inf.lm_outlier_count,
                                  correction_inf.lm_outlier_id);
-        cout << "Tracking: correction frame id:" << correction_inf.frame_id << endl;
-        cout<<  "Tracking: correction Twc: " << correction_inf.T_c_w.inverse().so3().log().transpose() << " | "
-             << correction_inf.T_c_w.inverse().translation().transpose() << endl;
-        cout << "Tracking: correction landmark count:"  << correction_inf.lm_count << endl;
+        has_feedback=true;
+//        cout << "Tracking: correction frame id:" << correction_inf.frame_id << endl;
+//        cout<<  "Tracking: correction Twc: " << correction_inf.T_c_w.inverse().so3().log().transpose() << " | "
+//             << correction_inf.T_c_w.inverse().translation().transpose() << endl;
+//        cout << "Tracking: correction landmark count:"  << correction_inf.lm_count << endl;
 //        for(int i=0; i< correction_inf.lm_count; i++)
 //        {
 //            cout << "lm_id"  << correction_inf.lm_id.at(i) <<"  "<< correction_inf.lm_3d.at(i).transpose() << endl;
@@ -205,15 +176,14 @@ private:
 //        {
 //            cout << "lm_outlier_id"  << correction_inf.lm_outlier_id.at(i) << endl;
 //        }
-        has_feedback=true;
-        cout << "Tracking: end callback function" << endl;
     }
 
     void image_input_callback(const sensor_msgs::ImageConstPtr & imgPtr, const sensor_msgs::ImageConstPtr & depthImgPtr)
     {
-        //tic_toc_ros tt_cb;
+        tic_toc_ros tt_cb;
 
         frameCount++;
+        if(frameCount<30) return;
 
         //15hz Frame Rate
         //if((frameCount%2)==0) return;
@@ -307,7 +277,6 @@ private:
                     pose_records.at(i).T_c_w = T_diff * update_T_c_w;
                 }
                 //update last_frame pose and landmake p3d throuth transformation
-                cout << "#############################"  << endl;
                 for(auto lm:last_frame->landmarks)
                 {
                     //cout << lm.lm_id << "befor FB "<< lm.lm_3d_w.transpose() << endl;
@@ -316,9 +285,8 @@ private:
                 last_frame->T_c_w = T_diff * update_T_c_w;
                 last_frame->correctLMP3DWByLMP3DCandT();
                 //update last_frame landmake lm_3d_w and mask outlier
-//                last_frame->forceCorrectLM3DW(correction_inf.lm_count,correction_inf.lm_id,correction_inf.lm_3d);
-//                last_frame->forceMarkOutlier(correction_inf.lm_outlier_count,correction_inf.lm_outlier_id);
-                cout << "****************************"  << endl;
+                last_frame->forceCorrectLM3DW(correction_inf.lm_count,correction_inf.lm_id,correction_inf.lm_3d);
+                last_frame->forceMarkOutlier(correction_inf.lm_outlier_count,correction_inf.lm_outlier_id);
                 for(auto lm:last_frame->landmarks)
                 {
                     //cout << lm.lm_id << "after FB " << lm.lm_3d_w.transpose() << endl;
@@ -326,6 +294,7 @@ private:
                 //maek last_frame outlier
                 has_feedback = false;
             }
+
             /* F2F Workflow
                      STEP1: Track Match and Update to curr_frame
                      STEP2: 2D3D-PNP+F2FBA
@@ -388,7 +357,6 @@ private:
             //innovate 3D information
             curr_frame->depthInnovation();
 
-
             //record the pose
             ID_POSE tmp;
             tmp.frame_id = curr_frame->frame_id;
@@ -412,7 +380,8 @@ private:
 
             frame_pub->pubFramePtsPoseT_c_w(curr_frame->getValid3dPts(),curr_frame->T_c_w);
             path_pub->pubPathT_c_w(curr_frame->T_c_w,currStamp);
-            tf_pub->pubTFT_c_w(curr_frame->T_c_w,currStamp);
+            octomap_pub->pub(curr_frame->T_c_w,curr_frame->d_img,currStamp);
+//            tf_pub->pubTFT_c_w(curr_frame->T_c_w,currStamp);
 
             SE3 T_diff_key_curr = T_c_w_last_keyframe*(curr_frame->T_c_w.inverse());
             Vec3 t=T_diff_key_curr.translation();
@@ -420,8 +389,7 @@ private:
             double t_norm = fabs(t[0]) + fabs(t[1]) + fabs(t[2]);
             double r_norm = fabs(r[0]) + fabs(r[1]) + fabs(r[2]);
 
-            if(t_norm>=0.15 || r_norm>=0.5)
-
+            if(t_norm>=0.15 || r_norm>=2.0)
             {
                 kf_pub->pub(*curr_frame,currStamp);
                 T_c_w_last_keyframe = curr_frame->T_c_w;
@@ -451,162 +419,9 @@ private:
         waitKey(1);
         last_frame.swap(curr_frame);
 
-        //tt_cb.toc();
+        tt_cb.toc();
     }//image_input_callback(const sensor_msgs::ImageConstPtr & imgPtr, const sensor_msgs::ImageConstPtr & depthImgPtr)
 
-//    pcl::PointCloud<PointRGB>::Ptr generatePointCloudRGB(Mat& depth, Mat& rgb)
-//    {
-//      double fx = cameraMatrix.at<double>(0,0);
-//      double fy = cameraMatrix.at<double>(1,1);
-//      double cx = cameraMatrix.at<double>(0,2);
-//      double cy = cameraMatrix.at<double>(1,2);
-//      PointCloudRGB::Ptr tmp(new PointCloudRGB());
-//      for(int m =0; m<depth.rows; m+=5)
-//      {
-//        for(int n = 0; n<depth.cols; n+=5)
-//        {
-//          float d = depth.ptr<float>(m)[n];
-//          if(d<0.01 || d>6)
-//            continue;
-//          pcl::PointXYZRGB p;
-//          p.z = d;
-//          p.x = (n-cx)*d/fx;
-//          p.y = (n-cy)*d/fy;
-//          p.r = rgb.ptr<uchar>(m)[n*3];
-//          p.g = rgb.ptr<uchar>(m)[n*3+1];
-//          p.b = rgb.ptr<uchar>(m)[n*3+2];
-
-//          tmp->points.push_back(p);
-
-//        }
-//      }
-//      tmp->is_dense = false;
-//      return tmp;
-//    }
-//    pcl::PointCloud<PointI>::Ptr generatePointCloudGrey(Mat& depth, Mat& grey)
-//    {
-//      double fx = cameraMatrix.at<double>(0,0);
-//      double fy = cameraMatrix.at<double>(1,1);
-//      double cx = cameraMatrix.at<double>(0,2);
-//      double cy = cameraMatrix.at<double>(1,2);
-//      PointCloudI::Ptr tmp(new PointCloudI());
-//      for(int m =0; m<depth.rows; m+=5)
-//      {
-//        for(int n = 0; n<depth.cols; n+=5)
-//        {
-//          float d = depth.ptr<float>(m)[n];
-//          if(d<0.01 || d>6)
-//            continue;
-//          pcl::PointXYZI p;
-//          p.z = d;
-//          p.x = (n-cx)*d/fx;
-//          p.y = (n-cy)*d/fy;
-//          p.intensity = static_cast<float>(grey.ptr<uchar>(m)[n]);
-//          tmp->points.push_back(p);
-
-//        }
-//      }
-//      tmp->is_dense = false;
-//      return tmp;
-//    }
-//    pcl::PointCloud<PointP>::Ptr generatePointCloudP(Mat& depth)
-//    {
-//      double fx = cameraMatrix.at<double>(0,0);
-//      double fy = cameraMatrix.at<double>(1,1);
-//      double cx = cameraMatrix.at<double>(0,2);
-//      double cy = cameraMatrix.at<double>(1,2);
-//      PointCloudP::Ptr tmp(new PointCloudP());
-//      for(int m =0; m<depth.rows; m+=5)
-//      {
-//        for(int n = 0; n<depth.cols; n+=5)
-//        {
-//          float d = depth.ptr<float>(m)[n];
-//          if(d<0.01 || d>6)
-//            continue;
-//          pcl::PointXYZ p;
-//          p.z = d;
-//          p.x = (n-cx)*d/fx;
-//          p.y = (n-cy)*d/fy;
-
-//          tmp->points.push_back(p);
-
-//        }
-//      }
-//      tmp->is_dense = false;
-//      return tmp;
-//    }
-
-//    pcl::PointCloud<PointP>::Ptr transformPointCloud(SE3 pose, pcl::PointCloud<PointP>& pointCloudP)
-//    {
-//      PointCloudP::Ptr cloud(new PointCloudP);
-//      pcl::transformPointCloud(pointCloudP, *cloud, pose.matrix().inverse().matrix());// transform from cam to world
-//      cloud->is_dense = false;
-//      return cloud;
-//    }
-//    pcl::PointCloud<PointI>::Ptr transformPointCloudI(SE3 pose, pcl::PointCloud<PointI>& pointCloudI)
-//    {
-//      PointCloudI::Ptr cloud(new PointCloudI);
-//      pcl::transformPointCloud(pointCloudI, *cloud, pose.matrix().inverse().matrix());// transform from cam to world
-//      cloud->is_dense = false;
-//      return cloud;
-//    }
-//    pcl::PointCloud<PointRGB>::Ptr transformPointCloudRGB(SE3 pose, pcl::PointCloud<PointRGB>& pointCloudRGB)
-//    {
-//      PointCloudRGB::Ptr cloud(new PointCloudRGB);
-//      pcl::transformPointCloud(pointCloudRGB, *cloud, pose.matrix().inverse().matrix());// transform from cam to world
-//      cloud->is_dense = false;
-//      return cloud;
-//    }
-
-//    void viewer()
-//    {
-//      pcl::visualization::CloudViewer viewer("point cloud viewer");
-
-//    }
-//    octomap::Pointcloud generateOctomapPC(Mat& depth)
-//    {
-//      double fx = cameraMatrix.at<double>(0,0);
-//      double fy = cameraMatrix.at<double>(1,1);
-//      double cx = cameraMatrix.at<double>(0,2);
-//      double cy = cameraMatrix.at<double>(1,2);
-//      octomap::Pointcloud tmp;
-//      for(int m =0; m<depth.rows; m+=5)
-//      {
-//        for(int n = 0; n<depth.cols; n+=5)
-//        {
-//          float d = depth.ptr<float>(m)[n];
-//          if(d<0.01 || d>6)
-//            continue;
-
-//          double z = d;
-//          double x = (n-cx)*d/fx;
-//          double y = (n-cy)*d/fy;
-
-//          octomap::point3d p(x,y,z);
-
-//          tmp.push_back(p);
-
-//        }
-//      }
-
-//    }
-
-//    octomap::Pointcloud transformOctomapPC(SE3 pose, octomap::Pointcloud octoP)
-//    {
-//      Vector3d trans = pose.translation();
-//      Quaterniond rots = pose.unit_quaternion();
-
-//      octomath::Vector3 tran(trans(0),trans(1),trans(2));
-//      octomath::Quaternion rot(rots.w(),rots.x(),rots.y(),rots.z());
-
-//      octomap::pose6d poseOcto(tran, rot);
-
-//      octomap::Pointcloud tmp(octoP);
-//      tmp.transform(poseOcto.inv());
-
-//      return tmp;
-
-//    }
 
 
 
