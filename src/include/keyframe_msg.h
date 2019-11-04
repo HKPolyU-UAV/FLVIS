@@ -5,7 +5,7 @@
 
 #include <vo_nodelet/KeyFrame.h>
 #include <include/common.h>
-#include <camera_frame.h>
+#include <include/camera_frame.h>
 
 
 struct KeyFrameStruct {

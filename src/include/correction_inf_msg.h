@@ -5,8 +5,7 @@
 
 #include <vo_nodelet/CorrectionInf.h>
 #include <include/common.h>
-#include <camera_frame.h>
-#include "include/common.h"
+#include <include/camera_frame.h>
 
 struct CorrectionInfStruct {
     int64_t         frame_id;

@@ -1,46 +1,36 @@
 <launch>
 
+    <arg name="node_start_delay" default="1.0" />
+
     <param name="/yamlconfigfile"     type="string" value="$(find vo_nodelet)/launch/vio_config.yaml"/>
 
-    <param name="/image_width"     type="int" value="480"/>
-    <param name="/image_height"    type="int" value="270"/>
-    <param name="/fx"              type="double" value="239.08380126953125"/>
-    <param name="/fy"              type="double" value="238.68667602539062"/>
-    <param name="/cx"              type="double" value="239.08380126953125"/>
-    <param name="/cy"              type="double" value="134.68154907226562"/>
+    <param name="/image_width"     type="int" value="640"/>
+    <param name="/image_height"    type="int" value="360"/>
+    <param name="/fx"              type="double" value="318.7784118652344"/>
+    <param name="/fy"              type="double" value="318.2489013671875"/>
+    <param name="/cx"              type="double" value="318.7784118652344"/>
+    <param name="/cy"              type="double" value="179.57540893554688"/>
     <param name="/voc"             type="string" value="$(find vo_nodelet)/voc/voc_orb.dbow3"/>
 
-
     <!-- Manager -->
-    <node pkg="nodelet" type="nodelet" name="vo_manager"  args="manager" output="screen"/>
+    <node pkg="nodelet" type="nodelet" name="vo_manager"  args="manager" output="screen"
+    launch-prefix="bash -c 'sleep $(arg node_start_delay); $0 $@' "/>
 
     <!-- TrackingNode -->
     <node pkg="nodelet" type="nodelet" args="load vo_nodelet/VOTrackingNodeletClass vo_manager"
-      name="VOTrackingNodeletClass_loader" output="screen">
-      <remap from="/vo/depth_image"  to="/camera/aligned_depth_to_infra1/image_raw"/>
-      <remap from="/vo/image"        to="/camera/infra1/image_rect_raw"/>
+        name="VOTrackingNodeletClass_loader" output="screen"
+        launch-prefix="bash -c 'sleep $(arg node_start_delay); $0 $@' ">
+        <remap from="/vo/depth_image"  to="/camera/aligned_depth_to_infra1/image_raw"/>
+        <remap from="/vo/image"        to="/camera/infra1/image_rect_raw"/>
     </node>
 
-
-    <!-- LocalMapNode
+    <!-- LocalMapNode -->
     <node pkg="nodelet" type="nodelet" args="load vo_nodelet/VOLocalMapNodeletClass vo_manager"
-        name="VOLocalMapNodeletClass_loader" output="screen">
-    </node> -->
-
-    <!-- LoopClosingNode -->
-    <node pkg="nodelet" type="nodelet" args="load vo_nodelet/VOLoopClosingNodeletClass vo_manager"
-        name="VOLoopClosingNodeletClass_loader" output="screen">
+        name="VOLocalMapNodeletClass_loader" output="screen"
+        launch-prefix="bash -c 'sleep $(arg node_start_delay); $0 $@' ">
     </node>
-
-
-    <node pkg="rosbag" type="play" name="rosbag" args="$(find vo_nodelet)/bag/2019-10-15-21-25-22_room1.bag"/>
-    <!--<node pkg="rosbag" type="play" name="rosbag" args="$(find vo_nodelet)/bag/2019-10-15-21-33-46_tunnel2.bag"/>-->
-    <!--<node pkg="rosbag" type="play" name="rosbag" args="$(find vo_nodelet)/bag/2019-10-15-21-39-16_4th2.bag"/>-->
-    <!--<node pkg="rosbag" type="play" name="rosbag" args="$(find vo_nodelet)/bag/2019-10-15-21-40-43_4th3.bag"/>-->
-
-    <!--<node pkg="rosbag" type="play" name="rosbag" args="$(find vo_nodelet)/bag/2019-10-15-21-27-06_room2.bag"/>-->
-    <!--<node pkg="rosbag" type="play" name="rosbag" args="$(find vo_nodelet)/bag/2019-10-15-21-31-32_tunnel1.bag"/>-->
-    <!--<node pkg="rosbag" type="play" name="rosbag" args="$(find vo_nodelet)/bag/2019-10-15-21-37-49_4th1.bag"/>-->
-
 
 </launch>
+
+
+
