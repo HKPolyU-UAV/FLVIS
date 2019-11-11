@@ -24,7 +24,7 @@
  * */
 
 #define MAX_REGION_FREATURES_NUM (30)
-#define MIN_REGION_FREATURES_NUM (15)
+#define MIN_REGION_FREATURES_NUM (20)
 
 
 #define BOUNDARYBOXSIZE          (5)

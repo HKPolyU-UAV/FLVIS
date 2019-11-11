@@ -205,7 +205,8 @@ void FeatureDEM::redetect(const Mat& img,
     {
         //cout << "redetect all features" << endl;
         //Ptr<FastFeatureDetector> detector= FastFeatureDetector::create();
-        Ptr<ORB> detector= ORB::create(2000);
+        //Ptr<ORB> detector= ORB::create(2000);
+        Ptr<FastFeatureDetector> detector= FastFeatureDetector::create();
         vector<KeyPoint> FASTFeatures;
         vector<Point2f>  kps;
         detector->detect(img, FASTFeatures);
