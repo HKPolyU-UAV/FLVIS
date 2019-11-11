@@ -12,87 +12,6 @@ void CameraFrame::clear()
     d_img.release();
     landmarks.clear();
 }
-
-void CameraFrame::trackMatchAndEraseOutlier(Mat& newImage,
-                                            vector<Vec2>& lm2d_from,
-                                            vector<Vec2>& lm2d_to,
-                                            vector<Vec2>& outlier)
-{
-    //STEP1: Track Match ORB
-    //STEP2: Computer ORB
-    //STEP3: Check Matches
-    //STEP4: Update the lm2d and output
-    //STEP1:
-    vector<Point2f> trackedLM_cvP2f;
-    vector<float> err;
-    vector<unsigned char> mask_tracked;
-    TermCriteria criteria = TermCriteria((TermCriteria::COUNT) + (TermCriteria::EPS), 10, 0.03);
-    calcOpticalFlowPyrLK(img, newImage,
-                         this->get2dPtsVec_cvP2f(), trackedLM_cvP2f,
-                         mask_tracked, err, Size(31,31), 2, criteria);
-
-    //STEP2
-    vector<unsigned char> mask_hasDescriptor;
-    vector<Mat>           trackedLMDescriptors;
-    vector<KeyPoint>      trackedLM_cvKP;
-    Mat descriptorsMat;
-    KeyPoint::convert(trackedLM_cvP2f,trackedLM_cvKP);
-    cv::Ptr<DescriptorExtractor> extractor = ORB::create();
-    extractor->compute(newImage, trackedLM_cvKP, descriptorsMat);
-
-    for(size_t i=0; i<trackedLM_cvP2f.size(); i++)
-    {
-        unsigned char hasDescriptor = 0;
-        for(size_t j=0; j<trackedLM_cvKP.size(); j++)
-        {
-            if(trackedLM_cvP2f.at(i).x==trackedLM_cvKP.at(j).pt.x &&
-                    trackedLM_cvP2f.at(i).y==trackedLM_cvKP.at(j).pt.y)
-            {//has ORB descriptor
-                trackedLMDescriptors.push_back(descriptorsMat.row(j));
-                hasDescriptor = 1;
-                break;
-            }
-        }
-        mask_hasDescriptor.push_back(hasDescriptor);
-        if(hasDescriptor==0)
-        {
-            cv::Mat zeroDescriptor(cv::Size(32, 1), CV_8U, Scalar(0));
-            trackedLMDescriptors.push_back(zeroDescriptor);
-        }
-    }
-    //STEP3
-    vector<unsigned char> mask_matchCheck;
-    for(size_t i=0; i<trackedLMDescriptors.size(); i++)
-    {
-        if(norm(landmarks.at(i).lm_descriptor, trackedLMDescriptors.at(i), NORM_HAMMING) <= 15)
-        {
-            landmarks.at(i).lm_descriptor = trackedLMDescriptors.at(i);
-            mask_matchCheck.push_back(1);
-        }else
-        {
-            mask_matchCheck.push_back(0);
-        }
-    }
-
-    //STEP4:
-    for(int i=landmarks.size()-1; i>=0; i--)
-    {
-        if(mask_tracked.at(i)!=1       ||
-                mask_hasDescriptor.at(i)!=1 ||
-                mask_matchCheck.at(i)!=1)
-        {//outliers
-            outlier.push_back(this->landmarks.at(i).lm_2d);
-            trackedLM_cvP2f.erase(trackedLM_cvP2f.begin()+i);
-            this->landmarks.erase(this->landmarks.begin()+i);
-        }
-    }
-    for(size_t i=0; i<landmarks.size(); i++)
-    {
-        lm2d_from.push_back(landmarks.at(i).lm_2d);
-        lm2d_to.push_back(Vec2(trackedLM_cvP2f.at(i).x,trackedLM_cvP2f.at(i).y));
-    }
-}
-
 void CameraFrame::updateLMT_c_w()
 {
     for (auto lm = landmarks.begin(); lm != landmarks.end(); ++lm)
@@ -207,7 +126,7 @@ void CameraFrame::recover3DPts_c_FromTriangulation(vector<Vec3> &pt3ds, vector<b
         SE3 T_c_w1=landmarks.at(i).lm_1st_obs_frame_pose;
         Vec3 baseline = T_c_w1.translation()-T_c_w.translation();
         double baseline_dis = sqrt(pow(baseline[0],2)+pow(baseline[1],2)+pow(baseline[2],2));
-        if(baseline_dis>=0.5)
+        if(baseline_dis>=0.2)
         {
             Vec3 pt3d_w = Triangulation::triangulationPt(landmarks.at(i).lm_1st_obs_2d,landmarks.at(i).lm_2d,
                                                          landmarks.at(i).lm_1st_obs_frame_pose,T_c_w,
@@ -248,7 +167,7 @@ void CameraFrame::depthInnovation(void)
         Vec3 lm_c_measure;
         if(depth_measurement_mask.at(i)==true && triangulation_mask.at(i)==true)
         {
-            lm_c_measure = 0.5*(pts3d_c_triangulation.at(i)+pts3d_c_depth_measurement.at(i));
+            lm_c_measure = 0.95*(pts3d_c_triangulation.at(i)+ 0.05*pts3d_c_depth_measurement.at(i));
         }else if(depth_measurement_mask.at(i)==true && triangulation_mask.at(i)==false)
         {
             lm_c_measure = pts3d_c_depth_measurement.at(i);
@@ -262,7 +181,9 @@ void CameraFrame::depthInnovation(void)
             //transfor to Camera frame
             Vec3 lm_c = DepthCamera::world2cameraT_c_w(landmarks.at(i).lm_3d_w,this->T_c_w);
             //apply IIR Filter
+
             Vec3 lm_c_update = lm_c*0.8+lm_c_measure*0.2;
+
             //update to world frame
             landmarks.at(i).lm_3d_c = lm_c_update;
             landmarks.at(i).lm_3d_w = DepthCamera::camera2worldT_c_w(lm_c_update,this->T_c_w);

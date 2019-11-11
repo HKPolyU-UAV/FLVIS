@@ -30,10 +30,6 @@ public:
     CameraFrame();
     void clear();
 
-    void trackMatchAndEraseOutlier(Mat& newImage,
-                                   vector<Vec2>& lm2d_from,
-                                   vector<Vec2>& lm2d_to,
-                                   vector<Vec2>& outlier);
     void CalReprjInlierOutlier(double &mean_prjerr, vector<Vec2> &outlier, double sh_over_med = 3.0);
     void updateLMT_c_w();
 

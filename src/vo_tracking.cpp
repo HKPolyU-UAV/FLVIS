@@ -32,6 +32,7 @@
 #include <include/bundle_adjustment.h>
 #include <include/correction_inf_msg.h>
 #include <include/octomap_feeder.h>
+#include <include/f2f_tracking.h>
 
 
 
@@ -68,6 +69,7 @@ private:
 
     //Tools
     FeatureDEM         *featureDEM;
+    F2FTracking        *tracker;
 
     //F2F
     int frameCount;
@@ -114,7 +116,8 @@ private:
              << "image_width: "  << image_width << " image_height: "  << image_height << endl
              << "fx: "  << fx << " fy: "  << fy <<  " cx: "  << cx <<  " cy: "  << cy << endl;
 
-        featureDEM  = new FeatureDEM(image_width,image_height,3);
+        featureDEM  = new FeatureDEM(image_width,image_height,5);
+        tracker     = new F2FTracking(image_width,image_height);
 
         curr_frame = std::make_shared<CameraFrame>();
         last_frame = std::make_shared<CameraFrame>();
@@ -163,19 +166,19 @@ private:
                                  correction_inf.lm_outlier_count,
                                  correction_inf.lm_outlier_id);
         has_feedback=true;
-//        cout << "Tracking: correction frame id:" << correction_inf.frame_id << endl;
-//        cout<<  "Tracking: correction Twc: " << correction_inf.T_c_w.inverse().so3().log().transpose() << " | "
-//             << correction_inf.T_c_w.inverse().translation().transpose() << endl;
-//        cout << "Tracking: correction landmark count:"  << correction_inf.lm_count << endl;
-//        for(int i=0; i< correction_inf.lm_count; i++)
-//        {
-//            cout << "lm_id"  << correction_inf.lm_id.at(i) <<"  "<< correction_inf.lm_3d.at(i).transpose() << endl;
-//        }
-//        cout << "correction landmark outlier_count:" << correction_inf.lm_outlier_count << endl;
-//        for(int i=0; i< correction_inf.lm_outlier_count; i++)
-//        {
-//            cout << "lm_outlier_id"  << correction_inf.lm_outlier_id.at(i) << endl;
-//        }
+        //        cout << "Tracking: correction frame id:" << correction_inf.frame_id << endl;
+        //        cout<<  "Tracking: correction Twc: " << correction_inf.T_c_w.inverse().so3().log().transpose() << " | "
+        //             << correction_inf.T_c_w.inverse().translation().transpose() << endl;
+        //        cout << "Tracking: correction landmark count:"  << correction_inf.lm_count << endl;
+        //        for(int i=0; i< correction_inf.lm_count; i++)
+        //        {
+        //            cout << "lm_id"  << correction_inf.lm_id.at(i) <<"  "<< correction_inf.lm_3d.at(i).transpose() << endl;
+        //        }
+        //        cout << "correction landmark outlier_count:" << correction_inf.lm_outlier_count << endl;
+        //        for(int i=0; i< correction_inf.lm_outlier_count; i++)
+        //        {
+        //            cout << "lm_outlier_id"  << correction_inf.lm_outlier_id.at(i) << endl;
+        //        }
     }
 
     void image_input_callback(const sensor_msgs::ImageConstPtr & imgPtr, const sensor_msgs::ImageConstPtr & depthImgPtr)
@@ -251,9 +254,18 @@ private:
 
         case Working:
         {
-            /*Recover from LocalMap Feedback msg
-             *
+            /* F2F Workflow
+                     STEP1: Recover from LocalMap Feedback msg
+                     STEP2: Track Match and Update to curr_frame
+                     STEP3: 2D3D-PNP+F2FBA
+                     STEP4: Redetect
+                     STEP5: Update Landmarks(IIR)
+                     STEP6: Record Pose
+                     STEP7: Visualize and Publish
+                     STEP8: Switch KeyFrame
+
             */
+            //STEP1:
             if(has_feedback)
             {
                 //find pose;
@@ -276,76 +288,46 @@ private:
                     SE3 T_diff= pose_records.at(i).T_c_w * old_T_c_w_inv;
                     pose_records.at(i).T_c_w = T_diff * update_T_c_w;
                 }
-                //update last_frame pose and landmake p3d throuth transformation
-                for(auto lm:last_frame->landmarks)
-                {
-                    //cout << lm.lm_id << "befor FB "<< lm.lm_3d_w.transpose() << endl;
-                }
                 SE3 T_diff= last_frame->T_c_w * old_T_c_w_inv;
                 last_frame->T_c_w = T_diff * update_T_c_w;
                 last_frame->correctLMP3DWByLMP3DCandT();
                 //update last_frame landmake lm_3d_w and mask outlier
                 last_frame->forceCorrectLM3DW(correction_inf.lm_count,correction_inf.lm_id,correction_inf.lm_3d);
                 last_frame->forceMarkOutlier(correction_inf.lm_outlier_count,correction_inf.lm_outlier_id);
-                for(auto lm:last_frame->landmarks)
-                {
-                    //cout << lm.lm_id << "after FB " << lm.lm_3d_w.transpose() << endl;
-                }
-                //maek last_frame outlier
                 has_feedback = false;
             }
 
-            /* F2F Workflow
-                     STEP1: Track Match and Update to curr_frame
-                     STEP2: 2D3D-PNP+F2FBA
-                     STEP3: Redetect
-                     STEP4: Update Landmarks(IIR)
-            */
-            //STEP1:
-            vector<Vec2> lm2d_from;
-            vector<Vec2> lm2d_to;
-            vector<Vec2> outlier_tracking;
-            last_frame->trackMatchAndEraseOutlier(curr_frame->img,
-                                                  lm2d_from,
-                                                  lm2d_to,
-                                                  outlier_tracking);
-            for(size_t i=0; i<last_frame->landmarks.size(); i++)
-            {
-                curr_frame->landmarks.push_back(last_frame->landmarks.at(i));
-                curr_frame->landmarks.at(i).lm_2d=lm2d_to.at(i);
-            }
-
             //STEP2:
+            vector<Vec2> lm2d_from,lm2d_to,outlier_tracking;
+            tracker->tracking(*last_frame,
+                              *curr_frame,
+                              lm2d_from,
+                              lm2d_to,
+                              outlier_tracking);
+
+            //STEP3:
             vector<Point2f> p2d;
             vector<Point3f> p3d;
             curr_frame->getValid2d3dPair_cvPf(p2d,p3d);
             cv::Mat r_ = cv::Mat::zeros(3, 1, CV_64FC1);
             cv::Mat t_ = cv::Mat::zeros(3, 1, CV_64FC1);
             SE3_to_rvec_tvec(last_frame->T_c_w, r_ , t_ );
-
             Mat inliers;
-
-            solvePnPRansac(p3d,p2d,cameraMatrix,distCoeffs,r_,t_,false,100,8.0,0.99,inliers,SOLVEPNP_P3P);
-
-
+            solvePnPRansac(p3d,p2d,cameraMatrix,distCoeffs,r_,t_,false,100,2.0,0.99,inliers,SOLVEPNP_P3P);
             curr_frame->T_c_w = SE3_from_rvec_tvec(r_,t_);
-            //Remove Outliers ||reprojection error|| > MAD of all reprojection error
+            bundleAdjustment::BAInFrame(*curr_frame);
             vector<Vec2> outlier_reproject;
             double mean_error;
             curr_frame->CalReprjInlierOutlier(mean_error,outlier_reproject,2.0);
-            //bundleAdjustment::BAInFrame(*curr_frame);
-            //cout << "Reprojection Error " << mean_error << endl;
+            cout << "Reprojection Error " << mean_error << endl;
 
-            //Refill the keyPoints
+            //STEP4:
             vector<Vec2> newKeyPts;
             vector<Mat>  newDescriptor;
             int newPtsCount;
             featureDEM->redetect(curr_frame->img,
                                  curr_frame->get2dPtsVec(),
                                  newKeyPts,newDescriptor,newPtsCount);
-
-            //add landmarks without 3D information
-            Vec3 pt3d_w(0,0,0);
             for(size_t i=0; i<newKeyPts.size(); i++)
             {
                 curr_frame->landmarks.push_back(LandMarkInFrame(newDescriptor.at(i),
@@ -354,10 +336,10 @@ private:
                                                                 false,
                                                                 curr_frame->T_c_w));
             }
-            //innovate 3D information
+            //STEP5:
             curr_frame->depthInnovation();
 
-            //record the pose
+            //STEP6:
             ID_POSE tmp;
             tmp.frame_id = curr_frame->frame_id;
             tmp.T_c_w = curr_frame->T_c_w;
@@ -367,40 +349,32 @@ private:
                 pose_records.pop_front();
             }
 
-
-            //visualize and publish
+            //STEP7:
             vector<Vec2> outlier;
             outlier.insert(outlier.end(), outlier_tracking.begin(), outlier_tracking.end());
             outlier.insert(outlier.end(), outlier_reproject.begin(), outlier_reproject.end());
+            drawFPS(currShowImg,floor(1/tt_cb.dT_s()));
             drawOutlier(currShowImg,outlier);
             drawFlow(currShowImg,lm2d_from,lm2d_to);
             drawRegion16(currShowImg);
             sensor_msgs::ImagePtr img_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", currShowImg).toImageMsg();
             cv_pub.publish(img_msg);
-
             frame_pub->pubFramePtsPoseT_c_w(curr_frame->getValid3dPts(),curr_frame->T_c_w);
             path_pub->pubPathT_c_w(curr_frame->T_c_w,currStamp);
             octomap_pub->pub(curr_frame->T_c_w,curr_frame->d_img,currStamp);
-//            tf_pub->pubTFT_c_w(curr_frame->T_c_w,currStamp);
 
+            //STEP:
             SE3 T_diff_key_curr = T_c_w_last_keyframe*(curr_frame->T_c_w.inverse());
             Vec3 t=T_diff_key_curr.translation();
             Vec3 r=T_diff_key_curr.so3().log();
             double t_norm = fabs(t[0]) + fabs(t[1]) + fabs(t[2]);
             double r_norm = fabs(r[0]) + fabs(r[1]) + fabs(r[2]);
-
-            if(t_norm>=0.15 || r_norm>=2.0)
+            if(t_norm>=0.2 || r_norm>=0.5)
             {
                 kf_pub->pub(*curr_frame,currStamp);
                 T_c_w_last_keyframe = curr_frame->T_c_w;
-//                cout << "Tracking: F " << frameCount << " as KF, t_norm: " << t_norm << " r_norm: "<< r_norm
-//                     << " Twc: " << curr_frame->T_c_w.inverse().so3().log().transpose() << " | "
-//                     << curr_frame->T_c_w.inverse().translation().transpose() << endl;
             }
-            //            if(frameCount%4==0)
-            //            {
-            //                kf_pub->pub(*curr_frame,currStamp);
-            //            }
+
             break;
         }
 

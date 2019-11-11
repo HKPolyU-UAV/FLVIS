@@ -102,6 +102,7 @@ add_library(vo_nodelet
     src/bundle_adjustment.cpp
     src/correction_inf_msg.cpp
     src/octomap_feeder.cpp
+    src/f2f_tracking.cpp
     )
 
 target_link_libraries(vo_nodelet
