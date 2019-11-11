@@ -3,6 +3,11 @@
 
 #include <include/common.h>
 
+inline void drawFPS(Mat& img, int fps)
+{
+    putText(img, "FPS:"+std::to_string(fps), Point(0,20), FONT_HERSHEY_SIMPLEX, 0.8, Scalar(0,255,0), 2, LINE_AA);
+}
+
 inline void drawRegion16(Mat& img)
 {
   int divH = floor(img.size().height/4);
