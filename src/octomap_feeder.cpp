@@ -45,7 +45,7 @@ void OctomapFeeder::pub(const SE3 &T_c_w,const  Mat &d_img, const ros::Time stam
                 if(z>=0.5&&z<=6.5)
                 {
                     Vec3 pt_w = this->d_camera.pixel2worldT_c_w(Vec2(u,v),T_c_w,z);
-                    if(pt_w[2]>height+0.4)
+                    if(pt_w[2]>height+0.2)
                     {
                         continue;
                     }
@@ -67,7 +67,7 @@ void OctomapFeeder::pub(const SE3 &T_c_w,const  Mat &d_img, const ros::Time stam
     pc_c.is_dense = false;
     sensor_msgs::PointCloud2 output;
     pcl::toROSMsg(pc_c,output);
-    output.header.frame_id = "vo_local";
+    output.header.frame_id = tf_frame_name;
     octp_pc_pub.publish(output);
 }
 
