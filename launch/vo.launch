@@ -2,14 +2,6 @@
 
     <arg name="node_start_delay" default="1.0" />
 
-    <param name="/yamlconfigfile"     type="string" value="$(find vo_nodelet)/launch/vio_config.yaml"/>
-
-    <param name="/image_width"     type="int" value="640"/>
-    <param name="/image_height"    type="int" value="360"/>
-    <param name="/fx"              type="double" value="318.7784118652344"/>
-    <param name="/fy"              type="double" value="318.2489013671875"/>
-    <param name="/cx"              type="double" value="318.7784118652344"/>
-    <param name="/cy"              type="double" value="179.57540893554688"/>
     <param name="/voc"             type="string" value="$(find vo_nodelet)/voc/voc_orb.dbow3"/>
 
     <!-- Manager -->
