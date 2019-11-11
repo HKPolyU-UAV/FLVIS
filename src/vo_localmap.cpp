@@ -8,7 +8,6 @@
 #include <deque>
 
 #include <include/yamlRead.h>
-#include <include/cv_draw.h>
 #include <include/correction_inf_msg.h>
 
 #include <include/keyframe_msg.h>
@@ -322,30 +321,6 @@ private:
                                     correction_inf.lm_outlier_count,
                                     correction_inf.lm_outlier_id);
 
-            //visualization
-            if(0)
-            {
-                for(size_t i=0; i<8; i++)
-                {
-                    Mat dst;
-                    pyrDown( kfs.at(i).img, dst, Size( image_width/2, image_height/2));
-                    cvtColor(dst,dst,CV_GRAY2BGR);
-                    vector<Vec2> lm_2d_half;
-                    for(size_t j=0; j<kfs.at(i).lm_2d.size(); j++)
-                    {
-                        Vec2 p2d = kfs.at(i).lm_2d.at(j);
-                        Vec2 p2d_half = 0.5*p2d;
-                        lm_2d_half.push_back(p2d_half);
-                    }
-                    drawKeyPts(dst,vVec2_2_vcvP2f(lm_2d_half));
-                    int start_x = i%4*(image_width/2)+(i%4);
-                    int start_y = i/4*(image_height/2);
-                    Mat diplay_img_roi(diplay_img, Rect(start_x, start_y, dst.cols, dst.rows));
-                    dst.copyTo(diplay_img_roi);
-                }
-                imshow("dispaly_img", diplay_img);
-                waitKey(1);
-            }
         }//if(optimizer_state==OPTIMIZING)
         kfs.pop_front();
     }//call back function

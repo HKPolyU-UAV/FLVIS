@@ -1,6 +1,7 @@
 #ifndef CAMERAFRAME_H
 #define CAMERAFRAME_H
 
+#include <ros/ros.h>
 #include <include/landmark_in_frame.h>
 #include <include/common.h>
 #include <include/depth_camera.h>
@@ -11,55 +12,60 @@
 class CameraFrame
 {
 public:
-    typedef std::shared_ptr<CameraFrame> Ptr;
+  typedef std::shared_ptr<CameraFrame> Ptr;
 
-    int64_t frame_id;
-    Mat img;
-    Mat d_img;
-    int width;
-    int height;
+  int64_t   frame_id;
+  ros::Time frame_time;
+  Mat img;
+  Mat d_img;
 
-    vector<LandMarkInFrame> landmarks;
+  int width;
+  int height;
+  DepthCamera  d_camera;
 
-    //camera_pose
-    DepthCamera  d_camera;
-    SE3          T_c_w;//Transform from world to camera
+  vector<LandMarkInFrame> landmarks;
 
-
-
-    CameraFrame();
-    void clear();
-
-    void CalReprjInlierOutlier(double &mean_prjerr, vector<Vec2> &outlier, double sh_over_med = 3.0);
-    void updateLMT_c_w();
-
-    void recover3DPts_c_FromDepthImg(vector<Vec3>& pt3ds,
-                                     vector<bool>& maskHas3DInf);
-
-    void recover3DPts_c_FromTriangulation(vector<Vec3>& pt3ds,
-                                          vector<bool>& maskHas3DInf);
-
-    void depthInnovation(void);
-    void correctLMP3DWByLMP3DCandT(void);//correct lm_3d_w by lm_3d_w and T_c_w
-    void forceCorrectLM3DW(const int& cnt, const vector<int64_t>& ids, const vector<Vec3>& lms_3d);
-    void forceMarkOutlier( const int& cnt, const vector<int64_t>& ids);
-
-    //IO
-    void getValid2d3dPair_cvPf(vector<Point2f>& p2d,vector<Point3f>& p3d);
-    void getValidInliersPair(vector<LandMarkInFrame> &lms);
-    void unpack(vector<Vec2>& pt2d,
-                vector<Mat> & descriptors,
-                vector<Vec3>& pt3d,
-                vector<unsigned char>& mask3d);
-    void getKeyFrameInf(vector<int64_t>& lm_id, vector<Vec2>& lm_2d, vector<Vec3>& lm_3d, vector<Mat> &lm_descriptors);
+  //camera_pose
+  SE3          T_c_w;//Transform from world to camera
+  //result
+  double solving_time;
+  double reprojection_error;
 
 
-    vector<Point2f> get2dPtsVec_cvP2f(void);
-    vector<Point3f> get3dPtsVec_cvP3f(void);
-    vector<Vec2> get2dPtsVec(void);
-    vector<Vec3> get3dPtsVec(void);
-    vector<Mat>  getDescriptorVec(void);
-    vector<Vec3> getValid3dPts(void);
+
+  CameraFrame();
+  void clear();
+
+  void CalReprjInlierOutlier(double &mean_prjerr, vector<Vec2> &outlier, double sh_over_med = 3.0);
+  void updateLMT_c_w();
+
+  void recover3DPts_c_FromDepthImg(vector<Vec3>& pt3ds,
+                                   vector<bool>& maskHas3DInf);
+
+  void recover3DPts_c_FromTriangulation(vector<Vec3>& pt3ds,
+                                        vector<bool>& maskHas3DInf);
+
+  void depthInnovation(void);
+  void correctLMP3DWByLMP3DCandT(void);//correct lm_3d_w by lm_3d_w and T_c_w
+  void forceCorrectLM3DW(const int& cnt, const vector<int64_t>& ids, const vector<Vec3>& lms_3d);
+  void forceMarkOutlier( const int& cnt, const vector<int64_t>& ids);
+
+  //IO
+  void getValid2d3dPair_cvPf(vector<Point2f>& p2d,vector<Point3f>& p3d);
+  void getValidInliersPair(vector<LandMarkInFrame> &lms);
+  void unpack(vector<Vec2>& pt2d,
+              vector<Mat> & descriptors,
+              vector<Vec3>& pt3d,
+              vector<unsigned char>& mask3d);
+  void getKeyFrameInf(vector<int64_t>& lm_id, vector<Vec2>& lm_2d, vector<Vec3>& lm_3d, vector<Mat> &lm_descriptors);
+
+
+  vector<Point2f> get2dPtsVec_cvP2f(void);
+  vector<Point3f> get3dPtsVec_cvP3f(void);
+  vector<Vec2> get2dPtsVec(void);
+  vector<Vec3> get3dPtsVec(void);
+  vector<Mat>  getDescriptorVec(void);
+  vector<Vec3> getValid3dPts(void);
 
 private:
 

@@ -74,12 +74,6 @@ void CameraFrame::CalReprjInlierOutlier(double &mean_prjerr, vector<Vec2> &outli
         }
     }
 
-    //    cout << "-------------------------------------"<<endl << "[";
-    //    for(int i=this->landmarks.size()-1; i>=0; i--)
-    //    {
-    //        cout << distances.at(i)<<" ";
-    //    }
-    //    cout << "]-------------------------------------"<<endl;
 }
 
 void CameraFrame::recover3DPts_c_FromDepthImg(vector<Vec3>& pt3ds,
@@ -182,7 +176,7 @@ void CameraFrame::depthInnovation(void)
             Vec3 lm_c = DepthCamera::world2cameraT_c_w(landmarks.at(i).lm_3d_w,this->T_c_w);
             //apply IIR Filter
 
-            Vec3 lm_c_update = lm_c*0.8+lm_c_measure*0.2;
+            Vec3 lm_c_update = lm_c*0.9+lm_c_measure*0.1;
 
             //update to world frame
             landmarks.at(i).lm_3d_c = lm_c_update;

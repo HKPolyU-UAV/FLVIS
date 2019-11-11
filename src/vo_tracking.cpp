@@ -313,13 +313,13 @@ private:
             cv::Mat t_ = cv::Mat::zeros(3, 1, CV_64FC1);
             SE3_to_rvec_tvec(last_frame->T_c_w, r_ , t_ );
             Mat inliers;
-            solvePnPRansac(p3d,p2d,cameraMatrix,distCoeffs,r_,t_,false,100,2.0,0.99,inliers,SOLVEPNP_P3P);
+            solvePnPRansac(p3d,p2d,cameraMatrix,distCoeffs,r_,t_,false,100,3.0,0.99,inliers,SOLVEPNP_P3P);
             curr_frame->T_c_w = SE3_from_rvec_tvec(r_,t_);
             bundleAdjustment::BAInFrame(*curr_frame);
             vector<Vec2> outlier_reproject;
-            double mean_error;
-            curr_frame->CalReprjInlierOutlier(mean_error,outlier_reproject,2.0);
-            cout << "Reprojection Error " << mean_error << endl;
+            double mean_reprojection_error;
+            curr_frame->CalReprjInlierOutlier(mean_reprojection_error,outlier_reproject,2.0);
+            curr_frame->reprojection_error=mean_reprojection_error;
 
             //STEP4:
             vector<Vec2> newKeyPts;
@@ -353,17 +353,18 @@ private:
             vector<Vec2> outlier;
             outlier.insert(outlier.end(), outlier_tracking.begin(), outlier_tracking.end());
             outlier.insert(outlier.end(), outlier_reproject.begin(), outlier_reproject.end());
-            drawFPS(currShowImg,floor(1/tt_cb.dT_s()));
+            curr_frame->solving_time=tt_cb.dT_s();
             drawOutlier(currShowImg,outlier);
             drawFlow(currShowImg,lm2d_from,lm2d_to);
-            drawRegion16(currShowImg);
+            drawFrame(currShowImg,*curr_frame);
+
             sensor_msgs::ImagePtr img_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", currShowImg).toImageMsg();
             cv_pub.publish(img_msg);
             frame_pub->pubFramePtsPoseT_c_w(curr_frame->getValid3dPts(),curr_frame->T_c_w);
             path_pub->pubPathT_c_w(curr_frame->T_c_w,currStamp);
             octomap_pub->pub(curr_frame->T_c_w,curr_frame->d_img,currStamp);
 
-            //STEP:
+            //STEP8:
             SE3 T_diff_key_curr = T_c_w_last_keyframe*(curr_frame->T_c_w.inverse());
             Vec3 t=T_diff_key_curr.translation();
             Vec3 r=T_diff_key_curr.so3().log();
@@ -393,7 +394,7 @@ private:
         waitKey(1);
         last_frame.swap(curr_frame);
 
-        tt_cb.toc();
+        //tt_cb.toc();
     }//image_input_callback(const sensor_msgs::ImageConstPtr & imgPtr, const sensor_msgs::ImageConstPtr & depthImgPtr)
 
 
