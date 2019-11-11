@@ -39,7 +39,7 @@
 using namespace cv;
 using namespace std;
 
-#define FIX_WINDOW_OPTIMIZER_SIZE (6)
+#define FIX_WINDOW_OPTIMIZER_SIZE (8)
 
 static int64_t edge_id;
 
@@ -97,8 +97,8 @@ private:
 
 
         kfs.push_back(kf);
-//        cout << "LocalMap: inframe_callback function" << endl;
-//        cout << "LocalMap: optimizer_state is: " << optimizer_state << endl;
+        //        cout << "LocalMap: inframe_callback function" << endl;
+        //        cout << "LocalMap: optimizer_state is: " << optimizer_state << endl;
 
         switch(optimizer_state)
         {
@@ -217,8 +217,8 @@ private:
                 //cout << "LocalMap: Add LM to Optimizer*****" << endl;
                 for(int i=0; i < kfs.back().lm_count; i++)//add landmarks
                 {
-                    if(bag.addLMObservation(kfs.back().lm_id.at(i),
-                                            kfs.back().lm_3d.at(i)))
+                    if(bag.addLMObservationSlidingWindow(kfs.back().lm_id.at(i),
+                                                         kfs.back().lm_3d.at(i)))
                     {
                         g2o::VertexSBAPointXYZ* v_lm = new g2o::VertexSBAPointXYZ();
                         v_lm->setId (kfs.back().lm_id.at(i));
@@ -301,6 +301,7 @@ private:
             //landmark position
             vector<LM_ITEM> lms;
             bag.getMultiViewLMs(lms,4);
+            cout<<"multi view lm  number:  "<<lms.size()<<endl;
             //bag.getAllLMs(lms);
             correction_inf.lm_count = lms.size();
             //cout << "correction_inf" << endl;

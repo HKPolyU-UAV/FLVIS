@@ -22,6 +22,27 @@ bool PoseLMBag::hasTheLM(int64_t id_in, int &idx)
     return false;
 }
 
+bool PoseLMBag::addLMObservationSlidingWindow(int64_t id_in, Vec3 p3d_w_in)
+{
+    int idx;
+    bool add_lm_to_optimizer=false;
+    if(this->hasTheLM(id_in,idx))
+    {//update lm with average 3d inf
+        Vec3 p3d_w;
+        int cnt = this->lm_sub_bag.at(idx).count;
+        cnt++;
+        this->lm_sub_bag.at(idx).count = cnt;
+    }else{//
+        LM_ITEM lm_item;
+        lm_item.id = id_in;
+        lm_item.count = 1;
+        lm_item.p3d_w = p3d_w_in;
+        this->lm_sub_bag.push_back(lm_item);
+        add_lm_to_optimizer=true;
+    }
+    return add_lm_to_optimizer;
+}
+
 bool PoseLMBag::addLMObservation(int64_t id_in, Vec3 p3d_w_in)
 {
     int idx;
