@@ -1,16 +1,18 @@
 <launch>
 
-    <param name="/yamlconfigfile" type="string" value="$(find vo_nodelet)/launch/d435_sn841512070537.yaml"/>
+    <!--<param name="/yamlconfigfile" type="string" value="$(find vo_nodelet)/launch/d435_sn841512070537.yaml"/>-->
+    <param name="/yamlconfigfile" type="string" value="$(find vo_nodelet)/launch/d435_sn912112073494.yaml"/>
 
     <include file="$(find vo_nodelet)/launch/vo.launch"/>
 
     <node pkg="octomap_server" type="octomap_server_node" name="octomap_server">
-        <param name="resolution" value="0.2" />
+        <param name="resolution" value="0.05" />
         <param name="frame_id" type="string" value="map" />
         <param name="sensor_model/max_range" value="6.0" />
         <remap from="cloud_in" to="/vo_octo_tracking" />
     </node>
 
-    <node pkg="rosbag" type="play" name="rosbag" args="--clock $(find vo_nodelet)/bag/2019-11-06-16-38-25.bag -r2"/>
+    <!--<node pkg="rosbag" type="play" name="rosbag" args="$(find vo_nodelet)/bag/2019-11-06-16-38-25.bag"/>-->
+    <node pkg="rosbag" type="play" name="rosbag" args="$(find vo_nodelet)/bag/2019-12-03-11-21-55.bag"/>
 
 </launch>

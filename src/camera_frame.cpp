@@ -95,7 +95,7 @@ void CameraFrame::recover3DPts_c_FromDepthImg(vector<Vec3>& pt3ds,
         else
         {
             float z = (d_img.at<ushort>(pt))/d_camera.camera_scale_factor;
-            if(z>=0.5&&z<=6.5)
+            if(z>=0.3&&z<=8.0)
             {
                 pt3d[2] = z;
                 pt3d[0] = (pt.x - d_camera.camera_cx) * z / d_camera.camera_fx;
@@ -176,7 +176,7 @@ void CameraFrame::depthInnovation(void)
             Vec3 lm_c = DepthCamera::world2cameraT_c_w(landmarks.at(i).lm_3d_w,this->T_c_w);
             //apply IIR Filter
 
-            Vec3 lm_c_update = lm_c*0.9+lm_c_measure*0.1;
+            Vec3 lm_c_update = lm_c*0.8+lm_c_measure*0.2;
 
             //update to world frame
             landmarks.at(i).lm_3d_c = lm_c_update;

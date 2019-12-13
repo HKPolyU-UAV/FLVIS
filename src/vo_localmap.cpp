@@ -38,7 +38,7 @@
 using namespace cv;
 using namespace std;
 
-#define FIX_WINDOW_OPTIMIZER_SIZE (8)
+#define FIX_WINDOW_OPTIMIZER_SIZE (6)
 
 static int64_t edge_id;
 

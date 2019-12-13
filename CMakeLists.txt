@@ -103,6 +103,8 @@ add_library(vo_nodelet
     src/correction_inf_msg.cpp
     src/octomap_feeder.cpp
     src/f2f_tracking.cpp
+    src/imu_state.cpp
+    src/vi_motion.cpp
     )
 
 target_link_libraries(vo_nodelet

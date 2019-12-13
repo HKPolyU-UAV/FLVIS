@@ -7,7 +7,7 @@
 
 using namespace std;
 
-#define POSE_LOOP_BUFFER_SIZE (8)
+#define POSE_LOOP_BUFFER_SIZE (6)
 
 struct LM_ITEM {
   int64_t id;

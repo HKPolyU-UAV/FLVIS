@@ -1,13 +1,23 @@
 <launch>
 
+    <param name="/yamlconfigfile" type="string" value="$(find vo_nodelet)/launch/d435_sn912112073494.yaml"/>
     <include file="$(find vo_nodelet)/launch/d435_sn912112073494.launch"/>
 
-    <node pkg="imu_filter_madgwick" type="imu_filter_node" name="ImuFilter">
-        <param name="_use_ma" type="bool" value="false" />
-        <param name="_publish_tf" type="bool" value="false" />
-        <param name="_world_frame" type="string" value="enu" />
-        <remap from="/imu/data_raw" to="/camera/imu"/>
+    <include file="$(find vo_nodelet)/launch/vo.launch"/>
+
+    <node pkg="octomap_server" type="octomap_server_node" name="octomap_server">
+        <param name="resolution" value="0.15" />
+        <param name="frame_id" type="string" value="map" />
+        <param name="sensor_model/max_range" value="8.0" />
+        <remap from="cloud_in" to="/vo_octo_tracking" />
     </node>
+
+<!--    <node pkg="imu_filter_madgwick" type="imu_filter_node" name="ImuFilter">
+        <param name="use_mag" type="bool" value="false" />
+        <param name="publish_tf" type="bool" value="true" />
+        <param name="world_frame" type="string" value="map" />
+        <remap from="/imu/data_raw" to="/camera/imu"/>
+    </node>-->
 
 </launch>
 

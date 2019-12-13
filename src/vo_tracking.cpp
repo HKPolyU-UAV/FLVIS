@@ -5,6 +5,7 @@
 #include <message_filters/time_synchronizer.h>
 #include <message_filters/synchronizer.h>
 #include <sensor_msgs/Image.h>
+#include <sensor_msgs/Imu.h>
 
 #include <opencv2/opencv.hpp>
 #include <cv_bridge/cv_bridge.h>
@@ -34,70 +35,56 @@
 #include <include/octomap_feeder.h>
 #include <include/f2f_tracking.h>
 
-
-
-
 enum TRACKINGSTATE{UnInit, Working, trackingFail};
-
-namespace vo_nodelet_ns
-{
-
-
-
 struct ID_POSE {
     int    frame_id;
     SE3    T_c_w;
-} ;
-
-
+};
+namespace vo_nodelet_ns
+{
 class VOTrackingNodeletClass : public nodelet::Nodelet
 {
 public:
     VOTrackingNodeletClass()  {;}
     ~VOTrackingNodeletClass() {;}
-
 private:
-
+    //Subscribers
     message_filters::Subscriber<sensor_msgs::Image> image_sub;
     message_filters::Subscriber<sensor_msgs::Image> depth_sub;
     typedef message_filters::sync_policies::ExactTime<sensor_msgs::Image, sensor_msgs::Image> MyExactSyncPolicy;
     message_filters::Synchronizer<MyExactSyncPolicy> * exactSync_;
+    ros::Subscriber imu_sub;
     ros::Subscriber correction_inf_sub;
-
-    //State Machine
-    enum TRACKINGSTATE   vo_tracking_state;
-
     //Tools
     FeatureDEM         *featureDEM;
     F2FTracking        *tracker;
-
+    //State Machine
+    enum TRACKINGSTATE   vo_tracking_state;
     //F2F
     int frameCount;
     Mat cameraMatrix;
     Mat distCoeffs;
     int image_width,image_height;
     CameraFrame::Ptr curr_frame,last_frame;
+    //KF, Pose Records and Correction Information
     SE3 T_c_w_last_keyframe;
-    //Pose Records and Correction Information
+    KeyFrameMsg* kf_pub;
     deque<ID_POSE> pose_records;
     bool has_feedback;
     CorrectionInfStruct correction_inf;
-
+    //Octomap
+    OctomapFeeder* octomap_pub;
     //Visualization
-    Mat currShowImg;
+    Mat img_vis;
+    Mat dimg_vis;
+    image_transport::Publisher img_pub;
+    image_transport::Publisher dimg_pub;
     RVIZFrame* frame_pub;
     RVIZPath*  path_pub;
-    OctomapFeeder* octomap_pub;
-
-    KeyFrameMsg* kf_pub;
-    image_transport::ImageTransport *it;
-    image_transport::Publisher cv_pub;
-
-
 
     virtual void onInit()
     {
-        ros::NodeHandle& nh = getPrivateNodeHandle();
+        ros::NodeHandle& nh = getMTPrivateNodeHandle();
         //cv::startWindowThread(); //Bug report https://github.com/ros-perception/image_pipeline/issues/201
 
         //Load Parameter
@@ -135,23 +122,53 @@ private:
         kf_pub    = new KeyFrameMsg(nh,"/vo_kf");
         octomap_pub = new OctomapFeeder(nh,"/vo_octo_tracking","vo_local",1);
         octomap_pub->d_camera=curr_frame->d_camera;
-        it = new image_transport::ImageTransport(nh);
-        cv_pub = it->advertise("/vo_img", 1);
-
+        image_transport::ImageTransport it(nh);
+        img_pub = it.advertise("/vo_img", 1);
+        dimg_pub = it.advertise("/vo_dimg", 1);
         //Subscribe
         //Sync Subscribe Image and Rectified Depth Image
         image_sub.subscribe(nh, "/vo/image", 1);
         depth_sub.subscribe(nh, "/vo/depth_image", 1);
-        exactSync_ = new message_filters::Synchronizer<MyExactSyncPolicy>(MyExactSyncPolicy(3), image_sub, depth_sub);
+        exactSync_ = new message_filters::Synchronizer<MyExactSyncPolicy>(MyExactSyncPolicy(2), image_sub, depth_sub);
         exactSync_->registerCallback(boost::bind(&VOTrackingNodeletClass::image_input_callback, this, _1, _2));
         //Correction information
         correction_inf_sub = nh.subscribe<vo_nodelet::CorrectionInf>(
                     "/vo_localmap_feedback",
                     1,
                     boost::bind(&VOTrackingNodeletClass::correction_feedback_callback, this, _1));
+        imu_sub = nh.subscribe<sensor_msgs::Imu>(
+                    "/imu",
+                    5,
+                    boost::bind(&VOTrackingNodeletClass::imu_callback, this, _1));
         cout << "init Subscribe" << endl;
 
         cout << "onInit() finished" << endl;
+    }
+
+    void imu_callback(const sensor_msgs::ImuConstPtr& msg)
+    {
+        static int count=0;
+        count++;
+        if(count==10)
+        {
+            count=0;
+            cout << "imu callback in processing" << endl;
+        }
+        //SETP1: TO ENU Frame\
+        Vec3 acc,gyro;
+        if(1)
+        {
+            Vec3 gyro_df = Vec3(msg->linear_acceleration.y,
+                            msg->linear_acceleration.y,
+                            msg->linear_acceleration.z);
+            Vec3 acc_df = Vec3(msg->linear_acceleration.x,
+                            msg->linear_acceleration.y,
+                            msg->linear_acceleration.z);
+        }
+
+        //    //STEP2: Motion integration
+        //    //STEP3: In queue
+
     }
 
     void correction_feedback_callback(const vo_nodelet::CorrectionInf::ConstPtr& msg)
@@ -166,19 +183,6 @@ private:
                                  correction_inf.lm_outlier_count,
                                  correction_inf.lm_outlier_id);
         has_feedback=true;
-        //        cout << "Tracking: correction frame id:" << correction_inf.frame_id << endl;
-        //        cout<<  "Tracking: correction Twc: " << correction_inf.T_c_w.inverse().so3().log().transpose() << " | "
-        //             << correction_inf.T_c_w.inverse().translation().transpose() << endl;
-        //        cout << "Tracking: correction landmark count:"  << correction_inf.lm_count << endl;
-        //        for(int i=0; i< correction_inf.lm_count; i++)
-        //        {
-        //            cout << "lm_id"  << correction_inf.lm_id.at(i) <<"  "<< correction_inf.lm_3d.at(i).transpose() << endl;
-        //        }
-        //        cout << "correction landmark outlier_count:" << correction_inf.lm_outlier_count << endl;
-        //        for(int i=0; i< correction_inf.lm_outlier_count; i++)
-        //        {
-        //            cout << "lm_outlier_id"  << correction_inf.lm_outlier_id.at(i) << endl;
-        //        }
     }
 
     void image_input_callback(const sensor_msgs::ImageConstPtr & imgPtr, const sensor_msgs::ImageConstPtr & depthImgPtr)
@@ -190,7 +194,7 @@ private:
 
         //15hz Frame Rate
         //if((frameCount%2)==0) return;
-        //cout << endl << "Frame No: " << frameCount << endl;
+        cout << endl << "Frame No: " << frameCount << endl;
         curr_frame->frame_id = frameCount;
         //Greyscale Img
         curr_frame->clear();
@@ -201,7 +205,7 @@ private:
         cv_bridge::CvImagePtr cvbridge_depth_image  = cv_bridge::toCvCopy(depthImgPtr, depthImgPtr->encoding);
         curr_frame->d_img=cvbridge_depth_image->image;
 
-        cvtColor(curr_frame->img,currShowImg,CV_GRAY2BGR);
+        cvtColor(curr_frame->img,img_vis,CV_GRAY2BGR);
         ros::Time currStamp = imgPtr->header.stamp;
 
         switch(vo_tracking_state)
@@ -213,12 +217,9 @@ private:
             //-1  0  0
             // 0 -1  0
             R << 0, 0, 1, -1, 0, 0, 0,-1, 0;
-            Mat3x3 R_roll_m30deg;
-            R_roll_m30deg << 1.0,  0.0,  0.0,
-                    0.0,  1,  0,
-                    0.0, 0.0,  1;
-            Vec3   t=Vec3(0,0,1);
-            SE3    T_w_c(R*R_roll_m30deg,t);
+
+            Vec3   t=Vec3(0,0,0);
+            SE3    T_w_c(R,t);
             curr_frame->T_c_w=T_w_c.inverse();//Tcw = (Twc)^-1
 
             vector<Vec2> pts2d;
@@ -239,7 +240,7 @@ private:
             curr_frame->depthInnovation();
 
 
-            drawKeyPts(currShowImg, vVec2_2_vcvP2f(pts2d));
+            drawKeyPts(img_vis, vVec2_2_vcvP2f(pts2d));
             frame_pub->pubFramePtsPoseT_c_w(curr_frame->getValid3dPts(),curr_frame->T_c_w,currStamp);
             path_pub->pubPathT_c_w(curr_frame->T_c_w,currStamp);
 
@@ -313,7 +314,7 @@ private:
             cv::Mat t_ = cv::Mat::zeros(3, 1, CV_64FC1);
             SE3_to_rvec_tvec(last_frame->T_c_w, r_ , t_ );
             Mat inliers;
-            solvePnPRansac(p3d,p2d,cameraMatrix,distCoeffs,r_,t_,false,100,3.0,0.99,inliers,SOLVEPNP_P3P);
+            solvePnPRansac(p3d,p2d,cameraMatrix,distCoeffs,r_,t_,false,100,2.0,0.99,inliers,SOLVEPNP_P3P);
             curr_frame->T_c_w = SE3_from_rvec_tvec(r_,t_);
             bundleAdjustment::BAInFrame(*curr_frame);
             vector<Vec2> outlier_reproject;
@@ -354,12 +355,15 @@ private:
             outlier.insert(outlier.end(), outlier_tracking.begin(), outlier_tracking.end());
             outlier.insert(outlier.end(), outlier_reproject.begin(), outlier_reproject.end());
             curr_frame->solving_time=tt_cb.dT_s();
-            drawOutlier(currShowImg,outlier);
-            drawFlow(currShowImg,lm2d_from,lm2d_to);
-            drawFrame(currShowImg,*curr_frame);
+            drawOutlier(img_vis,outlier);
+            drawFlow(img_vis,lm2d_from,lm2d_to);
+            drawFrame(img_vis,*curr_frame);
+            visualizeDepthImg(dimg_vis,*curr_frame);
 
-            sensor_msgs::ImagePtr img_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", currShowImg).toImageMsg();
-            cv_pub.publish(img_msg);
+            sensor_msgs::ImagePtr img_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", img_vis).toImageMsg();
+            sensor_msgs::ImagePtr dimg_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", dimg_vis).toImageMsg();
+            img_pub.publish(img_msg);
+            dimg_pub.publish(dimg_msg);
             frame_pub->pubFramePtsPoseT_c_w(curr_frame->getValid3dPts(),curr_frame->T_c_w);
             path_pub->pubPathT_c_w(curr_frame->T_c_w,currStamp);
             octomap_pub->pub(curr_frame->T_c_w,curr_frame->d_img,currStamp);
@@ -388,20 +392,11 @@ private:
         default:
             cout<<"error"<<endl;
         }//end of state machine
-
-
-
         waitKey(1);
         last_frame.swap(curr_frame);
 
-        //tt_cb.toc();
+        tt_cb.toc();
     }//image_input_callback(const sensor_msgs::ImageConstPtr & imgPtr, const sensor_msgs::ImageConstPtr & depthImgPtr)
-
-
-
-
-
-
 };//class VOTrackingNodeletClass
 }//namespace vo_nodelet_ns
 
