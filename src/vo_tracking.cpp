@@ -18,7 +18,7 @@
 #include <g2o/solvers/csparse/linear_solver_csparse.h>
 #include <g2o/types/sba/types_six_dof_expmap.h>
 
-#include <utils/tic_toc_ros.h>
+#include <include/tic_toc_ros.h>
 #include <include/common.h>
 #include <include/depth_camera.h>
 #include <include/feature_dem.h>
@@ -34,6 +34,7 @@
 #include <include/correction_inf_msg.h>
 #include <include/octomap_feeder.h>
 #include <include/f2f_tracking.h>
+#include <include/vi_motion.h>
 
 enum TRACKINGSTATE{UnInit, Working, trackingFail};
 struct ID_POSE {
@@ -58,7 +59,10 @@ private:
     //Tools
     FeatureDEM         *featureDEM;
     F2FTracking        *tracker;
-    //State Machine
+    //VIMOTION
+    bool               has_imu;
+    VIMOTION           *vimotion;
+    //State
     enum TRACKINGSTATE   vo_tracking_state;
     //F2F
     int frameCount;
@@ -105,6 +109,8 @@ private:
 
         featureDEM  = new FeatureDEM(image_width,image_height,5);
         tracker     = new F2FTracking(image_width,image_height);
+        vimotion    = new VIMOTION();
+        has_imu     = false;
 
         curr_frame = std::make_shared<CameraFrame>();
         last_frame = std::make_shared<CameraFrame>();
@@ -145,30 +151,43 @@ private:
         cout << "onInit() finished" << endl;
     }
 
+#define USE_RSD435I (1)
+
     void imu_callback(const sensor_msgs::ImuConstPtr& msg)
     {
-        static int count=0;
-        count++;
-        if(count==10)
+        if(!has_imu)
         {
-            count=0;
-            cout << "imu callback in processing" << endl;
+            has_imu = true;
         }
-        //SETP1: TO ENU Frame\
+        //SETP1: TO ENU Frame
         Vec3 acc,gyro;
-        if(1)
+        double stamp = msg->header.stamp.toSec();
+        if(USE_RSD435I)
         {
-            Vec3 gyro_df = Vec3(msg->linear_acceleration.y,
-                            msg->linear_acceleration.y,
-                            msg->linear_acceleration.z);
-            Vec3 acc_df = Vec3(msg->linear_acceleration.x,
-                            msg->linear_acceleration.y,
-                            msg->linear_acceleration.z);
+            acc = Vec3(-msg->linear_acceleration.z,
+                       msg->linear_acceleration.x,
+                       msg->linear_acceleration.y);
+            gyro = Vec3(msg->angular_velocity.z,
+                        -msg->angular_velocity.x,
+                        -msg->angular_velocity.y);
+
+        }else//Default
+        {
+            gyro = Vec3(msg->angular_velocity.x,
+                        msg->angular_velocity.y,
+                        msg->angular_velocity.z);
+            acc = Vec3(msg->linear_acceleration.x,
+                       msg->linear_acceleration.y,
+                       msg->linear_acceleration.z);
         }
-
-        //    //STEP2: Motion integration
-        //    //STEP3: In queue
-
+        if(!(vimotion->imu_initialized))
+        {
+            //estimate orientation
+            vimotion->imu_initialization(IMUSTATE(stamp,acc,gyro));
+        }else {
+            //estimate pos vel and orientation
+            vimotion->imu_propagation(IMUSTATE(stamp,acc,gyro));
+        }
     }
 
     void correction_feedback_callback(const vo_nodelet::CorrectionInf::ConstPtr& msg)
@@ -194,7 +213,7 @@ private:
 
         //15hz Frame Rate
         //if((frameCount%2)==0) return;
-        cout << endl << "Frame No: " << frameCount << endl;
+        //cout << "Frame No: " << frameCount << endl;
         curr_frame->frame_id = frameCount;
         //Greyscale Img
         curr_frame->clear();
@@ -207,20 +226,38 @@ private:
 
         cvtColor(curr_frame->img,img_vis,CV_GRAY2BGR);
         ros::Time currStamp = imgPtr->header.stamp;
-
         switch(vo_tracking_state)
         {
         case UnInit:
         {
-            Mat3x3 R;
+            Mat3x3 R_i_c;
             // 0  0  1
             //-1  0  0
             // 0 -1  0
-            R << 0, 0, 1, -1, 0, 0, 0,-1, 0;
-
+            R_i_c << 0, 0, 1, -1, 0, 0, 0,-1, 0;
             Vec3   t=Vec3(0,0,0);
-            SE3    T_w_c(R,t);
+            SE3    T_w_c(R_i_c,t);
             curr_frame->T_c_w=T_w_c.inverse();//Tcw = (Twc)^-1
+            if(this->has_imu)
+            {
+                if(vimotion->imu_initialized)
+                {
+                    Eigen::Quaterniond q_init_w_i;
+                    vimotion->vision_trigger(q_init_w_i);
+                    Vec3 rpy = Q2rpy(q_init_w_i);
+                    cout << "roll:"   << rpy[0]*57.2958
+                         << " pitch:" << rpy[1]*57.2958
+                         << " yaw:"   << rpy[2]*57.2958 << endl;
+                    Mat3x3 R_w_c = q_init_w_i.toRotationMatrix()*R_i_c;
+                    SE3    T_w_c(R_w_c,t);
+                    curr_frame->T_c_w=T_w_c.inverse();//Tcw = (Twc)^-1
+                    cout << "use imu pose" << endl;
+                }
+                else
+                {
+                    break;
+                }
+            }
 
             vector<Vec2> pts2d;
             vector<Vec3> pts3d_c;
@@ -249,6 +286,7 @@ private:
 
             vo_tracking_state = Working;
             cout << "vo_tracking_state = Working" << endl;
+
             break;
         }
 
@@ -261,10 +299,10 @@ private:
                      STEP3: 2D3D-PNP+F2FBA
                      STEP4: Redetect
                      STEP5: Update Landmarks(IIR)
+                     (Option) ->IMU ACC GYRO BIAS ESTIMATION
                      STEP6: Record Pose
                      STEP7: Visualize and Publish
                      STEP8: Switch KeyFrame
-
             */
             //STEP1:
             if(has_feedback)
@@ -340,6 +378,10 @@ private:
             //STEP5:
             curr_frame->depthInnovation();
 
+            //(Option) ->IMU ACC GYRO BIAS ESTIMATION
+
+
+
             //STEP6:
             ID_POSE tmp;
             tmp.frame_id = curr_frame->frame_id;
@@ -374,7 +416,7 @@ private:
             Vec3 r=T_diff_key_curr.so3().log();
             double t_norm = fabs(t[0]) + fabs(t[1]) + fabs(t[2]);
             double r_norm = fabs(r[0]) + fabs(r[1]) + fabs(r[2]);
-            if(t_norm>=0.2 || r_norm>=0.5)
+            if(t_norm>=0.1 || r_norm>=0.5)
             {
                 kf_pub->pub(*curr_frame,currStamp);
                 T_c_w_last_keyframe = curr_frame->T_c_w;
@@ -395,7 +437,7 @@ private:
         waitKey(1);
         last_frame.swap(curr_frame);
 
-        tt_cb.toc();
+        //tt_cb.toc();
     }//image_input_callback(const sensor_msgs::ImageConstPtr & imgPtr, const sensor_msgs::ImageConstPtr & depthImgPtr)
 };//class VOTrackingNodeletClass
 }//namespace vo_nodelet_ns

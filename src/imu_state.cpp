@@ -11,3 +11,10 @@ IMUSTATE::IMUSTATE(double secs, double ax, double ay, double az, double gx, doub
   gyro_raw = Vec3(gx,gy,gz);
   timestamp = secs;
 }
+
+IMUSTATE::IMUSTATE(double secs, Vec3 acc, Vec3 gyro)
+{
+    acc_raw = acc;
+    gyro_raw = gyro;
+    timestamp = secs;
+}
