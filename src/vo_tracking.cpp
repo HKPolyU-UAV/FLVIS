@@ -35,6 +35,7 @@
 #include <include/octomap_feeder.h>
 #include <include/f2f_tracking.h>
 #include <include/vi_motion.h>
+#include <tf/transform_listener.h>
 
 enum TRACKINGSTATE{UnInit, Working, trackingFail};
 struct ID_POSE {
@@ -85,6 +86,10 @@ private:
     image_transport::Publisher dimg_pub;
     RVIZFrame* frame_pub;
     RVIZPath*  path_pub;
+    RVIZPath* path_lc_pub;
+
+    tf::StampedTransform tranOdomMap;
+    tf::TransformListener listenerOdomMap;
 
     virtual void onInit()
     {
@@ -133,6 +138,7 @@ private:
 
         //Publish
         path_pub  = new RVIZPath(nh,"/vo_path");
+        path_lc_pub  = new RVIZPath(nh,"/vo_path_lc");
         frame_pub = new RVIZFrame(nh,"/vo_camera_pose","/vo_curr_frame");
         kf_pub    = new KeyFrameMsg(nh,"/vo_kf");
         octomap_pub = new OctomapFeeder(nh,"/vo_octo_tracking","vo_local",1);
@@ -296,6 +302,31 @@ private:
             vo_tracking_state = Working;
             cout << "vo_tracking_state = Working" << endl;
 
+            //if has tf between map and odom
+
+            try
+            {
+              listenerOdomMap.lookupTransform("map","odom",ros::Time(0), tranOdomMap);
+
+              tf::Vector3 tf_t= tranOdomMap.getOrigin();
+              tf::Quaternion tf_q = tranOdomMap.getRotation();
+              Vec3 se3_t(tf_t.x(),tf_t.y(),tf_t.z());
+              Quaterniond se3_q(tf_q.w(),tf_q.x(),tf_q.y(),tf_q.z());
+              //cout<<tf_t.x()<<" "<<tf_t.y()<<" "<<tf_t.z()<<" "<<tf_q.x()<<" "<<tf_q.y()<<" "<<tf_q.z()<<" "<<tf_q.w()<<" "<<endl;
+              SE3 T_map_odom(se3_q,se3_t);
+              SE3 T_map_c = T_map_odom.inverse()*curr_frame->T_c_w.inverse();
+              path_lc_pub->pubPathT_w_c(T_map_c,currStamp);
+
+
+            }
+            catch (tf::TransformException ex)
+            {
+              ROS_ERROR("%s",ex.what());
+              cout<<"no transform between map and odom yet."<<endl;
+            }
+
+
+
             break;
         }
 
@@ -441,7 +472,34 @@ private:
             path_pub->pubPathT_c_w(curr_frame->T_c_w,currStamp);
             octomap_pub->pub(curr_frame->T_c_w,curr_frame->d_img,currStamp);
 
+
             //STEP9:
+            //if has tf between map and odom
+
+            try
+            {
+              listenerOdomMap.lookupTransform("map","odom",ros::Time(0), tranOdomMap);
+
+              tf::Vector3 tf_t= tranOdomMap.getOrigin();
+              tf::Quaternion tf_q = tranOdomMap.getRotation();
+              Vec3 se3_t(tf_t.x(),tf_t.y(),tf_t.z());
+              Quaterniond se3_q(tf_q.w(),tf_q.x(),tf_q.y(),tf_q.z());
+              //cout<<tf_t.x()<<" "<<tf_t.y()<<" "<<tf_t.z()<<" "<<tf_q.x()<<" "<<tf_q.y()<<" "<<tf_q.z()<<" "<<tf_q.w()<<" "<<endl;
+              SE3 T_map_odom(se3_q,se3_t);
+              SE3 T_map_c = T_map_odom*curr_frame->T_c_w.inverse();
+              path_lc_pub->pubPathT_w_c(T_map_c,currStamp);
+
+
+            }
+            catch (tf::TransformException ex)
+            {
+              ROS_ERROR("%s",ex.what());
+              cout<<"no trans between map and odom yet."<<endl;
+            }
+
+
+            //STEP8:
+
             SE3 T_diff_key_curr = T_c_w_last_keyframe*(curr_frame->T_c_w.inverse());
             Vec3 t=T_diff_key_curr.translation();
             Vec3 r=T_diff_key_curr.so3().log();

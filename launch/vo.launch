@@ -24,6 +24,12 @@
         launch-prefix="bash -c 'sleep $(arg node_start_delay); $0 $@' ">
     </node>
 
+    <!-- LoopClosingNode -->
+    <node pkg="nodelet" type="nodelet" args="load vo_nodelet/VOLoopClosingNodeletClass vo_manager"
+        name="VOLoopClosingNodeletClass_loader" output="screen"
+        launch-prefix="bash -c 'sleep $(arg node_start_delay); $0 $@' ">
+    </node>
+
 
 
 </launch>

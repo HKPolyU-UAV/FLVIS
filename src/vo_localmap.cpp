@@ -83,6 +83,7 @@ private:
     void frame_callback(const vo_nodelet::KeyFrameConstPtr& msg)
     {
         KeyFrameStruct kf;
+        ros::Time tt;
         KeyFrameMsg::unpack(msg,
                             kf.frame_id,
                             kf.img,
@@ -92,7 +93,8 @@ private:
                             kf.lm_2d,
                             kf.lm_3d,
                             kf.lm_descriptor,
-                            kf.T_c_w);
+                            kf.T_c_w,
+                            tt);
 
 
         kfs.push_back(kf);

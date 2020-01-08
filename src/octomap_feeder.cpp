@@ -22,7 +22,7 @@ void OctomapFeeder::pub(const SE3 &T_c_w,const  Mat &d_img, const ros::Time stam
     this->transform.setOrigin(tf::Vector3(t[0],t[1],t[2]));
     this->transform.setRotation(tf::Quaternion(q.x(),q.y(),q.z(),q.w()));
 
-    br.sendTransform(tf::StampedTransform(transform, stamp, "map", this->tf_frame_name));
+    br.sendTransform(tf::StampedTransform(transform, stamp, "odom", this->tf_frame_name));
 
     PointCloudP pc_c;
     int width_count=0;

@@ -46,3 +46,8 @@ void RVIZPath::pubPathT_w_c(const SE3 T_w_c, const ros::Time stamp)
 
   path_pub.publish(path);
 }
+
+void RVIZPath::clearPath()
+{
+  path.poses.clear();
+}

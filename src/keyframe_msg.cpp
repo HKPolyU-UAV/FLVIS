@@ -102,7 +102,8 @@ void KeyFrameMsg::unpack(vo_nodelet::KeyFrameConstPtr kf_const_ptr,
                          vector<Vec2>    &lm_2d,
                          vector<Vec3>    &lm_3d,
                          vector<Mat>     &lm_descriptors,
-                         SE3             &T_c_w)
+                         SE3             &T_c_w,
+                         ros::Time       &T)
 {
     img.release();
     lm_id.clear();
@@ -142,5 +143,6 @@ void KeyFrameMsg::unpack(vo_nodelet::KeyFrameConstPtr kf_const_ptr,
     uq.y() = kf_const_ptr->T_c_w.rotation.y;
     uq.z() = kf_const_ptr->T_c_w.rotation.z;
     T_c_w = SE3(uq,t);
+    T = kf_const_ptr->header.stamp;
 
 }

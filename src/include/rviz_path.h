@@ -16,7 +16,7 @@ private:
   nav_msgs::Path path;
   unsigned int numOfPose;
 
-  void pubPathT_w_c(const SE3 T_w_c, const ros::Time stamp=ros::Time::now());
+
 
 public:
 
@@ -24,6 +24,9 @@ public:
   ~RVIZPath();
 
   void pubPathT_c_w(const SE3 T_c_w, const ros::Time stamp=ros::Time::now());
+  void pubPathT_w_c(const SE3 T_w_c, const ros::Time stamp=ros::Time::now());
+  void clearPath();
+
 };//class RVIZPath
 
 
