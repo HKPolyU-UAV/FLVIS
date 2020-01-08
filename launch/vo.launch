@@ -2,7 +2,7 @@
 
     <arg name="node_start_delay" default="1.0" />
 
-    <param name="/voc"             type="string" value="$(find vo_nodelet)/voc/voc_orb.dbow3"/>
+    <param name="/voc"             type="string" value="$(find vo_nodelet)/voc/orbvoc.dbow3"/>
 
     <!-- Manager -->
     <node pkg="nodelet" type="nodelet" name="vo_manager"  args="manager" output="screen"
@@ -21,6 +21,12 @@
     <!-- LocalMapNode -->
     <node pkg="nodelet" type="nodelet" args="load vo_nodelet/VOLocalMapNodeletClass vo_manager"
         name="VOLocalMapNodeletClass_loader" output="screen"
+        launch-prefix="bash -c 'sleep $(arg node_start_delay); $0 $@' ">
+    </node>
+
+    <!-- LoopClosingNode -->
+    <node pkg="nodelet" type="nodelet" args="load vo_nodelet/VOLoopClosingNodeletClass vo_manager"
+        name="VOLoopClosingNodeletClass_loader" output="screen"
         launch-prefix="bash -c 'sleep $(arg node_start_delay); $0 $@' ">
     </node>
 

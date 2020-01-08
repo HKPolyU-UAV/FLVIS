@@ -38,9 +38,9 @@
 #include <g2o/types/slam3d/vertex_pointxyz.h>
 #include <g2o/types/slam3d/vertex_se3.h>
 #include <g2o/types/slam3d/edge_se3.h>
-//#include <g2o/types/sba/types_six_dof_expmap.h>
 
-#include <utils/tic_toc_ros.h>
+
+#include <include/tic_toc_ros.h>
 
 #include <pcl/io/pcd_io.h>
 #include <pcl/io/ply_io.h>
@@ -53,6 +53,17 @@
 #include <octomap/octomap.h>
 #include <octomap/OccupancyOcTreeBase.h>
 
+// For TF
+
+#include <tf2_ros/transform_broadcaster.h>
+#include <geometry_msgs/TransformStamped.h>
+#include <tf2/LinearMath/Quaternion.h>
+#include <tf/transform_listener.h>
+#include <ros/ros.h>
+#include <sensor_msgs/PointCloud2.h>
+#include <tf/transform_broadcaster.h>
+
+#include <include/rviz_path.h>
 
 using namespace DBoW3;
 using namespace cv;
@@ -80,14 +91,13 @@ struct sort_descriptor_by_queryIdx
 #define lcKFDist (18)
 #define lcKFMaxDist (50)
 #define lcKFLast (20)
-#define lcNKFClosest (3)
-#define ratioMax (0.7)
+#define lcNKFClosest (2)
+#define ratioMax (0.5)
 #define ratioRansac (0.5)
-#define minPts (35)
+#define minPts (20)
 
 struct KeyFrameLC
 {
-  Mat d_img;
   int64_t         frame_id;
   int64_t         keyframe_id;
   int             lm_count;
@@ -100,7 +110,20 @@ struct KeyFrameLC
   ros::Time       t;
 };
 
-
+struct KeyFrameLCStruct
+{
+  int64_t         frame_id;
+  int64_t         keyframe_id;
+  int             lm_count;
+  vector<int64_t> lm_id;
+  vector<Vec2>    lm_2d;
+  vector<Vec3  >  lm_3d;
+  vector<Mat>     lm_descriptor;
+  BowVector       kf_bv;
+  SE3             T_c_w_odom;
+  SE3             T_c_w;
+  ros::Time       t;
+};
 
 
 class VOLoopClosingNodeletClass : public nodelet::Nodelet
@@ -115,7 +138,11 @@ private:
     Mat cameraMatrix,distCoeffs;
     Mat diplay_img;
     double fx,fy,cx,cy;
-    bool optimizer_initialized;
+    //bool optimizer_initialized;
+    
+    ros::Time tt;
+    tf::Transform transform;
+    tf::TransformBroadcaster br;
 
     vector<int64_t> optimizer_lm_id;
 
@@ -136,107 +163,12 @@ private:
     SE3 T_odom_map = SE3();
     SE3 T_prevmap_map = SE3();
     vector<SE3> vmap_correct;
+    RVIZPath* path_lc_pub;
 
     //kf id
     int64_t kf_id = 0;
     //last loop id
     int64_t last_pgo_id = -1000;
-
-    //mapping
-    PointCloudP::Ptr globalPC = boost::make_shared<PointCloudP>();
-    PointCloudP::Ptr globalafterPC = boost::make_shared<PointCloudP>();
-    PointCloudP::Ptr globalvoPC = boost::make_shared<PointCloudP>();
-    shared_ptr<octomap::OcTree> globalOctreePtr = make_shared<octomap::OcTree>(0.4);
-    //octomap::OcTree globalOctree = octomap::OcTree(0.05);
-    pcl::PointCloud<PointP>::Ptr generatePointCloudP(Mat& depth)
-    {
-      PointCloudP::Ptr tmp(new PointCloudP());
-      for(int m =0; m<depth.rows; m+=5)
-      {
-        for(int n = 0; n<depth.cols; n+=5)
-        {
-          float d = depth.ptr<ushort>(m)[n]/1000.0;
-          if(d<0.01 || d>4)
-            continue;
-          pcl::PointXYZ p;
-          p.z = d;
-          p.x = (n-cx)*d/fx;
-          p.y = (m-cy)*d/fy;
-
-          tmp->points.push_back(p);
-
-        }
-      }
-      tmp->is_dense = false;
-      return tmp;
-    }
-
-
-    pcl::PointCloud<PointP>::Ptr transformPointCloudP(SE3 pose, pcl::PointCloud<PointP>& pointCloudP)
-    {
-      PointCloudP::Ptr cloud(new PointCloudP);
-      Matrix<double,4,4> transformMat = pose.matrix().inverse();
-      Matrix<float,4,4> transformMatD = transformMat.cast<float>();
-      pcl::transformPointCloud(pointCloudP, *cloud, transformMatD);// transform from cam to world
-      cloud->is_dense = false;
-      return cloud;
-    }
-    octomap::Pointcloud generateOctomapPC(Mat& depth)
-    {
-
-      octomap::Pointcloud tmp;
-      for(int m =0; m<depth.rows; m+=5)
-      {
-        for(int n = 0; n<depth.cols; n+=5)
-        {
-          float d = depth.ptr<float>(m)[n]/1000.0;
-          if(d<0.01 || d>4)
-            continue;
-
-          double z = d;
-          double x = (n-cx)*d/fx;
-          double y = (m-cy)*d/fy;
-
-          octomap::point3d p(x,y,z);
-
-          tmp.push_back(p);
-
-        }
-      }
-
-    }
-
-    octomap::Pointcloud transformOctomapPC(SE3 pose, octomap::Pointcloud octoP)
-    {
-      cout<<"start pose trans:"<<endl;
-      Vector3d trans = pose.translation();
-      Quaterniond rots = pose.unit_quaternion();
-     cout<<"start double to float"<<endl;
-      float x = trans(0);
-      float y = trans(1);
-      float z = trans(2);
-      float qw = rots.w();
-      float qx = rots.x();
-      float qy = rots.y();
-      float qz = rots.z();
-
-      cout<<"double to float"<<endl;
-
-      octomath::Vector3 tran(x,y,z);
-      octomath::Quaternion rot(qw,qx,qy,qz);
-
-
-      octomap::pose6d poseOcto(tran, rot);
-
-      octomap::Pointcloud tmp(octoP);
-      tmp.transform(poseOcto.inv());
-
-      //origin = poseOcto.inv().trans();
-
-      return tmp;
-
-    }
-
 
 
 
@@ -244,12 +176,13 @@ private:
 
     bool isLoopCandidate( uint64_t &kf_prev_idx)
     {
+      cout<<"start to find loop candidate."<<endl;
       bool is_lc_candidate = false;
-      int g_size = kf_map_lc.size();
+      size_t g_size = kf_map_lc.size();
       //cout<<"kf size: "<<g_size<<endl;
       vector<Vector2d> max_sim_mat;
       if(g_size < 40) return is_lc_candidate;
-      for (uint64_t i = 0; i < (uint64_t)(g_size - lcKFDist); i++)
+      for (uint64_t i = 0; i < static_cast<uint64_t>(g_size - lcKFDist); i++)
       {
           if (kf_map_lc[i] != nullptr)
           {
@@ -265,14 +198,15 @@ private:
 
       // find the minimum score in the covisibility graph (and/or 3 previous keyframes)
       double lc_min_score = 1.0;
-      for (uint64_t i = (uint64_t)(g_size - lcKFDist); i < (uint64_t)(g_size); i++)
+      for (uint64_t i = static_cast<uint64_t>(g_size - lcKFDist); i < static_cast<uint64_t>(g_size); i++)
       {
           double score_i = sim_matrix[i][g_size-1];
           if (score_i < lc_min_score && score_i > 0.001) lc_min_score = score_i;
       }
 
       lc_min_score = min(lc_min_score, 0.4);
-      if( max_sim_mat[0](1) < max(0.2, lc_min_score)) return is_lc_candidate;
+      cout<<"max sim score is: "<< max_sim_mat[0](1)<<endl;
+      if( max_sim_mat[0](1) < max(0.15, lc_min_score)) return is_lc_candidate;
 
       int idx_max = int(max_sim_mat[0](0));
       int nkf_closest = 0;
@@ -289,10 +223,10 @@ private:
 
 
        // update in case of being loop closure candidate
-       if (nkf_closest >= lcNKFClosest && max_sim_mat[0](1) > 0.2 )
+       if (nkf_closest >= lcNKFClosest && max_sim_mat[0](1) > 0.15 )
        {
            is_lc_candidate = true;
-           kf_prev_idx = idx_max;
+           kf_prev_idx = static_cast<uint64_t>(idx_max);
        }
 
        // ****************************************************************** //
@@ -306,7 +240,7 @@ private:
        return is_lc_candidate;
     }
 
-    bool isLoopClosure(shared_ptr<KeyFrameStruct> kf0, shared_ptr<KeyFrameStruct> kf1,SE3 &se_ji)
+    bool isLoopClosure(shared_ptr<KeyFrameLCStruct> kf0, shared_ptr<KeyFrameLCStruct> kf1,SE3 &se_ji)
     {
       //kf0 previous kf, kf1 current kf,
       bool is_lc = false;
@@ -316,8 +250,8 @@ private:
       {
 
           BFMatcher *bfm = new BFMatcher(NORM_HAMMING, false); // cross-check
-          Mat pdesc_l1= Mat::zeros(Size(32,kf0->lm_descriptor.size()),CV_8U);
-          Mat pdesc_l2= Mat::zeros(Size(32,kf1->lm_descriptor.size()),CV_8U);
+          Mat pdesc_l1= Mat::zeros(Size(32,static_cast<int>(kf0->lm_descriptor.size())),CV_8U);
+          Mat pdesc_l2= Mat::zeros(Size(32,static_cast<int>(kf1->lm_descriptor.size())),CV_8U);
           vector<vector<DMatch>> pmatches_12, pmatches_21;
           // 12 and 21 matches
           vMat_to_descriptors(pdesc_l1,kf0->lm_descriptor);
@@ -341,20 +275,21 @@ private:
           for (size_t i = 0; i < pmatches_12.size(); i++)
           {
               // check if they are mutual best matches
-              int lr_qdx = pmatches_12[i][0].queryIdx;
-              int lr_tdx = pmatches_12[i][0].trainIdx;
-              int rl_tdx = pmatches_21[lr_tdx][0].trainIdx;
+              size_t lr_qdx = static_cast<size_t>(pmatches_12[i][0].queryIdx);
+              size_t lr_tdx = static_cast<size_t>(pmatches_12[i][0].trainIdx);
+              size_t rl_tdx = static_cast<size_t>(pmatches_21[lr_tdx][0].trainIdx);
 
               // check if they are mutual best matches and satisfy the distance ratio test
 
               if (lr_qdx == rl_tdx)
               {
-                  if(pmatches_12[i][0].distance/pmatches_12[i][1].distance < ratioMax)
+                  if(pmatches_12[i][0].distance/pmatches_12[i][1].distance < static_cast<float>(ratioMax))
                   {
                     common_pt++;
                     // save data for optimization
-                    Vector3d P = kf0->lm_3d[lr_qdx];
-                    Vector2d pl_obs = kf1->lm_2d[lr_tdx];
+                    Vector3f P = (kf0->lm_3d[lr_qdx]).cast <float> ();
+                    Vector2f pl_obs = (kf1->lm_2d[lr_tdx]).cast <float> ();
+
                     Point3f p3(P(0),P(1),P(2));
                     Point2f p2(pl_obs(0),pl_obs(1));
                     p3d.push_back(p3);
@@ -376,7 +311,7 @@ private:
           if(inliers.rows*1.0/p3d.size() < ratioRansac || inliers.rows < minPts ) //return is_lc;
           {
             cout<<"dont believe: "<<endl;
-            cout<<"ratio test: "<<(double)inliers.rows/(double)p3d.size()<<" "<<"number test "<<inliers.rows<<endl;
+            cout<<"ratio test: "<<static_cast<double>(inliers.rows)/static_cast<double>(p3d.size())<<" "<<"number test "<<inliers.rows<<endl;
             return is_lc;
           }
 
@@ -384,13 +319,13 @@ private:
 
           SE3 se_iw = kf0->T_c_w;
           SE3 se_jw = SE3_from_rvec_tvec(r_,t_);
-          SE3 se_jw_p = kf1->T_c_w;
+          //SE3 se_jw_p = kf1->T_c_w;
 
           se_ji = se_jw*se_iw.inverse();// i previous kf, j current kf, sji = sjw*swi; from prev to curr
           //se_ij = se_ji.inverse();
-          SE3 se_j_correct = se_jw*se_jw_p.inverse();
+          //SE3 se_j_correct = se_jw*se_jw_p.inverse();
 
-          if(se_ji.translation().norm() < 1 && se_ji.so3().log().norm() < 0.8) is_lc = true;
+          if(se_ji.translation().norm() < 3 && se_ji.so3().log().norm() < 1.5) is_lc = true;
       }
       return is_lc;
     }
@@ -407,8 +342,10 @@ private:
         cout<<"feature ,matching:"<<endl;
 
           BFMatcher *bfm = new BFMatcher(NORM_HAMMING, false); // cross-check
-          Mat pdesc_l1= Mat::zeros(Size(32,kf0->lm_descriptor.size()),CV_8U);
-          Mat pdesc_l2= Mat::zeros(Size(32,kf1->lm_descriptor.size()),CV_8U);
+//          Mat pdesc_l1= Mat::zeros(Size(32,kf0->lm_descriptor.size()),CV_8U);
+//          Mat pdesc_l2= Mat::zeros(Size(32,kf1->lm_descriptor.size()),CV_8U);
+          Mat pdesc_l1= Mat::zeros(Size(32,static_cast<int>(kf0->lm_descriptor.size())),CV_8U);
+          Mat pdesc_l2= Mat::zeros(Size(32,static_cast<int>(kf1->lm_descriptor.size())),CV_8U);
           vector<vector<DMatch>> pmatches_12, pmatches_21;
           // 12 and 21 matches
           vMat_to_descriptors(pdesc_l1,kf0->lm_descriptor);
@@ -432,15 +369,18 @@ private:
           for (size_t i = 0; i < pmatches_12.size(); i++)
           {
               // check if they are mutual best matches
-              int lr_qdx = pmatches_12[i][0].queryIdx;
-              int lr_tdx = pmatches_12[i][0].trainIdx;
-              int rl_tdx = pmatches_21[lr_tdx][0].trainIdx;
+//              int lr_qdx = pmatches_12[i][0].queryIdx;
+//              int lr_tdx = pmatches_12[i][0].trainIdx;
+//              int rl_tdx = pmatches_21[lr_tdx][0].trainIdx;
+             size_t lr_qdx = static_cast<size_t>(pmatches_12[i][0].queryIdx);
+             size_t lr_tdx = static_cast<size_t>(pmatches_12[i][0].trainIdx);
+             size_t rl_tdx = static_cast<size_t>(pmatches_21[lr_tdx][0].trainIdx);
 
               // check if they are mutual best matches and satisfy the distance ratio test
 
               if (lr_qdx == rl_tdx)
               {
-                  if(pmatches_12[i][0].distance/pmatches_12[i][1].distance < ratioMax)
+                  if(pmatches_12[i][0].distance/pmatches_12[i][1].distance < static_cast<float>(ratioMax))
                   {
                     common_pt++;
                     // save data for optimization
@@ -449,8 +389,9 @@ private:
                     Vector2d pl_map = kf0->lm_2d[lr_qdx];
                     double x = (pl_map(0)-cx)/fx*d;
                     double y = (pl_map(1)-cy)/fy*d;
-                    Vector3d P(x,y,d);
-                    Vector2d pl_obs = kf1->lm_2d[lr_tdx];
+                    Vector3d P0(x,y,d);
+                    Vector3f P = P0.cast<float>();
+                    Vector2f pl_obs = kf1->lm_2d[lr_tdx].cast<float>();
                     Point3f p3(P(0),P(1),P(2));
                     Point2f p2(pl_obs(0),pl_obs(1));
                     p3d.push_back(p3);
@@ -464,15 +405,15 @@ private:
           cv::Mat t_ = cv::Mat::zeros(3, 1, CV_64FC1);
           Mat inliers;
           //SE3_to_rvec_tvec(kf0->T_c_w, r_ , t_ );
-          cout<<"start ransac"<<endl;
+          //cout<<"start ransac"<<endl;
           if(p3d.size() < 5) return is_lc;
-          solvePnPRansac(p3d,p2d,cameraMatrix,distCoeffs,r_,t_,false,100,3.0,0.99,inliers,SOLVEPNP_P3P);
-          cout<<"selected points size: "<<p3d.size()<<" inliers size: "<<inliers.rows<<" unseletced size: "<<pmatches_12.size()<<endl;
+          solvePnPRansac(p3d,p2d,cameraMatrix,distCoeffs,r_,t_,false,100,4.0,0.99,inliers,SOLVEPNP_P3P);
+      //    cout<<"selected points size: "<<p3d.size()<<" inliers size: "<<inliers.rows<<" unseletced size: "<<pmatches_12.size()<<endl;
 
           if(inliers.rows*1.0/p3d.size() < ratioRansac || inliers.rows < minPts ) //return is_lc;
           {
             cout<<"reject loop after geometry check "<<endl;
-            cout<<"ratio test: "<<(double)inliers.rows/(double)p3d.size()<<" "<<"number test "<<inliers.rows<<endl;
+            cout<<"ratio test: "<<static_cast<double>(inliers.rows)/static_cast<double>(p3d.size())<<" "<<"number test "<<inliers.rows<<endl;
             return is_lc;
           }
           //SE3 se_ij
@@ -488,7 +429,7 @@ private:
 
             se_ji = SE3_from_rvec_tvec(r_,t_);
 
-          if(se_ji.translation().norm() < 1 && se_ji.so3().log().norm() < 0.8) is_lc = true;
+          if(se_ji.translation().norm() < 3 && se_ji.so3().log().norm() < 1.5) is_lc = true;
       }
       return is_lc;
     }
@@ -496,12 +437,12 @@ private:
 
     void expandGraph()
     {
-      int g_size = (int) kfbv_map.size();
+      size_t g_size = kfbv_map.size();
       sim_vec.resize(g_size);
 
       // sim matrix
       sim_matrix.resize(g_size);
-      for (int i = 0; i < g_size; i++)
+      for (size_t i = 0; i < g_size; i++)
           sim_matrix[i].resize(g_size);
 
     }
@@ -513,10 +454,10 @@ private:
       uint64_t kf_curr_idx = 0;
       for(size_t i = 0; i < loop_ids.size(); i++)
       {
-        if(loop_ids[i](0) < kf_prev_idx)
-          kf_prev_idx = loop_ids[i](0);
-        if(loop_ids[i](1) > kf_curr_idx)
-          kf_curr_idx = loop_ids[i](1);
+        if(loop_ids[i](0) < static_cast<int>(kf_prev_idx))
+          kf_prev_idx = static_cast<uint64_t>(loop_ids[i](0));
+        if(loop_ids[i](1) > static_cast<int>(kf_curr_idx))
+          kf_curr_idx = static_cast<uint64_t>(loop_ids[i](1));
       }
       cout<<"first and last id in the loop: "<<kf_prev_idx<<" "<<kf_curr_idx<<endl;
 
@@ -541,31 +482,31 @@ private:
 
       cout<<"start to insert vertices "<<endl;
       vector<int> kf_list;
-      for (int i = kf_prev_idx; i <= kf_curr_idx; i++)
+      for (size_t i = kf_prev_idx; i <= kf_curr_idx; i++)
       {
           if (kf_map_lc[i] != nullptr)
           {
               // check if it is a LC vertex
-              bool is_lc_i = false;
+              //bool is_lc_i = false;
               bool is_lc_j = false;
               int id = 0;
               for (auto it = loop_ids.begin(); it != loop_ids.end(); it++, id++)
               {
-                  if ((*it)(0) == i)
+                  if ((*it)(0) == static_cast<int>(i))
                   {
-                      is_lc_i = true;
+                      //is_lc_i = true;
                       break;
                   }
-                  if ((*it)(1) == i)
+                  if ((*it)(1) == static_cast<int>(i))
                   {
                       is_lc_j = true;
                       break;
                   }
               }
-              kf_list.push_back(i);
+              kf_list.push_back(static_cast<int>(i));
               // create SE3 vertex
               g2o::VertexSE3 *v_se3 = new g2o::VertexSE3();
-              v_se3->setId(i);
+              v_se3->setId(static_cast<int>(i));
               v_se3->setMarginalized(false);
 
               // _inverseMeasurement * from->estimate().inverse() * to->estimate();
@@ -596,10 +537,10 @@ private:
 
 
       // introduce edges
-      for (int i = kf_prev_idx; i <= kf_curr_idx; i++)
+      for (size_t i = kf_prev_idx; i <= kf_curr_idx; i++)
       {
 
-          for (int j = i + 1; j <= min((int)kf_curr_idx,i +5);  j++)//, j <= i +5
+          for (size_t j = i + 1; j <= min(kf_curr_idx,i + 5);  j++)//, j <= i +5
           {
               if (kf_map_lc[i] != nullptr && kf_map_lc[j] != nullptr)
               {
@@ -611,8 +552,8 @@ private:
                   // add edge
                   g2o::EdgeSE3* e_se3 = new g2o::EdgeSE3();
 
-                  e_se3->setVertex(0, optimizer.vertex(i));
-                  e_se3->setVertex(1, optimizer.vertex(j));
+                  e_se3->setVertex(0, optimizer.vertex(static_cast<int>(i)));
+                  e_se3->setVertex(1, optimizer.vertex(static_cast<int>(j)));
                   e_se3->setMeasurement(SE3_to_g2o(sij));
                   //e_se3->information() = map_keyframes[j]->xcov_kf_w;
                   e_se3->setInformation(Matrix6d::Identity());
@@ -625,7 +566,7 @@ private:
       cout<<"start to insert loop edge "<<endl;
 
       // introduce loop closure edges
-      int id = 0;
+      uint64_t id = 0;
       for (auto it = loop_ids.begin(); it != loop_ids.end(); it++, id++)
       {
           // add edge
@@ -654,15 +595,17 @@ private:
       {
           g2o::VertexSE3 *v_se3 = static_cast<g2o::VertexSE3 *>(optimizer.vertex((*kf_it)));
           g2o::SE3Quat Twc_g2o = v_se3->estimateAsSE3Quat();
-          SE3 Tcw1 = kf_map_lc[(*kf_it)]->T_c_w;
+          SE3 Tcw1 = kf_map_lc[static_cast<size_t>(*kf_it)]->T_c_w;
+
           SE3 Tw2c = SE3_from_g2o(Twc_g2o);
           SE3 Tw2_w1 =Tw2c*Tcw1;// transorm from previous to current from odom to map
           SE3 Tw1_w2 = Tw2_w1.inverse();
 
-          kf_map_lc[(*kf_it)]->T_c_w = Tw2c.inverse();
+          kf_map_lc[static_cast<size_t>(*kf_it)]->T_c_w = Tw2c.inverse();
+          path_lc_pub->pubPathT_w_c(Tw2c,ros::Time::now());
           //cout<<"after g2o pgo: ";
           //cout<<Tcw_corr<<endl;
-          SE3 odom = kf_map_lc[(*kf_it)]->T_c_w_odom;
+          SE3 odom = kf_map_lc[static_cast<size_t>(*kf_it)]->T_c_w_odom;
           if(kf_it == kf_list.end()-1)
           {
 
@@ -676,7 +619,9 @@ private:
           }
 
       }
+      
 
+      
 
 
     }
@@ -684,121 +629,111 @@ private:
 
     void frame_callback(const vo_nodelet::KeyFrameConstPtr& msg)
     {
+      
+
+      
+        tic_toc_ros unpack_tt;
         sim_vec.clear();
-        KeyFrameStruct kf;
+        KeyFrameLC kf;
         BowVector kf_bv;
         SE3 loop_pose;
 
-        KeyFrameMsg::unpack(msg,kf.frame_id,kf.img,kf.d_img,kf.lm_count,kf.lm_id,kf.lm_2d,kf.lm_3d,kf.lm_descriptor,kf.T_c_w);
-        //cout<<"unpack ok: "<<endl;
-        shared_ptr<KeyFrameStruct> kf_ptr = make_shared<KeyFrameStruct>(kf);
-        // new feature detector and descriptor
-        tic_toc_ros tt_kpdes;
-        Ptr<FastFeatureDetector> detector= FastFeatureDetector::create();
-        vector<KeyPoint> FASTFeatures;
+        Mat img_unpack, d_img_unpack;
+        vector<int64_t> lm_id_unpack;
+        vector<Vec3> lm_3d_unpack;
+        vector<Vec2> lm_2d_unpack;
+        vector<Mat>     lm_descriptor_unpack;
+        int lm_count_unpack;
+        
+        
+        KeyFrameMsg::unpack(msg,kf.frame_id,img_unpack,d_img_unpack,lm_count_unpack,
+                            lm_id_unpack,lm_2d_unpack,lm_3d_unpack,lm_descriptor_unpack,kf.T_c_w_odom,kf.t);
+
+        kf.T_c_w = kf.T_c_w_odom*T_odom_map;
+        kf.keyframe_id = kf_id++;
+
+        path_lc_pub->pubPathT_c_w(kf.T_c_w,kf.t);
+
+
+
+        //cout<<"unpack cost: ";
+        unpack_tt.toc();
+
+       // cout<<"send transform between map and odom: "<<endl;
+
+        SE3 T_map_odom = T_odom_map.inverse();
+
+        Quaterniond q_tf = T_map_odom.so3().unit_quaternion();
+        Vec3        t_tf = T_map_odom.translation();
+
+
+        transform.setOrigin(tf::Vector3(t_tf[0],t_tf[1],t_tf[2]));
+        transform.setRotation(tf::Quaternion(q_tf.x(),q_tf.y(),q_tf.z(),q_tf.w()));
+
+        br.sendTransform(tf::StampedTransform(transform, tt, "map", "odom"));
+
+        tic_toc_ros feature_tt;
+
+
+        vector<KeyPoint> ORBFeatures;
         vector<Point2f>  kps;
-        detector->detect(kf.img, FASTFeatures);
-        KeyPoint::convert(FASTFeatures,kps);
-        //cout<<"fast: "<<FASTFeatures.size()<<"kps: "<<kps.size()<<endl;
-        Mat tmpDescriptors;
-        vector<Mat> newDescriptors;
-        Ptr<DescriptorExtractor> extractor = ORB::create();
-        extractor->compute(kf.img, FASTFeatures, tmpDescriptors);
-        descriptors_to_vMat(tmpDescriptors,newDescriptors);
-        voc.transform(newDescriptors,kf_bv);
-        //voc.transform(kf.lm_descriptor,kf_bv);
-        //cout<<"des size: "<<newDescriptors.size()<<"kp size: "<<kps.size()<<"fast size: "<<FASTFeatures.size()<<endl;
+        Mat ORBDescriptorsL;
+        vector<Mat> ORBDescriptors;
 
-        //cout<<"tmpDes size: "<<tmpDescriptors.rows<<" "<<tmpDescriptors.cols<<endl;
+        kps.clear();
+        ORBFeatures.clear();
+        ORBDescriptors.clear();
 
+        Ptr<ORB> orb = ORB::create(500,1.2f,8,31,0,2, ORB::HARRIS_SCORE,31,50);
+        orb->detectAndCompute(img_unpack,Mat(),ORBFeatures,ORBDescriptorsL);
+
+        KeyPoint::convert(ORBFeatures,kps);
+        descriptors_to_vMat(ORBDescriptorsL,ORBDescriptors);
 
 
 
-        //save to new kf vector
-        shared_ptr<KeyFrameLC> kf_lc_ptr =std::make_shared<KeyFrameLC>();
-        kf_lc_ptr->t = ros::Time::now();
+        kf.lm_descriptor = ORBDescriptors;
 
-        kf_lc_ptr->frame_id = kf_ptr->frame_id;
-        kf_lc_ptr->d_img = kf_ptr->d_img;
-        kf_lc_ptr->keyframe_id = kf_id;
+     //   cout<<"descriptor numbers: "<<ORBDescriptors.size()<<endl;
+       // cout<<"feature cost: ";feature_tt.toc();
+
+
+        //pass feature and descriptor
         vector<Vec2> lm_2d;
         vector<double> lm_d;
-        for(size_t i = 0; i<FASTFeatures.size();i++)
+        for(size_t i = 0; i<ORBFeatures.size();i++)
         {
-          Point2f cvtmp = FASTFeatures[i].pt;
+          Point2f cvtmp = ORBFeatures[i].pt;
           Vec2 tmp(cvtmp.x,cvtmp.y);
-          double d = (kf_lc_ptr->d_img.at<ushort>(cvtmp))/1000;
+          double d = (d_img_unpack.at<ushort>(cvtmp))/1000;
           lm_2d.push_back(tmp);
           lm_d.push_back(d);
         }
-        kf_lc_ptr->lm_2d = lm_2d;
-        kf_lc_ptr->lm_d = lm_d;
-        kf_lc_ptr->lm_count = lm_2d.size();
+        kf.lm_2d = lm_2d;
+        kf.lm_d = lm_d;
+        kf.lm_count = static_cast<int>(lm_2d.size());
+       // cout<<"pass feature number: "<<kf.lm_count;
         lm_2d.clear();
         lm_d.clear();
-        kf_lc_ptr->lm_descriptor = newDescriptors;
-        kf_lc_ptr->kf_bv = kf_bv;
-        kf_lc_ptr->T_c_w_odom = kf_ptr->T_c_w;
-        kf_lc_ptr->T_c_w = kf_ptr->T_c_w*T_odom_map;// T_c_w c ccurrent camera, w odom,
-        kf_id +=1;
-        FASTFeatures.clear();
-        kps.clear();
-        newDescriptors.clear();
-        //voc.transform(kf_ptr->lm_descriptor,kf_bv);
-        //kf_map.push_back(kf_ptr);
-        kf_map_lc.push_back(kf_lc_ptr);
+
+
+
+
+        tic_toc_ros bow_tt;
+
+        voc.transform(kf.lm_descriptor,kf_bv);
+        kf.kf_bv = kf_bv;
+       // cout<<"bow transfer cost: ";bow_tt.toc();
+
+        shared_ptr<KeyFrameLC> kf_lc_ptr =std::make_shared<KeyFrameLC>(kf);
+        kf_map_lc.push_back(kf_lc_ptr);     
         kfbv_map.push_back(kf_bv);
         expandGraph();
 
-        tic_toc_ros pc_insertion;
-        pcl::PointCloud<PointP>::Ptr tmpPtr = generatePointCloudP(kf_lc_ptr->d_img);
-        pcl::PointCloud<PointP>::Ptr tmpPtrW = transformPointCloudP(kf_lc_ptr->T_c_w, *tmpPtr);
-        *globalPC += *tmpPtrW;
-        cout<<"point cloud transfrom and insertion";
-        pc_insertion.toc();
-        pcl::io::savePLYFileBinary("/home/lsgi/out/map.ply", *globalPC);
-       // pcl::io::savePCDFileASCII("/home/lsgi/out/globalPC.pcd", *globalPC);
-
-        //octomap::point3d origin(0.0,0.0,0.0);
-        //cout<<"generate octo pc"<<endl;
-        tic_toc_ros octo_insertion;
-        shared_ptr<octomap::Pointcloud> octomapTmpCloud = make_shared<octomap::Pointcloud>();//(new octomap::Pointcloud());
-        octomapTmpCloud->reserve(tmpPtrW->size());
-        tic_toc_ros get_octo_points;
-        for (PointCloudP::const_iterator it = tmpPtrW->begin(); it != tmpPtrW->end(); ++it){
-          if (!std::isnan(it->z)) octomapTmpCloud->push_back(it->x, it->y, it->z);
-        }
-        get_octo_points.toc();
-        Vector3d trans = kf_lc_ptr->T_c_w.translation();
-        Quaterniond rots = kf_lc_ptr->T_c_w.unit_quaternion();
-        float x = trans(0);
-        float y = trans(1);
-        float z = trans(2);
-        float qw = rots.w();
-        float qx = rots.x();
-        float qy = rots.y();
-        float qz = rots.z();
-        octomath::Vector3 tran(x,y,z);
-        octomath::Quaternion rot(qw,qx,qy,qz);
-
-
-        octomap::pose6d poseOcto(tran, rot);
-        octomap::point3d origin = poseOcto.inv().trans();
-
-        tic_toc_ros octo_in;
-        globalOctreePtr->insertPointCloud(*octomapTmpCloud, origin);
-        octo_in.toc();
-        tic_toc_ros octo_update;
-        globalOctreePtr->updateInnerOccupancy();
-        octo_update.toc();
-
-        cout<<"point cloud transfrom and insertion";
-        octo_insertion.toc();
-        //cout<<"write octo pc "<<endl;
-        globalOctreePtr->writeBinary("/home/lsgi/out/globalOcree.bt");
 
 
 
+        tic_toc_ros bow_find_tt;
 
         for (uint64_t i = 0; i < kf_map_lc.size(); i++)
         {
@@ -816,56 +751,79 @@ private:
 
           }
         }
+        //cout<<"bow find cost: ";
+        bow_find_tt.toc();
+
+        if(kf_id < 50)
+        {
+          cout<<"KF number is less than 50. Return."<<endl;
+          return;
+        }
+
+
+
         uint64_t kf_prev_idx;
         bool is_lc_candidate = isLoopCandidate(kf_prev_idx);
-        //cout<<"loop frames: "<<kf_prev_idx<<" "<<kf_map_lc.size()-1<<endl;
+
+
+        if(!is_lc_candidate)
+        {
+          cout<<"no loop candidate."<<endl;
+          return;
+        }
+        else
+        {
+          cout<<"has loop candidate."<<endl;
+        }
+
 
         bool is_lc = false;
         uint64_t kf_curr_idx = kf_map_lc.size()-1;
 
-//        if(kf_curr_idx > lcKFStart) bool is_lc = isLoopClosure(kf_map[kf_curr_idx-5],kf_map[kf_curr_idx],loop_pose);
-//        {
-//          tt_le.toc();
-//          tic_toc_ros tt_pgo;
-//          loop_ids.push_back(Vec3I(kf_curr_idx-5, kf_curr_idx, 1));
-//          loop_poses.push_back(loop_pose);
-//          loopClosureOnCovGraphG2O();
-//          tt_pgo.toc();
-//        }
 
-        // real loop clpsure correction, but need to tune paras
-        if(!is_lc_candidate) return;
 
-        cout<<kf_map_lc[kf_curr_idx]->lm_descriptor.size()<<endl;
-        if(kf_curr_idx > lcKFStart) is_lc = isLoopClosureKF(kf_map_lc[kf_prev_idx], kf_map_lc[kf_curr_idx], loop_pose);
-        if(!is_lc) return;
+        is_lc = isLoopClosureKF(kf_map_lc[kf_prev_idx], kf_map_lc[kf_curr_idx], loop_pose);
+        if(!is_lc)
+        {
+          cout<<"Geometry test fails."<<endl;
+          return;
+
+        }
+        else {
+          cout<<"Pass geometry test."<<endl;
+        }
         if(is_lc)
         {
-          loop_ids.push_back(Vec3I(kf_prev_idx, kf_curr_idx, 1));
+          path_lc_pub->clearPath();
+          loop_ids.push_back(Vec3I(static_cast<int>(kf_prev_idx), static_cast<int>(kf_curr_idx), 1));
           loop_poses.push_back(loop_pose);
-          if(kf_curr_idx - last_pgo_id > 3)
+
+          int thre = static_cast<int>((static_cast<double>(kf_id)/100)*2);
+
+          if(kf_curr_idx - static_cast<size_t>(last_pgo_id) < thre)
+            cout<<"Last loop is too close."<<endl;
+
+          if(kf_curr_idx - static_cast<size_t>(last_pgo_id) > thre)
           {
             tic_toc_ros pgo;
             loopClosureOnCovGraphG2ONew();
-            last_pgo_id = kf_curr_idx;
+            last_pgo_id = static_cast<int>(kf_curr_idx);
+            cout<<"pose graph takes: "<<endl;
             pgo.toc();
           }
         }
 
-        if(kf_curr_idx == 200)
-        {
+        kf_lc_ptr->T_c_w = kf_lc_ptr->T_c_w_odom*T_odom_map;
+        T_map_odom = T_odom_map.inverse();
 
-          for(size_t i = 0; i<kf_map_lc.size();i++)
-          {
-            pcl::PointCloud<PointP>::Ptr tmpPC1 = generatePointCloudP(kf_map_lc[i]->d_img);
-            pcl::PointCloud<PointP>::Ptr tmpPCinMap = transformPointCloudP(kf_map_lc[i]->T_c_w, *tmpPC1);
-            pcl::PointCloud<PointP>::Ptr tmpPCinOdom = transformPointCloudP(kf_map_lc[i]->T_c_w_odom, *tmpPC1);
-            *globalafterPC += *tmpPCinMap;
-            *globalvoPC += *tmpPCinOdom;
-          }
-          pcl::io::savePLYFileBinary("/home/lsgi/out/aftermap.ply", *globalafterPC);
-          pcl::io::savePLYFileBinary("/home/lsgi/out/vo.ply", *globalvoPC);
-        }
+        q_tf = T_map_odom.so3().unit_quaternion();
+        t_tf = T_map_odom.translation();
+
+
+        transform.setOrigin(tf::Vector3(t_tf[0],t_tf[1],t_tf[2]));
+        transform.setRotation(tf::Quaternion(q_tf.x(),q_tf.y(),q_tf.z(),q_tf.w()));
+
+        br.sendTransform(tf::StampedTransform(transform, tt, "map", "odom"));
 
 
 
@@ -873,24 +831,7 @@ private:
 
 
 
-        //imshow("loopclosing", img);
-        //waitKey(1);
 
-        std::ofstream of;
-        of.open("/home/lsgi/out/sim_mat.txt");
-
-        for(size_t i = 0; i < sim_matrix.size(); i++){
-          for(size_t j = 0;j < sim_matrix.size(); j++){
-            of<<sim_matrix[i][j]<<" ";
-          }
-          of << "\n";
-        }
-
-        of.close();
-
-
-
-        cout << endl << "Loop closing Callback" << endl;
     }
 
     virtual void onInit()
@@ -921,6 +862,8 @@ private:
         kf_id = 0;
         Database dbTmp(voc, true, 0);
         db = dbTmp;
+
+        path_lc_pub  = new RVIZPath(nh,"/vo_path_lc_new");
 
 
 

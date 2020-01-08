@@ -36,7 +36,8 @@ public:
                        vector<Vec2>    &lm_2d,
                        vector<Vec3>    &lm_3d,
                        vector<Mat>     &lm_descriptors,
-                       SE3             &T_c_w);
+                       SE3             &T_c_w,
+                       ros::Time       &T);
 };
 
 #endif // KEYFRAME_MSG_H
