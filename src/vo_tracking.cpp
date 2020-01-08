@@ -303,7 +303,7 @@ private:
               tf::Quaternion tf_q = tranOdomMap.getRotation();
               Vec3 se3_t(tf_t.x(),tf_t.y(),tf_t.z());
               Quaterniond se3_q(tf_q.w(),tf_q.x(),tf_q.y(),tf_q.z());
-              cout<<tf_t.x()<<" "<<tf_t.y()<<" "<<tf_t.z()<<" "<<tf_q.x()<<" "<<tf_q.y()<<" "<<tf_q.z()<<" "<<tf_q.w()<<" "<<endl;
+              //cout<<tf_t.x()<<" "<<tf_t.y()<<" "<<tf_t.z()<<" "<<tf_q.x()<<" "<<tf_q.y()<<" "<<tf_q.z()<<" "<<tf_q.w()<<" "<<endl;
               SE3 T_map_odom(se3_q,se3_t);
               SE3 T_map_c = T_map_odom.inverse()*curr_frame->T_c_w.inverse();
               path_lc_pub->pubPathT_w_c(T_map_c,currStamp);
@@ -313,7 +313,7 @@ private:
             catch (tf::TransformException ex)
             {
               ROS_ERROR("%s",ex.what());
-              cout<<"no trans between map and odom yet."<<endl;
+              cout<<"no transform between map and odom yet."<<endl;
             }
 
 
@@ -451,7 +451,7 @@ private:
               tf::Quaternion tf_q = tranOdomMap.getRotation();
               Vec3 se3_t(tf_t.x(),tf_t.y(),tf_t.z());
               Quaterniond se3_q(tf_q.w(),tf_q.x(),tf_q.y(),tf_q.z());
-              cout<<tf_t.x()<<" "<<tf_t.y()<<" "<<tf_t.z()<<" "<<tf_q.x()<<" "<<tf_q.y()<<" "<<tf_q.z()<<" "<<tf_q.w()<<" "<<endl;
+              //cout<<tf_t.x()<<" "<<tf_t.y()<<" "<<tf_t.z()<<" "<<tf_q.x()<<" "<<tf_q.y()<<" "<<tf_q.z()<<" "<<tf_q.w()<<" "<<endl;
               SE3 T_map_odom(se3_q,se3_t);
               SE3 T_map_c = T_map_odom*curr_frame->T_c_w.inverse();
               path_lc_pub->pubPathT_w_c(T_map_c,currStamp);

@@ -95,7 +95,7 @@ struct sort_descriptor_by_queryIdx
 #define ratioMax (0.5)
 #define ratioRansac (0.5)
 #define minPts (20)
-
+#define minScore (0.13)
 struct KeyFrameLC
 {
   int64_t         frame_id;
@@ -206,7 +206,7 @@ private:
 
       lc_min_score = min(lc_min_score, 0.4);
       cout<<"max sim score is: "<< max_sim_mat[0](1)<<endl;
-      if( max_sim_mat[0](1) < max(0.15, lc_min_score)) return is_lc_candidate;
+      if( max_sim_mat[0](1) < max(minScore, lc_min_score)) return is_lc_candidate;
 
       int idx_max = int(max_sim_mat[0](0));
       int nkf_closest = 0;
@@ -223,7 +223,7 @@ private:
 
 
        // update in case of being loop closure candidate
-       if (nkf_closest >= lcNKFClosest && max_sim_mat[0](1) > 0.15 )
+       if (nkf_closest >= lcNKFClosest && max_sim_mat[0](1) > minScore)
        {
            is_lc_candidate = true;
            kf_prev_idx = static_cast<uint64_t>(idx_max);
@@ -794,7 +794,7 @@ private:
         }
         if(is_lc)
         {
-          path_lc_pub->clearPath();
+
           loop_ids.push_back(Vec3I(static_cast<int>(kf_prev_idx), static_cast<int>(kf_curr_idx), 1));
           loop_poses.push_back(loop_pose);
 
@@ -805,6 +805,7 @@ private:
 
           if(kf_curr_idx - static_cast<size_t>(last_pgo_id) > thre)
           {
+            path_lc_pub->clearPath();
             tic_toc_ros pgo;
             loopClosureOnCovGraphG2ONew();
             last_pgo_id = static_cast<int>(kf_curr_idx);
