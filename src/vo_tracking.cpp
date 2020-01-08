@@ -109,7 +109,16 @@ private:
 
         featureDEM  = new FeatureDEM(image_width,image_height,5);
         tracker     = new F2FTracking(image_width,image_height);
-        vimotion    = new VIMOTION();
+
+        //This setting is for realsense d435i. IMU in ENU frame facing forward.
+        Mat3x3 R_i_c;
+        // 0  0  1
+        //-1  0  0
+        // 0 -1  0
+        R_i_c << 0, 0, 1, -1, 0, 0, 0,-1, 0;
+        Vec3   t_i_c=Vec3(0,0,0);
+        SE3    T_i_c(R_i_c,t_i_c);
+        vimotion    = new VIMOTION(T_i_c);
         has_imu     = false;
 
         curr_frame = std::make_shared<CameraFrame>();
@@ -223,20 +232,20 @@ private:
         //Depth Img
         cv_bridge::CvImagePtr cvbridge_depth_image  = cv_bridge::toCvCopy(depthImgPtr, depthImgPtr->encoding);
         curr_frame->d_img=cvbridge_depth_image->image;
-
+        curr_frame->frame_time = imgPtr->header.stamp;
         cvtColor(curr_frame->img,img_vis,CV_GRAY2BGR);
         ros::Time currStamp = imgPtr->header.stamp;
         switch(vo_tracking_state)
         {
         case UnInit:
         {
-            Mat3x3 R_i_c;
+            Mat3x3 R_w_c;
             // 0  0  1
             //-1  0  0
             // 0 -1  0
-            R_i_c << 0, 0, 1, -1, 0, 0, 0,-1, 0;
-            Vec3   t=Vec3(0,0,0);
-            SE3    T_w_c(R_i_c,t);
+            R_w_c << 0, 0, 1, -1, 0, 0, 0,-1, 0;
+            Vec3   t_w_c=Vec3(0,0,0);
+            SE3    T_w_c(R_w_c,t_w_c);
             curr_frame->T_c_w=T_w_c.inverse();//Tcw = (Twc)^-1
             if(this->has_imu)
             {
@@ -248,8 +257,8 @@ private:
                     cout << "roll:"   << rpy[0]*57.2958
                          << " pitch:" << rpy[1]*57.2958
                          << " yaw:"   << rpy[2]*57.2958 << endl;
-                    Mat3x3 R_w_c = q_init_w_i.toRotationMatrix()*R_i_c;
-                    SE3    T_w_c(R_w_c,t);
+                    Mat3x3 R_w_c = q_init_w_i.toRotationMatrix()*vimotion->T_i_c.rotation_matrix();
+                    SE3    T_w_c(R_w_c,t_w_c);
                     curr_frame->T_c_w=T_w_c.inverse();//Tcw = (Twc)^-1
                     cout << "use imu pose" << endl;
                 }
@@ -296,10 +305,12 @@ private:
             /* F2F Workflow
                      STEP1: Recover from LocalMap Feedback msg
                      STEP2: Track Match and Update to curr_frame
-                     STEP3: 2D3D-PNP+F2FBA
-                     STEP4: Redetect
-                     STEP5: Update Landmarks(IIR)
-                     (Option) ->IMU ACC GYRO BIAS ESTIMATION
+                     STEP3: 2D3D-PNP
+                     (Option) ->IMU roll pitch compensation
+                     STEP4: F2FBA
+                     (Option) ->IMU state update from vision
+                     STEP5: Redetect
+                     STEP6: Update Landmarks(IIR)
                      STEP6: Record Pose
                      STEP7: Visualize and Publish
                      STEP8: Switch KeyFrame
@@ -348,19 +359,42 @@ private:
             vector<Point2f> p2d;
             vector<Point3f> p3d;
             curr_frame->getValid2d3dPair_cvPf(p2d,p3d);
+            if(p2d.size()<=15)
+            {
+                cout << "[Critical Warning] Tracking Fail-no enough lm pairs" << endl;
+                break;
+            }
             cv::Mat r_ = cv::Mat::zeros(3, 1, CV_64FC1);
             cv::Mat t_ = cv::Mat::zeros(3, 1, CV_64FC1);
             SE3_to_rvec_tvec(last_frame->T_c_w, r_ , t_ );
             Mat inliers;
             solvePnPRansac(p3d,p2d,cameraMatrix,distCoeffs,r_,t_,false,100,2.0,0.99,inliers,SOLVEPNP_P3P);
             curr_frame->T_c_w = SE3_from_rvec_tvec(r_,t_);
+
+            //(Option) ->IMU roll pitch compensation
+            if(this->has_imu)
+            {
+                vimotion->Camera_rp_compensation(curr_frame->frame_time.toSec(),
+                                                 curr_frame->T_c_w,
+                                                 0.5);
+                cout << "Camera_rp_compensation" << endl;
+            }
+
+            //STEP4:
             bundleAdjustment::BAInFrame(*curr_frame);
             vector<Vec2> outlier_reproject;
             double mean_reprojection_error;
-            curr_frame->CalReprjInlierOutlier(mean_reprojection_error,outlier_reproject,2.0);
+            curr_frame->CalReprjInlierOutlier(mean_reprojection_error,outlier_reproject,1.5);
             curr_frame->reprojection_error=mean_reprojection_error;
 
-            //STEP4:
+            //(Option) ->IMU ACC GYRO BIAS ESTIMATION
+
+            if(this->has_imu)
+            {
+
+            }
+
+            //STEP5:
             vector<Vec2> newKeyPts;
             vector<Mat>  newDescriptor;
             int newPtsCount;
@@ -375,14 +409,11 @@ private:
                                                                 false,
                                                                 curr_frame->T_c_w));
             }
-            //STEP5:
+            //STEP6:
             curr_frame->depthInnovation();
 
-            //(Option) ->IMU ACC GYRO BIAS ESTIMATION
 
-
-
-            //STEP6:
+            //STEP7:
             ID_POSE tmp;
             tmp.frame_id = curr_frame->frame_id;
             tmp.T_c_w = curr_frame->T_c_w;
@@ -392,12 +423,12 @@ private:
                 pose_records.pop_front();
             }
 
-            //STEP7:
+            //STEP8:
             vector<Vec2> outlier;
             outlier.insert(outlier.end(), outlier_tracking.begin(), outlier_tracking.end());
             outlier.insert(outlier.end(), outlier_reproject.begin(), outlier_reproject.end());
             curr_frame->solving_time=tt_cb.dT_s();
-            drawOutlier(img_vis,outlier);
+            //drawOutlier(img_vis,outlier);
             drawFlow(img_vis,lm2d_from,lm2d_to);
             drawFrame(img_vis,*curr_frame);
             visualizeDepthImg(dimg_vis,*curr_frame);
@@ -410,13 +441,13 @@ private:
             path_pub->pubPathT_c_w(curr_frame->T_c_w,currStamp);
             octomap_pub->pub(curr_frame->T_c_w,curr_frame->d_img,currStamp);
 
-            //STEP8:
+            //STEP9:
             SE3 T_diff_key_curr = T_c_w_last_keyframe*(curr_frame->T_c_w.inverse());
             Vec3 t=T_diff_key_curr.translation();
             Vec3 r=T_diff_key_curr.so3().log();
             double t_norm = fabs(t[0]) + fabs(t[1]) + fabs(t[2]);
             double r_norm = fabs(r[0]) + fabs(r[1]) + fabs(r[2]);
-            if(t_norm>=0.1 || r_norm>=0.5)
+            if(t_norm>=0.15 || r_norm>=0.2)
             {
                 kf_pub->pub(*curr_frame,currStamp);
                 T_c_w_last_keyframe = curr_frame->T_c_w;

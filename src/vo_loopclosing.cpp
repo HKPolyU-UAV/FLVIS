@@ -10,7 +10,7 @@
 #include <stdint.h>
 
 #include <include/yamlRead.h>
-
+#include <include/tic_toc_ros.h>
 #include <include/keyframe_msg.h>
 #include <vo_nodelet/KeyFrame.h>
 #include <geometry_msgs/Vector3.h>
@@ -40,7 +40,6 @@
 #include <g2o/types/slam3d/edge_se3.h>
 //#include <g2o/types/sba/types_six_dof_expmap.h>
 
-#include <utils/tic_toc_ros.h>
 
 #include <pcl/io/pcd_io.h>
 #include <pcl/io/ply_io.h>
