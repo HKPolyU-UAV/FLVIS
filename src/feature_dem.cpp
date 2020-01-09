@@ -149,68 +149,70 @@ void FeatureDEM::redetect(const Mat& img,
     if(0)//detect feature by region
     {
         //cout << "redetect by region" << endl;
-        for(int i=0; i<16; i++)//for every region
-        {
-            if(regionKeyPts[i].size()<=MIN_REGION_FREATURES_NUM)
-            {
-                //detect in the region;
-                //Ptr<FastFeatureDetector> detector= FastFeatureDetector::create();
-                Ptr<ORB> detector= ORB::create(1000,1.2,4,20);
-                //Ptr<FastFeatureDetector> detector = FastFeatureDetector::create(5);
-                vector<pair<Point2f,float>> kpsHarrisRinRegion;
-                kpsHarrisRinRegion.clear();
-                vector<KeyPoint> FASTFeatures;
-                vector<Point2f>  kps;
-                detector->detect(img, FASTFeatures,detectorMask[i]);
-                KeyPoint::convert(FASTFeatures,kps);
-                //cout << FASTFeatures.size() << endl;
-                //Sort by HarrisR
-                for(size_t j=0; j<kps.size(); j++)
-                {
-                    Point2f pt = kps.at(j);
-                    float Harris_R;
-                    calHarrisR(img,pt,Harris_R);
-                    if(1)
-                    {
-                        kpsHarrisRinRegion.push_back(make_pair(pt,Harris_R));
-                    }
-                    sort(kpsHarrisRinRegion.begin(), kpsHarrisRinRegion.end(), sortbysecdesc);
-                }
+//        for(int i=0; i<16; i++)//for every region
+//        {
+//            if(regionKeyPts[i].size()<=MIN_REGION_FREATURES_NUM)
+//            {
+//                //detect in the region;
+//                //Ptr<FastFeatureDetector> detector= FastFeatureDetector::create();
+//                Ptr<ORB> detector= ORB::create(100,1.2,8,20,0,2,ORB::HARRIS_SCORE,31,12);
+//                //Ptr<FastFeatureDetector> detector = FastFeatureDetector::create(5);
+//                vector<pair<Point2f,float>> kpsHarrisRinRegion;
+//                kpsHarrisRinRegion.clear();
+//                vector<KeyPoint> FASTFeatures;
+//                vector<Point2f>  kps;
+//                detector->detect(img, FASTFeatures,detectorMask[i]);
+//                KeyPoint::convert(FASTFeatures,kps);
+//                //cout << FASTFeatures.size() << endl;
+//                //Sort by HarrisR
+//                for(size_t j=0; j<kps.size(); j++)
+//                {
+//                    Point2f pt = kps.at(j);
+//                    float Harris_R;
+//                    calHarrisR(img,pt,Harris_R);
+//                    if(1)
+//                    {
+//                        kpsHarrisRinRegion.push_back(make_pair(pt,Harris_R));
+//                    }
+//                    sort(kpsHarrisRinRegion.begin(), kpsHarrisRinRegion.end(), sortbysecdesc);
+//                }
 
-                for(size_t j=0; j<kpsHarrisRinRegion.size(); j++)
-                {
-                    int noFeatureNearby = 1;
-                    Point pt=kpsHarrisRinRegion.at(j).first;
-                    for(size_t k=0; k<regionKeyPts[i].size(); k++)
-                    {
-                        float dis_x = fabs(pt.x-regionKeyPts[i].at(k).first.x);
-                        float dis_y = fabs(pt.y-regionKeyPts[i].at(k).first.y);
-                        if(dis_x <= boundary_dis || dis_y <= boundary_dis)
-                        {
-                            noFeatureNearby=0;
-                        }
-                    }
-                    if(noFeatureNearby)
-                    {
-                        regionKeyPts[i].push_back(make_pair(pt,999999.0));
-                        newPts_cvP2f.push_back(pt);
-                        if(regionKeyPts[i].size() >= MAX_REGION_FREATURES_NUM) break;
-                    }
-                }
-                cout << "for region " << i << ": detect " << kpsHarrisRinRegion.size() <<" new features" << endl;
-            }
-        }
+//                for(size_t j=0; j<kpsHarrisRinRegion.size(); j++)
+//                {
+//                    int noFeatureNearby = 1;
+//                    Point pt=kpsHarrisRinRegion.at(j).first;
+//                    for(size_t k=0; k<regionKeyPts[i].size(); k++)
+//                    {
+//                        float dis_x = fabs(pt.x-regionKeyPts[i].at(k).first.x);
+//                        float dis_y = fabs(pt.y-regionKeyPts[i].at(k).first.y);
+//                        if(dis_x <= boundary_dis || dis_y <= boundary_dis)
+//                        {
+//                            noFeatureNearby=0;
+//                        }
+//                    }
+//                    if(noFeatureNearby)
+//                    {
+//                        regionKeyPts[i].push_back(make_pair(pt,999999.0));
+//                        newPts_cvP2f.push_back(pt);
+//                        if(regionKeyPts[i].size() >= MAX_REGION_FREATURES_NUM) break;
+//                    }
+//                }
+//                cout << "for region " << i << ": detect " << kpsHarrisRinRegion.size() <<" new features" << endl;
+//            }
+//        }
     }
     else//detect all features
     {
         //cout << "redetect all features" << endl;
         //Ptr<FastFeatureDetector> detector= FastFeatureDetector::create();
         //Ptr<ORB> detector= ORB::create(2000);
+        //Ptr<FastFeatureDetector> detector= FastFeatureDetector::create();
         Ptr<FastFeatureDetector> detector= FastFeatureDetector::create();
-        vector<KeyPoint> FASTFeatures;
+        //Ptr<ORB> detector= ORB::create(1000,1.2,8,20,0,2,ORB::HARRIS_SCORE,31,12);
+        vector<KeyPoint> features;
         vector<Point2f>  kps;
-        detector->detect(img, FASTFeatures);
-        KeyPoint::convert(FASTFeatures,kps);
+        detector->detect(img, features);
+        KeyPoint::convert(features,kps);
         vector<pair<Point2f,float>> regionKeyPts_prepare[16];
         //devide into different region
 

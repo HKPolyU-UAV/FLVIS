@@ -27,7 +27,7 @@
 #define MIN_REGION_FREATURES_NUM (20)
 
 
-#define BOUNDARYBOXSIZE          (5)
+#define BOUNDARYBOXSIZE          (7)
 
 using namespace cv;
 using namespace std;
