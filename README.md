@@ -6,12 +6,12 @@ TBD
 ### 2-Relevent Publication:
 TBD
 ### 3-Verify:
-User can varify the performance using a Inter RealSense D435i Camera.
+User can varify the performance using a Intel RealSense D435i Camera.
 
 ### 4-Build The Project
-We have tested in the following environment:
-Ubuntu 16.04 + ROS Kinetic
-Ubuntu 18.04 + ROS melodic
+We have tested in the following environment: <br />
+Ubuntu 16.04 + ROS Kinetic <br />
+Ubuntu 18.04 + ROS melodic <br />
 4.1 Clone the repository to the catkin work space eg. /catkin_ws/src
 ````
 git clone https://github.com/Ttoto/FLVIS.git
