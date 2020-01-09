@@ -6,6 +6,7 @@
 #include <message_filters/synchronizer.h>
 #include <sensor_msgs/Image.h>
 #include <sensor_msgs/Imu.h>
+#include <geometry_msgs/PoseStamped.h>
 
 #include <opencv2/opencv.hpp>
 #include <cv_bridge/cv_bridge.h>
@@ -67,8 +68,8 @@ private:
     enum TRACKINGSTATE   vo_tracking_state;
     //F2F
     int frameCount;
-    Mat cameraMatrix;
-    Mat distCoeffs;
+    cv::Mat cameraMatrix;
+    cv::Mat distCoeffs;
     int image_width,image_height;
     CameraFrame::Ptr curr_frame,last_frame;
     //KF, Pose Records and Correction Information
@@ -81,10 +82,14 @@ private:
     //Octomap
     OctomapFeeder* octomap_pub;
     //Visualization
-    Mat img_vis;
-    Mat dimg_vis;
+    cv::Mat img_vis;
+    cv::Mat dimg_vis;
     image_transport::Publisher img_pub;
     image_transport::Publisher dimg_pub;
+
+    ros::Publisher imu2vision_pose_pub;
+    ros::Publisher vision_pose_pub;
+
     RVIZFrame* frame_pub;
     RVIZPath*  path_pub;
     RVIZPath* path_lc_pub;
@@ -96,6 +101,9 @@ private:
     {
         ros::NodeHandle& nh = getMTPrivateNodeHandle();
         //cv::startWindowThread(); //Bug report https://github.com/ros-perception/image_pipeline/issues/201
+
+        imu2vision_pose_pub = nh.advertise<geometry_msgs::PoseStamped>("imu", 10);
+        vision_pose_pub = nh.advertise<geometry_msgs::PoseStamped>("vision",10);
 
         //Load Parameter
         string configFilePath;
@@ -115,7 +123,16 @@ private:
 
         featureDEM  = new FeatureDEM(image_width,image_height,5);
         tracker     = new F2FTracking(image_width,image_height);
-        vimotion    = new VIMOTION();
+
+        //This setting is for realsense d435i. IMU in ENU frame facing forward.
+        Mat3x3 R_i_c;
+        // 0  0  1
+        //-1  0  0
+        // 0 -1  0
+        R_i_c << 0, 0, 1, -1, 0, 0, 0,-1, 0;
+        Vec3   t_i_c=Vec3(0,0,0);
+        SE3    T_i_c(R_i_c,t_i_c);
+        vimotion    = new VIMOTION(T_i_c);
         has_imu     = false;
 
         curr_frame = std::make_shared<CameraFrame>();
@@ -151,7 +168,7 @@ private:
                     boost::bind(&VOTrackingNodeletClass::correction_feedback_callback, this, _1));
         imu_sub = nh.subscribe<sensor_msgs::Imu>(
                     "/imu",
-                    5,
+                    10,
                     boost::bind(&VOTrackingNodeletClass::imu_callback, this, _1));
         cout << "init Subscribe" << endl;
 
@@ -162,8 +179,7 @@ private:
 
     void imu_callback(const sensor_msgs::ImuConstPtr& msg)
     {
-        if(!has_imu)
-        {
+        if(!has_imu){
             has_imu = true;
         }
         //SETP1: TO ENU Frame
@@ -190,10 +206,27 @@ private:
         if(!(vimotion->imu_initialized))
         {
             //estimate orientation
-            vimotion->imu_initialization(IMUSTATE(stamp,acc,gyro));
+            vimotion->viIMUinitialization(IMUSTATE(stamp,acc,gyro));
         }else {
             //estimate pos vel and orientation
-            vimotion->imu_propagation(IMUSTATE(stamp,acc,gyro));
+            vimotion->viIMUPropagation(IMUSTATE(stamp,acc,gyro));
+            geometry_msgs::PoseStamped pose;
+            SE3 T_w_i_from_imu;
+            Vec3 vel_from_imu;
+            vimotion->viGetLatestImuState(T_w_i_from_imu,vel_from_imu);
+            SE3 T_w_c=T_w_i_from_imu*vimotion->T_i_c;
+            pose.header.stamp = msg->header.stamp;
+            pose.header.frame_id = "map";
+            Vec3 p = T_w_c.translation();
+            Quaterniond q = T_w_c.unit_quaternion();
+            pose.pose.position.x = p[0];
+            pose.pose.position.y = p[1];
+            pose.pose.position.z = p[2];
+            pose.pose.orientation.w = q.w();
+            pose.pose.orientation.x = q.x();
+            pose.pose.orientation.y = q.y();
+            pose.pose.orientation.z = q.z();
+            this->imu2vision_pose_pub.publish(pose);
         }
     }
 
@@ -230,33 +263,36 @@ private:
         //Depth Img
         cv_bridge::CvImagePtr cvbridge_depth_image  = cv_bridge::toCvCopy(depthImgPtr, depthImgPtr->encoding);
         curr_frame->d_img=cvbridge_depth_image->image;
-
+        curr_frame->frame_time = imgPtr->header.stamp;
         cvtColor(curr_frame->img,img_vis,CV_GRAY2BGR);
         ros::Time currStamp = imgPtr->header.stamp;
         switch(vo_tracking_state)
         {
         case UnInit:
         {
-            Mat3x3 R_i_c;
+            Mat3x3 R_w_c;
             // 0  0  1
             //-1  0  0
             // 0 -1  0
-            R_i_c << 0, 0, 1, -1, 0, 0, 0,-1, 0;
-            Vec3   t=Vec3(0,0,1);
-            SE3    T_w_c(R_i_c,t);
+
+
+            R_w_c << 0, 0, 1, -1, 0, 0, 0,-1, 0;
+            Vec3   t_w_c=Vec3(0,0,1);
+            SE3    T_w_c(R_w_c,t_w_c);
+
             curr_frame->T_c_w=T_w_c.inverse();//Tcw = (Twc)^-1
             if(this->has_imu)
             {
                 if(vimotion->imu_initialized)
                 {
                     Eigen::Quaterniond q_init_w_i;
-                    vimotion->vision_trigger(q_init_w_i);
+                    vimotion->viVisiontrigger(q_init_w_i);
                     Vec3 rpy = Q2rpy(q_init_w_i);
                     cout << "roll:"   << rpy[0]*57.2958
                          << " pitch:" << rpy[1]*57.2958
                          << " yaw:"   << rpy[2]*57.2958 << endl;
-                    Mat3x3 R_w_c = q_init_w_i.toRotationMatrix()*R_i_c;
-                    SE3    T_w_c(R_w_c,t);
+                    Mat3x3 R_w_c = q_init_w_i.toRotationMatrix()*vimotion->T_i_c.rotation_matrix();
+                    SE3    T_w_c(R_w_c,t_w_c);
                     curr_frame->T_c_w=T_w_c.inverse();//Tcw = (Twc)^-1
                     cout << "use imu pose" << endl;
                 }
@@ -268,7 +304,7 @@ private:
 
             vector<Vec2> pts2d;
             vector<Vec3> pts3d_c;
-            vector<Mat>  descriptors;
+            vector<cv::Mat>  descriptors;
             vector<bool> maskHas3DInf;
 
             featureDEM->detect(curr_frame->img,pts2d,descriptors);
@@ -295,10 +331,12 @@ private:
             cout << "vo_tracking_state = Working" << endl;
 
             //if has tf between map and odom
-
-            try
+            if(1)
             {
-              listenerOdomMap.lookupTransform("map","odom",ros::Time(0), tranOdomMap);
+                try
+                {
+                    listenerOdomMap.lookupTransform("map","odom",ros::Time(0), tranOdomMap);
+
 
               tf::Vector3 tf_t= tranOdomMap.getOrigin();
               tf::Quaternion tf_q = tranOdomMap.getRotation();
@@ -310,12 +348,15 @@ private:
               path_lc_pub->pubPathT_w_c(T_map_c,currStamp);
 
 
+
+                }
+                catch (tf::TransformException ex)
+                {
+                    ROS_ERROR("%s",ex.what());
+                    cout<<"no transform between map and odom yet."<<endl;
+                }
             }
-            catch (tf::TransformException ex)
-            {
-              ROS_ERROR("%s",ex.what());
-              cout<<"no transform between map and odom yet."<<endl;
-            }
+
 
 
 
@@ -328,10 +369,12 @@ private:
             /* F2F Workflow
                      STEP1: Recover from LocalMap Feedback msg
                      STEP2: Track Match and Update to curr_frame
-                     STEP3: 2D3D-PNP+F2FBA
-                     STEP4: Redetect
-                     STEP5: Update Landmarks(IIR)
-                     (Option) ->IMU ACC GYRO BIAS ESTIMATION
+                     STEP3: 2D3D-PNP
+                     (Option) ->IMU roll pitch compensation
+                     STEP4: F2FBA
+                     (Option) ->IMU state update from vision
+                     STEP5: Redetect
+                     STEP6: Update Landmarks(IIR)
                      STEP6: Record Pose
                      STEP7: Visualize and Publish
                      STEP8: Switch KeyFrame
@@ -377,24 +420,47 @@ private:
                               outlier_tracking);
 
             //STEP3:
-            vector<Point2f> p2d;
-            vector<Point3f> p3d;
+            vector<cv::Point2f> p2d;
+            vector<cv::Point3f> p3d;
             curr_frame->getValid2d3dPair_cvPf(p2d,p3d);
+            if(p2d.size()<=10)
+            {
+                cout << "[Critical Warning] Tracking Fail-no enough lm pairs" << endl;
+                break;
+            }
             cv::Mat r_ = cv::Mat::zeros(3, 1, CV_64FC1);
             cv::Mat t_ = cv::Mat::zeros(3, 1, CV_64FC1);
             SE3_to_rvec_tvec(last_frame->T_c_w, r_ , t_ );
-            Mat inliers;
-            solvePnPRansac(p3d,p2d,cameraMatrix,distCoeffs,r_,t_,false,100,2.0,0.99,inliers,SOLVEPNP_P3P);
+            cv::Mat inliers;
+            solvePnPRansac(p3d,p2d,cameraMatrix,distCoeffs,r_,t_,false,100,2.0,0.99,inliers,cv::SOLVEPNP_P3P);
             curr_frame->T_c_w = SE3_from_rvec_tvec(r_,t_);
+
+            //(Option) ->IMU roll pitch compensation
+            if(this->has_imu)
+            {
+                vimotion->viVisionRPCompensation(curr_frame->frame_time.toSec(),
+                                                 curr_frame->T_c_w,
+                                                 0.1);
+            }
+
+
+            //STEP4:
             bundleAdjustment::BAInFrame(*curr_frame);
             vector<Vec2> outlier_reproject;
             double mean_reprojection_error;
-            curr_frame->CalReprjInlierOutlier(mean_reprojection_error,outlier_reproject,2.0);
+            curr_frame->CalReprjInlierOutlier(mean_reprojection_error,outlier_reproject,1.5);
             curr_frame->reprojection_error=mean_reprojection_error;
 
-            //STEP4:
+            //(Option) ->Vision Feedback and bias estimation
+            if(this->has_imu)
+            {
+                vimotion->viCorrectionFromVision(curr_frame->frame_time.toSec(),
+                                                 curr_frame->T_c_w,Vec3(0,0,0));
+            }
+
+            //STEP5:
             vector<Vec2> newKeyPts;
-            vector<Mat>  newDescriptor;
+            vector<cv::Mat>  newDescriptor;
             int newPtsCount;
             featureDEM->redetect(curr_frame->img,
                                  curr_frame->get2dPtsVec(),
@@ -407,29 +473,26 @@ private:
                                                                 false,
                                                                 curr_frame->T_c_w));
             }
-            //STEP5:
+            //STEP6:
             curr_frame->depthInnovation();
 
-            //(Option) ->IMU ACC GYRO BIAS ESTIMATION
 
-
-
-            //STEP6:
+            //STEP7:
             ID_POSE tmp;
             tmp.frame_id = curr_frame->frame_id;
             tmp.T_c_w = curr_frame->T_c_w;
             pose_records.push_back(tmp);
-            if(pose_records.size() >= 100)
+            if(pose_records.size() >= 1000)
             {
                 pose_records.pop_front();
             }
 
-            //STEP7:
+            //STEP8:
             vector<Vec2> outlier;
             outlier.insert(outlier.end(), outlier_tracking.begin(), outlier_tracking.end());
             outlier.insert(outlier.end(), outlier_reproject.begin(), outlier_reproject.end());
             curr_frame->solving_time=tt_cb.dT_s();
-            drawOutlier(img_vis,outlier);
+            //drawOutlier(img_vis,outlier);
             drawFlow(img_vis,lm2d_from,lm2d_to);
             drawFrame(img_vis,*curr_frame);
             visualizeDepthImg(dimg_vis,*curr_frame);
@@ -442,11 +505,14 @@ private:
             path_pub->pubPathT_c_w(curr_frame->T_c_w,currStamp);
             //octomap_pub->pub(curr_frame->T_c_w,curr_frame->d_img,currStamp);
 
-            //if has tf between map and odom
 
-            try
+            //if has tf between map and odom
+            if(1)
             {
-              listenerOdomMap.lookupTransform("map","odom",ros::Time(0), tranOdomMap);
+                try
+                {
+                    listenerOdomMap.lookupTransform("map","odom",ros::Time(0), tranOdomMap);
+
 
               tf::Vector3 tf_t= tranOdomMap.getOrigin();
               tf::Quaternion tf_q = tranOdomMap.getRotation();
@@ -459,21 +525,24 @@ private:
               octomap_pub->pub(T_map_c.inverse(),curr_frame->d_img,currStamp);
 
 
-            }
-            catch (tf::TransformException ex)
-            {
-              ROS_ERROR("%s",ex.what());
-              cout<<"no trans between map and odom yet."<<endl;
+                }
+                catch (tf::TransformException ex)
+                {
+                    ROS_ERROR("%s",ex.what());
+                    cout<<"no trans between map and odom yet."<<endl;
+                }
             }
 
 
-            //STEP8:
+
+            //STEP9:
+
             SE3 T_diff_key_curr = T_c_w_last_keyframe*(curr_frame->T_c_w.inverse());
             Vec3 t=T_diff_key_curr.translation();
             Vec3 r=T_diff_key_curr.so3().log();
             double t_norm = fabs(t[0]) + fabs(t[1]) + fabs(t[2]);
             double r_norm = fabs(r[0]) + fabs(r[1]) + fabs(r[2]);
-            if(t_norm>=0.1 || r_norm>=0.5)
+            if(t_norm>=0.15 || r_norm>=0.2)
             {
                 kf_pub->pub(*curr_frame,currStamp);
                 T_c_w_last_keyframe = curr_frame->T_c_w;
@@ -491,7 +560,7 @@ private:
         default:
             cout<<"error"<<endl;
         }//end of state machine
-        waitKey(1);
+        cv::waitKey(1);
         last_frame.swap(curr_frame);
 
         //tt_cb.toc();

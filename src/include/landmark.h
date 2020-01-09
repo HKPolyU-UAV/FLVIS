@@ -14,7 +14,7 @@ public:
   int64_t lm_id;
   //long lm_id
   Vec3 lm_3d_w;
-  Mat  lm_descriptor;
+  cv::Mat  lm_descriptor;
   Vec3 lm_ob_dir;
 
   //No depth Information
@@ -24,7 +24,7 @@ public:
   unsigned char lmState;
 
   LandMark();
-  LandMark(const Mat descriptor_in,const Vec3 pt3d_w_in,Vec3 ob_dir_in = Vec3(0,0,0));
+  LandMark(const cv::Mat descriptor_in,const Vec3 pt3d_w_in,Vec3 ob_dir_in = Vec3(0,0,0));
 
 };
 

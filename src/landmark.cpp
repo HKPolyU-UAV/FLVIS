@@ -8,7 +8,7 @@ LandMark::LandMark()
     id_index++;
 }
 
-LandMark::LandMark(const Mat descriptor_in,const Vec3 pt3d_w_in,Vec3 ob_dir_in)
+LandMark::LandMark(const cv::Mat descriptor_in,const Vec3 pt3d_w_in,Vec3 ob_dir_in)
 {
     lm_id=id_index;
     id_index++;

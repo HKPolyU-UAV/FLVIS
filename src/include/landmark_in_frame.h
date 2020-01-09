@@ -24,7 +24,7 @@ public:
     Vec2 lm_1st_obs_2d;
     SE3  lm_1st_obs_frame_pose;//camera pose of first observation(for triangulation only)
 
-    LandMarkInFrame(const Mat descriptor, const Vec2 pt2d, const Vec3 pt3d_c, const bool has_3d_inf, const SE3 T_c_w);
+    LandMarkInFrame(const cv::Mat descriptor, const Vec2 pt2d, const Vec3 pt3d_c, const bool has_3d_inf, const SE3 T_c_w);
     bool hasDepthInf(void);
 
 };

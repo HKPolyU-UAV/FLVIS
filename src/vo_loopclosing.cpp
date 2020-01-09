@@ -66,7 +66,6 @@
 #include <include/rviz_path.h>
 
 using namespace DBoW3;
-using namespace cv;
 using namespace std;
 
 
@@ -82,7 +81,7 @@ struct sort_simmat_by_score
 };
 struct sort_descriptor_by_queryIdx
 {
-    inline bool operator()(const vector<DMatch>& a, const vector<DMatch>& b){
+    inline bool operator()(const vector<cv::DMatch>& a, const vector<cv::DMatch>& b){
         return ( a[0].queryIdx < b[0].queryIdx );
     }
 };
@@ -103,7 +102,7 @@ struct KeyFrameLC
   int             lm_count;
   vector<Vec2>    lm_2d;
   vector<double>  lm_d;
-  vector<Mat>     lm_descriptor;
+  vector<cv::Mat>     lm_descriptor;
   BowVector       kf_bv;
   SE3             T_c_w_odom;
   SE3             T_c_w;
@@ -118,7 +117,7 @@ struct KeyFrameLCStruct
   vector<int64_t> lm_id;
   vector<Vec2>    lm_2d;
   vector<Vec3  >  lm_3d;
-  vector<Mat>     lm_descriptor;
+  vector<cv::Mat>     lm_descriptor;
   BowVector       kf_bv;
   SE3             T_c_w_odom;
   SE3             T_c_w;
@@ -135,8 +134,8 @@ public:
 private:
     ros::Subscriber sub_kf;
     int image_width,image_height;
-    Mat cameraMatrix,distCoeffs;
-    Mat diplay_img;
+    cv::Mat cameraMatrix,distCoeffs;
+    cv::Mat diplay_img;
     double fx,fy,cx,cy;
     //bool optimizer_initialized;
     
@@ -249,10 +248,10 @@ private:
       if (!(kf1->lm_descriptor.size() == 0) && !(kf0->lm_descriptor.size() == 0))
       {
 
-          BFMatcher *bfm = new BFMatcher(NORM_HAMMING, false); // cross-check
-          Mat pdesc_l1= Mat::zeros(Size(32,static_cast<int>(kf0->lm_descriptor.size())),CV_8U);
-          Mat pdesc_l2= Mat::zeros(Size(32,static_cast<int>(kf1->lm_descriptor.size())),CV_8U);
-          vector<vector<DMatch>> pmatches_12, pmatches_21;
+          cv::BFMatcher *bfm = new cv::BFMatcher(cv::NORM_HAMMING, false); // cross-check
+          cv::Mat pdesc_l1= cv::Mat::zeros(cv::Size(32,static_cast<int>(kf0->lm_descriptor.size())),CV_8U);
+          cv::Mat pdesc_l2= cv::Mat::zeros(cv::Size(32,static_cast<int>(kf1->lm_descriptor.size())),CV_8U);
+          vector<vector<cv::DMatch>> pmatches_12, pmatches_21;
           // 12 and 21 matches
           vMat_to_descriptors(pdesc_l1,kf0->lm_descriptor);
           vMat_to_descriptors(pdesc_l2,kf1->lm_descriptor);
@@ -267,8 +266,8 @@ private:
 
           // bucle around pmatches
 
-          vector<Point3f> p3d;
-          vector<Point2f> p2d;
+          vector<cv::Point3f> p3d;
+          vector<cv::Point2f> p2d;
           p3d.clear();
           p2d.clear();
 
@@ -290,8 +289,8 @@ private:
                     Vector3f P = (kf0->lm_3d[lr_qdx]).cast <float> ();
                     Vector2f pl_obs = (kf1->lm_2d[lr_tdx]).cast <float> ();
 
-                    Point3f p3(P(0),P(1),P(2));
-                    Point2f p2(pl_obs(0),pl_obs(1));
+                    cv::Point3f p3(P(0),P(1),P(2));
+                    cv::Point2f p2(pl_obs(0),pl_obs(1));
                     p3d.push_back(p3);
                     p2d.push_back(p2);
                   }
@@ -301,10 +300,10 @@ private:
           }
           cv::Mat r_ = cv::Mat::zeros(3, 1, CV_64FC1);
           cv::Mat t_ = cv::Mat::zeros(3, 1, CV_64FC1);
-          Mat inliers;
+          cv::Mat inliers;
           SE3_to_rvec_tvec(kf0->T_c_w, r_ , t_ );
           if(p3d.size() < 5) return is_lc;
-          solvePnPRansac(p3d,p2d,cameraMatrix,distCoeffs,r_,t_,false,100,3.0,0.99,inliers,SOLVEPNP_P3P);
+          solvePnPRansac(p3d,p2d,cameraMatrix,distCoeffs,r_,t_,false,100,3.0,0.99,inliers,cv::SOLVEPNP_P3P);
           cout<<"selected points size: "<<p3d.size()<<" inliers size: "<<inliers.rows<<" unseletced size: "<<pmatches_12.size()<<endl;
           cout<<"ratio test: "<<inliers.rows*1.0/p3d.size()<<" "<<"number test "<<inliers.rows<<endl;
 
@@ -341,12 +340,12 @@ private:
       {
         cout<<"feature ,matching:"<<endl;
 
-          BFMatcher *bfm = new BFMatcher(NORM_HAMMING, false); // cross-check
+          cv::BFMatcher *bfm = new cv::BFMatcher(cv::NORM_HAMMING, false); // cross-check
 //          Mat pdesc_l1= Mat::zeros(Size(32,kf0->lm_descriptor.size()),CV_8U);
 //          Mat pdesc_l2= Mat::zeros(Size(32,kf1->lm_descriptor.size()),CV_8U);
-          Mat pdesc_l1= Mat::zeros(Size(32,static_cast<int>(kf0->lm_descriptor.size())),CV_8U);
-          Mat pdesc_l2= Mat::zeros(Size(32,static_cast<int>(kf1->lm_descriptor.size())),CV_8U);
-          vector<vector<DMatch>> pmatches_12, pmatches_21;
+          cv::Mat pdesc_l1= cv::Mat::zeros(cv::Size(32,static_cast<int>(kf0->lm_descriptor.size())),CV_8U);
+          cv::Mat pdesc_l2= cv::Mat::zeros(cv::Size(32,static_cast<int>(kf1->lm_descriptor.size())),CV_8U);
+          vector<vector<cv::DMatch>> pmatches_12, pmatches_21;
           // 12 and 21 matches
           vMat_to_descriptors(pdesc_l1,kf0->lm_descriptor);
           vMat_to_descriptors(pdesc_l2,kf1->lm_descriptor);
@@ -361,8 +360,8 @@ private:
 
           // bucle around pmatches
 
-          vector<Point3f> p3d;
-          vector<Point2f> p2d;
+          vector<cv::Point3f> p3d;
+          vector<cv::Point2f> p2d;
           p3d.clear();
           p2d.clear();
 
@@ -392,8 +391,8 @@ private:
                     Vector3d P0(x,y,d);
                     Vector3f P = P0.cast<float>();
                     Vector2f pl_obs = kf1->lm_2d[lr_tdx].cast<float>();
-                    Point3f p3(P(0),P(1),P(2));
-                    Point2f p2(pl_obs(0),pl_obs(1));
+                    cv::Point3f p3(P(0),P(1),P(2));
+                    cv::Point2f p2(pl_obs(0),pl_obs(1));
                     p3d.push_back(p3);
                     p2d.push_back(p2);
                   }
@@ -403,11 +402,11 @@ private:
           }
           cv::Mat r_ = cv::Mat::zeros(3, 1, CV_64FC1);
           cv::Mat t_ = cv::Mat::zeros(3, 1, CV_64FC1);
-          Mat inliers;
+          cv::Mat inliers;
           //SE3_to_rvec_tvec(kf0->T_c_w, r_ , t_ );
           //cout<<"start ransac"<<endl;
           if(p3d.size() < 5) return is_lc;
-          solvePnPRansac(p3d,p2d,cameraMatrix,distCoeffs,r_,t_,false,100,4.0,0.99,inliers,SOLVEPNP_P3P);
+          solvePnPRansac(p3d,p2d,cameraMatrix,distCoeffs,r_,t_,false,100,4.0,0.99,inliers,cv::SOLVEPNP_P3P);
       //    cout<<"selected points size: "<<p3d.size()<<" inliers size: "<<inliers.rows<<" unseletced size: "<<pmatches_12.size()<<endl;
 
           if(inliers.rows*1.0/p3d.size() < ratioRansac || inliers.rows < minPts ) //return is_lc;
@@ -638,11 +637,11 @@ private:
         BowVector kf_bv;
         SE3 loop_pose;
 
-        Mat img_unpack, d_img_unpack;
+        cv::Mat img_unpack, d_img_unpack;
         vector<int64_t> lm_id_unpack;
         vector<Vec3> lm_3d_unpack;
         vector<Vec2> lm_2d_unpack;
-        vector<Mat>     lm_descriptor_unpack;
+        vector<cv::Mat>     lm_descriptor_unpack;
         int lm_count_unpack;
         
         
@@ -675,19 +674,19 @@ private:
         tic_toc_ros feature_tt;
 
 
-        vector<KeyPoint> ORBFeatures;
-        vector<Point2f>  kps;
-        Mat ORBDescriptorsL;
-        vector<Mat> ORBDescriptors;
+        vector<cv::KeyPoint> ORBFeatures;
+        vector<cv::Point2f>  kps;
+        cv::Mat ORBDescriptorsL;
+        vector<cv::Mat> ORBDescriptors;
 
         kps.clear();
         ORBFeatures.clear();
         ORBDescriptors.clear();
 
-        Ptr<ORB> orb = ORB::create(500,1.2f,8,31,0,2, ORB::HARRIS_SCORE,31,20);
-        orb->detectAndCompute(img_unpack,Mat(),ORBFeatures,ORBDescriptorsL);
+        cv::Ptr<cv::ORB> orb = cv::ORB::create(500,1.2f,8,31,0,2, cv::ORB::HARRIS_SCORE,31,20);
+        orb->detectAndCompute(img_unpack,cv::Mat(),ORBFeatures,ORBDescriptorsL);
 
-        KeyPoint::convert(ORBFeatures,kps);
+        cv::KeyPoint::convert(ORBFeatures,kps);
         descriptors_to_vMat(ORBDescriptorsL,ORBDescriptors);
 
 
@@ -703,7 +702,7 @@ private:
         vector<double> lm_d;
         for(size_t i = 0; i<ORBFeatures.size();i++)
         {
-          Point2f cvtmp = ORBFeatures[i].pt;
+          cv::Point2f cvtmp = ORBFeatures[i].pt;
           Vec2 tmp(cvtmp.x,cvtmp.y);
           double d = (d_img_unpack.at<ushort>(cvtmp))/1000;
           lm_2d.push_back(tmp);

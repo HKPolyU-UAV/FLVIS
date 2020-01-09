@@ -14,7 +14,7 @@ OctomapFeeder::OctomapFeeder(ros::NodeHandle& nh, string pc_topic_name, string t
     this->octp_pc_pub = nh.advertise<sensor_msgs::PointCloud2>(pc_topic_name,buffersize);
 }
 
-void OctomapFeeder::pub(const SE3 &T_c_w,const  Mat &d_img, const ros::Time stamp)
+void OctomapFeeder::pub(const SE3 &T_c_w,const  cv::Mat &d_img, const ros::Time stamp)
 {
     SE3 T_w_c=T_c_w.inverse();
     Quaterniond q = T_w_c.so3().unit_quaternion();
@@ -34,7 +34,7 @@ void OctomapFeeder::pub(const SE3 &T_c_w,const  Mat &d_img, const ros::Time stam
     {
         for(int v = 0; v<d_img.rows; v+=7)
         {
-            Point2f pt=Point2f(u,v);
+            cv::Point2f pt=cv::Point2f(u,v);
             Vec3 pt3d;
             //CV_16UC1 = Z16 16-Bit unsigned int
             if(isnan(d_img.at<ushort>(pt)))

@@ -17,18 +17,18 @@ bool F2FTracking::tracking(CameraFrame& from,
     int outlier_untracked_cnt=0;
     int outlier_orb_unmatch_cnt=0;
 
-    vector<Point2f> from_cvP2f = from.get2dPtsVec_cvP2f();
-    vector<Point2f> tracked_cvP2f;
-    vector<Mat>     trackedLMDescriptors;
+    vector<cv::Point2f> from_cvP2f = from.get2dPtsVec_cvP2f();
+    vector<cv::Point2f> tracked_cvP2f;
+    vector<cv::Mat>     trackedLMDescriptors;
     vector<float>   err;
     vector<unsigned char> mask_tracked;
     vector<unsigned char> mask_hasorb;
     vector<unsigned char> mask_matched;
-    TermCriteria criteria = TermCriteria((TermCriteria::COUNT) + (TermCriteria::EPS), 10, 0.03);
-    calcOpticalFlowPyrLK(from.img, to.img, from_cvP2f, tracked_cvP2f,
-                         mask_tracked, err, Size(20,20), 5, criteria);
+    cv::TermCriteria criteria = cv::TermCriteria((cv::TermCriteria::COUNT) + (cv::TermCriteria::EPS), 10, 0.03);
+    cv::calcOpticalFlowPyrLK(from.img, to.img, from_cvP2f, tracked_cvP2f,
+                         mask_tracked, err, cv::Size(20,20), 5, criteria);
 
-    cv::Ptr<DescriptorExtractor> extractor = ORB::create();
+    cv::Ptr<cv::DescriptorExtractor> extractor = cv::ORB::create();
     if(0)//use patch
     {
         for(size_t i=0; i<tracked_cvP2f.size(); i++)
@@ -42,13 +42,13 @@ bool F2FTracking::tracking(CameraFrame& from,
                 //outlier_untracked_cnt++;
                 mask_tracked.at(i)=0;
                 mask_hasorb.push_back(0);
-                cv::Mat zeroDescriptor(cv::Size(32, 1), CV_8U, Scalar(0));
+                cv::Mat zeroDescriptor(cv::Size(32, 1), CV_8U, cv::Scalar(0));
                 trackedLMDescriptors.push_back(zeroDescriptor);
                 continue;
             }
             //Find cloest point in 5x5 Region
-            vector<Point2f>      tracked_lm_and_patch_cvP2f;
-            vector<KeyPoint>     tracked_lm_and_patch_cvKP;
+            vector<cv::Point2f>      tracked_lm_and_patch_cvP2f;
+            vector<cv::KeyPoint>     tracked_lm_and_patch_cvKP;
             tracked_lm_and_patch_cvP2f.clear();
             tracked_lm_and_patch_cvKP.clear();
             // 9,10,11,12,13
@@ -60,15 +60,15 @@ bool F2FTracking::tracking(CameraFrame& from,
             int x=round(tracked_cvP2f.at(i).x);
             int y=round(tracked_cvP2f.at(i).y);
             //Patch33
-            tracked_lm_and_patch_cvP2f.push_back(Point2f(x,y));    //0
-            tracked_lm_and_patch_cvP2f.push_back(Point2f(x-1,y-1));//1
-            tracked_lm_and_patch_cvP2f.push_back(Point2f(x,  y-1));//2
-            tracked_lm_and_patch_cvP2f.push_back(Point2f(x+1,y-1));//3
-            tracked_lm_and_patch_cvP2f.push_back(Point2f(x+1,y));  //4
-            tracked_lm_and_patch_cvP2f.push_back(Point2f(x+1,y+1));//5
-            tracked_lm_and_patch_cvP2f.push_back(Point2f(x  ,y+1));//6
-            tracked_lm_and_patch_cvP2f.push_back(Point2f(x-1,y+1));//7
-            tracked_lm_and_patch_cvP2f.push_back(Point2f(x-1,y  ));//8
+            tracked_lm_and_patch_cvP2f.push_back(cv::Point2f(x,y));    //0
+            tracked_lm_and_patch_cvP2f.push_back(cv::Point2f(x-1,y-1));//1
+            tracked_lm_and_patch_cvP2f.push_back(cv::Point2f(x,  y-1));//2
+            tracked_lm_and_patch_cvP2f.push_back(cv::Point2f(x+1,y-1));//3
+            tracked_lm_and_patch_cvP2f.push_back(cv::Point2f(x+1,y));  //4
+            tracked_lm_and_patch_cvP2f.push_back(cv::Point2f(x+1,y+1));//5
+            tracked_lm_and_patch_cvP2f.push_back(cv::Point2f(x  ,y+1));//6
+            tracked_lm_and_patch_cvP2f.push_back(cv::Point2f(x-1,y+1));//7
+            tracked_lm_and_patch_cvP2f.push_back(cv::Point2f(x-1,y  ));//8
             //        //Patch55
             //        tracked_lm_and_patch_cvP2f.push_back(Point2f(x-2,y-2));//9
             //        tracked_lm_and_patch_cvP2f.push_back(Point2f(x-1,y-2));//10
@@ -87,15 +87,15 @@ bool F2FTracking::tracking(CameraFrame& from,
             //        tracked_lm_and_patch_cvP2f.push_back(Point2f(x-2,y  ));//23
             //        tracked_lm_and_patch_cvP2f.push_back(Point2f(x-2,y-1));//24
             tracked_lm_and_patch_cvP2f.push_back(tracked_cvP2f.at(i));
-            Mat descriptorsMat;
-            KeyPoint::convert(tracked_lm_and_patch_cvP2f,tracked_lm_and_patch_cvKP);
+            cv::Mat descriptorsMat;
+            cv::KeyPoint::convert(tracked_lm_and_patch_cvP2f,tracked_lm_and_patch_cvKP);
             extractor->compute(to.img, tracked_lm_and_patch_cvKP, descriptorsMat);
             if(tracked_lm_and_patch_cvKP.size()>0)
             {
                 mask_hasorb.push_back(1);
             }else {
                 mask_hasorb.push_back(0);
-                cv::Mat zeroDescriptor(cv::Size(32, 1), CV_8U, Scalar(0));
+                cv::Mat zeroDescriptor(cv::Size(32, 1), CV_8U, cv::Scalar(0));
                 trackedLMDescriptors.push_back(zeroDescriptor);
                 continue;
             }
@@ -103,7 +103,7 @@ bool F2FTracking::tracking(CameraFrame& from,
             int min_distance=999;
             for(int patch_idx=0;patch_idx<tracked_lm_and_patch_cvKP.size();patch_idx++)
             {
-                double dis=norm(from.landmarks.at(i).lm_descriptor, descriptorsMat.row(patch_idx), NORM_HAMMING);
+                double dis=norm(from.landmarks.at(i).lm_descriptor, descriptorsMat.row(patch_idx), cv::NORM_HAMMING);
                 if( dis <= min_distance)
                 {
                     min_distance=dis;
@@ -116,10 +116,10 @@ bool F2FTracking::tracking(CameraFrame& from,
         }
 
     }else {//don't use patch
-        vector<KeyPoint>     tracked_lm_cvKP;
-        Mat descriptorsMat;
+        vector<cv::KeyPoint>     tracked_lm_cvKP;
+        cv::Mat descriptorsMat;
 
-        KeyPoint::convert(tracked_cvP2f,tracked_lm_cvKP);
+        cv::KeyPoint::convert(tracked_cvP2f,tracked_lm_cvKP);
         extractor->compute(to.img, tracked_lm_cvKP, descriptorsMat);
 
         for(size_t i=0; i<tracked_cvP2f.size(); i++)
@@ -138,7 +138,7 @@ bool F2FTracking::tracking(CameraFrame& from,
             mask_hasorb.push_back(hasDescriptor);
             if(hasDescriptor==0)
             {
-                cv::Mat zeroDescriptor(cv::Size(32, 1), CV_8U, Scalar(0));
+                cv::Mat zeroDescriptor(cv::Size(32, 1), CV_8U, cv::Scalar(0));
                 trackedLMDescriptors.push_back(zeroDescriptor);
             }
         }
@@ -146,7 +146,7 @@ bool F2FTracking::tracking(CameraFrame& from,
 
     for(size_t i=0; i<trackedLMDescriptors.size(); i++)
     {
-        if(norm(from.landmarks.at(i).lm_descriptor, trackedLMDescriptors.at(i), NORM_HAMMING) <= 30)
+        if(norm(from.landmarks.at(i).lm_descriptor, trackedLMDescriptors.at(i), cv::NORM_HAMMING) <= 30)
         {
             //landmarks.at(i).lm_descriptor = trackedLMDescriptors.at(i);
             mask_matched.push_back(1);

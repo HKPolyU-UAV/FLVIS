@@ -25,7 +25,7 @@ void KeyFrameMsg::pub(CameraFrame& frame, ros::Time stamp)
     vector<int64_t> lm_id;
     vector<Vec2> lm_2d;
     vector<Vec3> lm_3d;
-    vector<Mat>  lm_descriptors;
+    vector<cv::Mat>  lm_descriptors;
 
     frame.getKeyFrameInf(lm_id,lm_2d,lm_3d,lm_descriptors);
     kf.lm_count =  static_cast<int32_t>(lm_id.size());
@@ -95,13 +95,13 @@ void KeyFrameMsg::pub(CameraFrame& frame, ros::Time stamp)
 
 void KeyFrameMsg::unpack(vo_nodelet::KeyFrameConstPtr kf_const_ptr,
                          int64_t         &frame_id,
-                         Mat             &img,
-                         Mat             &d_img,
+                         cv::Mat             &img,
+                         cv::Mat             &d_img,
                          int             &lm_count,
                          vector<int64_t> &lm_id,
                          vector<Vec2>    &lm_2d,
                          vector<Vec3>    &lm_3d,
-                         vector<Mat>     &lm_descriptors,
+                         vector<cv::Mat>     &lm_descriptors,
                          SE3             &T_c_w,
                          ros::Time       &T)
 {
@@ -120,7 +120,7 @@ void KeyFrameMsg::unpack(vo_nodelet::KeyFrameConstPtr kf_const_ptr,
     int count =  kf_const_ptr->lm_count;
     for(auto i=0; i<count; i++)
     {
-        Mat descriptor = Mat(1,32,CV_8U);
+        cv::Mat descriptor = cv::Mat(1,32,CV_8U);
         for(auto j=0; j<32; j++)
         {
             descriptor.at<uint8_t>(0,j)=kf_const_ptr->lm_descriptor_data.data.at(i*32+j);

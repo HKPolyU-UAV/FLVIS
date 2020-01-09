@@ -22,7 +22,7 @@ inline Mat4x4 Mat44FromYaml(string FilePath, string vName)
   ret = matRowMajor;
   return ret;
 }
-inline Mat cameraMatrixFromYamlIntrinsics(string FilePath, string intrinsics="intrinsics")
+inline cv::Mat cameraMatrixFromYamlIntrinsics(string FilePath, string intrinsics="intrinsics")
 {
   double fx,fy,cx,cy;
   YAML::Node config = YAML::LoadFile(FilePath);
@@ -31,10 +31,10 @@ inline Mat cameraMatrixFromYamlIntrinsics(string FilePath, string intrinsics="in
   fy=vec_double.at(1);
   cx=vec_double.at(2);
   cy=vec_double.at(3);
-  Mat cameraMatrix = (Mat1d(3, 3) << fx, 0, cx, 0, fy, cy, 0, 0, 1);
+  cv::Mat cameraMatrix = (cv::Mat1d(3, 3) << fx, 0, cx, 0, fy, cy, 0, 0, 1);
   return cameraMatrix;
 }
-inline Mat distCoeffsFromYaml(string FilePath, string dist="distortion_coeffs")
+inline cv::Mat distCoeffsFromYaml(string FilePath, string dist="distortion_coeffs")
 {
   YAML::Node config = YAML::LoadFile(FilePath);
   const std::vector<double> vec_double = config[dist].as<std::vector<double>>();
@@ -43,7 +43,7 @@ inline Mat distCoeffsFromYaml(string FilePath, string dist="distortion_coeffs")
   k2=vec_double.at(1);
   r1=vec_double.at(2);
   r2=vec_double.at(3);
-  Mat distCoeffs = (Mat1d(4, 1) << k1,k2,r1,r2);
+  cv::Mat distCoeffs = (cv::Mat1d(4, 1) << k1,k2,r1,r2);
   return distCoeffs;
 }
 inline double getDoubleVariableFromYaml(string FilePath, string vName)

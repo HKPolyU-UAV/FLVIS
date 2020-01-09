@@ -29,7 +29,7 @@ class OctomapFeeder
 public:
     OctomapFeeder();
     OctomapFeeder(ros::NodeHandle& nh, string pc_topic_name, string tf_frame_name_in, int buffersize=2);
-    void pub(const SE3 &T_c_w,const  Mat &d_img, const ros::Time stamp=ros::Time::now());
+    void pub(const SE3 &T_c_w,const  cv::Mat &d_img, const ros::Time stamp=ros::Time::now());
     DepthCamera  d_camera;
 };
 

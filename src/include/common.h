@@ -21,7 +21,7 @@
 
 using namespace Eigen;
 using namespace std;
-using namespace cv;
+
 using namespace Sophus;
 
 typedef Eigen::Matrix<double, 2, 1> Vec2;
@@ -65,7 +65,7 @@ typedef pcl::PointCloud<PointI> PointCloudI;
 
 
 //transfor descriptors to vector of Mat(cv)
-inline void descriptors_to_vMat(const Mat& descriptorMat, vector<Mat>& vecDescriptorMat)
+inline void descriptors_to_vMat(const cv::Mat& descriptorMat, vector<cv::Mat>& vecDescriptorMat)
 {
     vecDescriptorMat.clear();
     for(int i=0; i<descriptorMat.size().height;i++)
@@ -74,7 +74,7 @@ inline void descriptors_to_vMat(const Mat& descriptorMat, vector<Mat>& vecDescri
     }
 }
 //transfer vector of Mat to descriptors
-inline void vMat_to_descriptors(const Mat& descriptorMat, vector<Mat>& vecDescriptorMat)
+inline void vMat_to_descriptors(const cv::Mat& descriptorMat, vector<cv::Mat>& vecDescriptorMat)
 {
   for(uint64_t i=0; i<vecDescriptorMat.size();i++)
   {
@@ -83,30 +83,30 @@ inline void vMat_to_descriptors(const Mat& descriptorMat, vector<Mat>& vecDescri
 }
 
 //transfor 2d point to cvP2f
-inline Point2f Vec2_to_cvP2f(const Vec2 pt)
+inline cv::Point2f Vec2_to_cvP2f(const Vec2 pt)
 {
-    return Point2f(pt[0],pt[1]);
+    return cv::Point2f(pt[0],pt[1]);
 }
 
 //transfor 3d point to cvP3f
-inline Point3f Vec3_to_cvP3f(const Vec3 pt)
+inline cv::Point3f Vec3_to_cvP3f(const Vec3 pt)
 {
-    return Point3f(pt[0],pt[1],pt[2]);
+    return cv::Point3f(pt[0],pt[1],pt[2]);
 }
 
 //transfor (vector of 2d point) to (vector of cvP2f)
-inline vector<Point2f> vVec2_2_vcvP2f(const vector<Vec2>& pt2ds)
+inline vector<cv::Point2f> vVec2_2_vcvP2f(const vector<Vec2>& pt2ds)
 {
-    vector<Point2f> ret;
+    vector<cv::Point2f> ret;
     ret.clear();
     for(size_t i=0; i<pt2ds.size(); i++)
-        ret.push_back(Point2f(pt2ds.at(i)[0],pt2ds.at(i)[1]));
+        ret.push_back(cv::Point2f(pt2ds.at(i)[0],pt2ds.at(i)[1]));
     return ret;
 }
 
-inline Mat Mat3x3_to_cvMat(const Mat3x3 R)
+inline cv::Mat Mat3x3_to_cvMat(const Mat3x3 R)
 {
-    Mat ret;
+    cv::Mat ret;
     double data[9] = { R(0,0), R(0,1), R(0,2),
                        R(1,0), R(1,1), R(1,2),
                        R(2,0), R(2,1), R(2,2)};
@@ -114,9 +114,9 @@ inline Mat Mat3x3_to_cvMat(const Mat3x3 R)
     return ret;
 }
 //transfor Vec3 to cv tvec
-inline Mat Vec3_to_cvMat(const Vec3 t)
+inline cv::Mat Vec3_to_cvMat(const Vec3 t)
 {
-    Mat ret = cv::Mat::zeros(3, 1, CV_64FC1);;
+    cv::Mat ret = cv::Mat::zeros(3, 1, CV_64FC1);;
 
     ret.at<double>(0,0) = t(0,0);
     ret.at<double>(1,0) = t(1,0);
@@ -125,7 +125,7 @@ inline Mat Vec3_to_cvMat(const Vec3 t)
     return ret;
 }
 //transfor cv rotation to Mat3x3
-inline Mat3x3 cvMat_to_Mat3x3(const Mat R)
+inline Mat3x3 cvMat_to_Mat3x3(const cv::Mat R)
 {
     Mat3x3 ret;
     ret<<R.at<double>(0,0),R.at<double>(0,1),R.at<double>(0,2),
@@ -135,26 +135,26 @@ inline Mat3x3 cvMat_to_Mat3x3(const Mat R)
 }
 
 //transfor cv translation to Vec3
-inline Vec3 cvMat_to_Vec3(const Mat t)
+inline Vec3 cvMat_to_Vec3(const cv::Mat t)
 {
     return Vec3(t.at<double>(0,0),t.at<double>(1,0),t.at<double>(2,0));
 }
 
-inline SE3 SE3_from_rvec_tvec(Mat rvec, Mat tvec)
+inline SE3 SE3_from_rvec_tvec(cv::Mat rvec, cv::Mat tvec)
 {
-    Mat R_;
+    cv::Mat R_;
     cv::Rodrigues ( rvec, R_ );
     Mat3x3 R=cvMat_to_Mat3x3(R_);
     Vec3   t=cvMat_to_Vec3(tvec);
     return SE3(R,t);
 }
 
-inline void SE3_to_rvec_tvec(const SE3 pose, Mat &rvec, Mat &tvec)
+inline void SE3_to_rvec_tvec(const SE3 pose, cv::Mat &rvec, cv::Mat &tvec)
 {
     Quaterniond q = pose.unit_quaternion();
-    Mat t_,r_;
+    cv::Mat t_,r_;
     tvec = Vec3_to_cvMat(pose.translation());
-    Mat R_ = Mat3x3_to_cvMat(q.toRotationMatrix());
+    cv::Mat R_ = Mat3x3_to_cvMat(q.toRotationMatrix());
     cv::Rodrigues ( R_, rvec );
 }
 

@@ -33,7 +33,9 @@ void CameraFrame::CalReprjInlierOutlier(double &mean_prjerr, vector<Vec2> &outli
             Vec3 lm3d_c = DepthCamera::world2cameraT_c_w(lm3d_w,this->T_c_w);
             Vec2 reProj=this->d_camera.camera2pixel(lm3d_c);
             Vec2 lm2d = lm.lm_2d;
-            double relativeDist = sqrt(pow(lm2d(0)-reProj(0),2)+pow(lm2d(1)-reProj(1),2));
+            Vec2 err=lm2d-reProj;
+            double relativeDist = err.norm()/lm3d_c.norm();
+            //double relativeDist = sqrt(pow(lm2d(0)-reProj(0),2)+pow(lm2d(1)-reProj(1),2));
             distances.push_back(relativeDist);
             if(lm.lm_tracking_state==LM_TRACKING_INLIER){
                 valid_distances.push_back(relativeDist);
@@ -84,7 +86,7 @@ void CameraFrame::recover3DPts_c_FromDepthImg(vector<Vec3>& pt3ds,
     for(size_t i=0; i<landmarks.size(); i++)
     {
         //use round to find the nearst pixel from depth image;
-        Point2f pt=Point2f(round(landmarks.at(i).lm_2d[0]),round(landmarks.at(i).lm_2d[1]));
+        cv::Point2f pt=cv::Point2f(round(landmarks.at(i).lm_2d[0]),round(landmarks.at(i).lm_2d[1]));
         Vec3 pt3d;
         //CV_16UC1 = Z16 16-Bit unsigned int
         if(isnan(d_img.at<ushort>(pt)))
@@ -240,7 +242,7 @@ void CameraFrame::forceMarkOutlier(const int &cnt, const vector<int64_t> &ids)
     }
 }
 
-void CameraFrame::getValid2d3dPair_cvPf(vector<Point2f> &p2d, vector<Point3f> &p3d)
+void CameraFrame::getValid2d3dPair_cvPf(vector<cv::Point2f> &p2d, vector<cv::Point3f> &p3d)
 {
     p2d.clear();
     p3d.clear();
@@ -249,8 +251,8 @@ void CameraFrame::getValid2d3dPair_cvPf(vector<Point2f> &p2d, vector<Point3f> &p
         LandMarkInFrame lm=landmarks.at(i);
         if(lm.hasDepthInf() && lm.lm_tracking_state==LM_TRACKING_INLIER)
         {
-            p2d.push_back(Point2f(lm.lm_2d[0],lm.lm_2d[1]));
-            p3d.push_back(Point3f(lm.lm_3d_w[0],lm.lm_3d_w[1],lm.lm_3d_w[2]));
+            p2d.push_back(cv::Point2f(lm.lm_2d[0],lm.lm_2d[1]));
+            p3d.push_back(cv::Point3f(lm.lm_3d_w[0],lm.lm_3d_w[1],lm.lm_3d_w[2]));
         }
     }
 }
@@ -269,7 +271,7 @@ void CameraFrame::getValidInliersPair(vector<LandMarkInFrame> &lms)
 }
 
 void CameraFrame::unpack(vector<Vec2> &pt2d,
-                         vector<Mat>  &descriptors,
+                         vector<cv::Mat>  &descriptors,
                          vector<Vec3> &pt3d,
                          vector<unsigned char> &mask3d)
 {
@@ -304,24 +306,24 @@ vector<Vec3> CameraFrame::getValid3dPts(void)
 
 }
 
-vector<Point2f> CameraFrame::get2dPtsVec_cvP2f(void)
+vector<cv::Point2f> CameraFrame::get2dPtsVec_cvP2f(void)
 {
-    vector<Point2f> ret;
+    vector<cv::Point2f> ret;
     ret.clear();
     for(size_t i=0; i<landmarks.size(); i++)
     {
-        ret.push_back(Point2f(landmarks.at(i).lm_2d[0],
+        ret.push_back(cv::Point2f(landmarks.at(i).lm_2d[0],
                       landmarks.at(i).lm_2d[1]));
     }
     return ret;
 }
-vector<Point3f> CameraFrame::get3dPtsVec_cvP3f(void)
+vector<cv::Point3f> CameraFrame::get3dPtsVec_cvP3f(void)
 {
-    vector<Point3f> ret;
+    vector<cv::Point3f> ret;
     ret.clear();
     for(size_t i=0; i<landmarks.size(); i++)
     {
-        ret.push_back(Point3f(landmarks.at(i).lm_2d[0],
+        ret.push_back(cv::Point3f(landmarks.at(i).lm_2d[0],
                       landmarks.at(i).lm_2d[1],
                 landmarks.at(i).lm_2d[3]));
     }
@@ -350,9 +352,9 @@ vector<Vec3> CameraFrame::get3dPtsVec(void)
     return ret;
 }
 
-vector<Mat>  CameraFrame::getDescriptorVec(void)
+vector<cv::Mat>  CameraFrame::getDescriptorVec(void)
 {
-    vector<Mat> ret;
+    vector<cv::Mat> ret;
     ret.clear();
     for(size_t i=0; i<landmarks.size(); i++)
     {
@@ -361,7 +363,7 @@ vector<Mat>  CameraFrame::getDescriptorVec(void)
     return ret;
 }
 
-void CameraFrame::getKeyFrameInf(vector<int64_t> &lm_id, vector<Vec2> &lm_2d, vector<Vec3> &lm_3d, vector<Mat> &lm_descriptors)
+void CameraFrame::getKeyFrameInf(vector<int64_t> &lm_id, vector<Vec2> &lm_2d, vector<Vec3> &lm_3d, vector<cv::Mat> &lm_descriptors)
 {
     lm_id.clear();
     lm_2d.clear();
