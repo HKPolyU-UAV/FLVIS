@@ -33,7 +33,9 @@ void CameraFrame::CalReprjInlierOutlier(double &mean_prjerr, vector<Vec2> &outli
             Vec3 lm3d_c = DepthCamera::world2cameraT_c_w(lm3d_w,this->T_c_w);
             Vec2 reProj=this->d_camera.camera2pixel(lm3d_c);
             Vec2 lm2d = lm.lm_2d;
-            double relativeDist = sqrt(pow(lm2d(0)-reProj(0),2)+pow(lm2d(1)-reProj(1),2));
+            Vec2 err=lm2d-reProj;
+            double relativeDist = err.norm()/lm3d_c.norm();
+            //double relativeDist = sqrt(pow(lm2d(0)-reProj(0),2)+pow(lm2d(1)-reProj(1),2));
             distances.push_back(relativeDist);
             if(lm.lm_tracking_state==LM_TRACKING_INLIER){
                 valid_distances.push_back(relativeDist);
