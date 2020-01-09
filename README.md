@@ -5,17 +5,18 @@
 TBD
 ### 2-Relevent Publication:
 TBD
-### 3-Support Platform:
-Apart from the dataset we provided. User can varify the performance using a Inter RealSense D435i Camera.
-And We have tested in the following environment:
+### 3-Verify:
+User can varify the performance using a Inter RealSense D435i Camera.
+
+### 4-Build The Project
+We have tested in the following environment:
 Ubuntu 16.04 + ROS Kinetic
 Ubuntu 18.04 + ROS melodic
-### 4-Build The Project
 4.1 Clone the repository to the catkin work space eg. /catkin_ws/src
 ````
 git clone https://github.com/Ttoto/FLVIS.git
 ````
-4.2 Compile and Install 3rd Part library
+4.2 Compile and Install 3rd Part library <br />
 4.2.1 sparse library
 ````
 sudo apt-get install libsuitesparse
