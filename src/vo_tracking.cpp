@@ -6,6 +6,7 @@
 #include <message_filters/synchronizer.h>
 #include <sensor_msgs/Image.h>
 #include <sensor_msgs/Imu.h>
+#include <geometry_msgs/PoseStamped.h>
 
 #include <opencv2/opencv.hpp>
 #include <cv_bridge/cv_bridge.h>
@@ -84,6 +85,10 @@ private:
     Mat dimg_vis;
     image_transport::Publisher img_pub;
     image_transport::Publisher dimg_pub;
+
+    ros::Publisher imu2vision_pose_pub;
+    ros::Publisher vision_pose_pub;
+
     RVIZFrame* frame_pub;
     RVIZPath*  path_pub;
     RVIZPath* path_lc_pub;
@@ -95,6 +100,9 @@ private:
     {
         ros::NodeHandle& nh = getMTPrivateNodeHandle();
         //cv::startWindowThread(); //Bug report https://github.com/ros-perception/image_pipeline/issues/201
+
+        imu2vision_pose_pub = nh.advertise<geometry_msgs::PoseStamped>("imu", 10);
+        vision_pose_pub = nh.advertise<geometry_msgs::PoseStamped>("vision",10);
 
         //Load Parameter
         string configFilePath;
@@ -159,7 +167,7 @@ private:
                     boost::bind(&VOTrackingNodeletClass::correction_feedback_callback, this, _1));
         imu_sub = nh.subscribe<sensor_msgs::Imu>(
                     "/imu",
-                    5,
+                    10,
                     boost::bind(&VOTrackingNodeletClass::imu_callback, this, _1));
         cout << "init Subscribe" << endl;
 
@@ -170,8 +178,7 @@ private:
 
     void imu_callback(const sensor_msgs::ImuConstPtr& msg)
     {
-        if(!has_imu)
-        {
+        if(!has_imu){
             has_imu = true;
         }
         //SETP1: TO ENU Frame
@@ -198,10 +205,27 @@ private:
         if(!(vimotion->imu_initialized))
         {
             //estimate orientation
-            vimotion->imu_initialization(IMUSTATE(stamp,acc,gyro));
+            vimotion->viIMUinitialization(IMUSTATE(stamp,acc,gyro));
         }else {
             //estimate pos vel and orientation
-            vimotion->imu_propagation(IMUSTATE(stamp,acc,gyro));
+            vimotion->viIMUPropagation(IMUSTATE(stamp,acc,gyro));
+            geometry_msgs::PoseStamped pose;
+            SE3 T_w_i_from_imu;
+            Vec3 vel_from_imu;
+            vimotion->viGetLatestImuState(T_w_i_from_imu,vel_from_imu);
+            SE3 T_w_c=T_w_i_from_imu*vimotion->T_i_c;
+            pose.header.stamp = msg->header.stamp;
+            pose.header.frame_id = "map";
+            Vec3 p = T_w_c.translation();
+            Quaterniond q = T_w_c.unit_quaternion();
+            pose.pose.position.x = p[0];
+            pose.pose.position.y = p[1];
+            pose.pose.position.z = p[2];
+            pose.pose.orientation.w = q.w();
+            pose.pose.orientation.x = q.x();
+            pose.pose.orientation.y = q.y();
+            pose.pose.orientation.z = q.z();
+            this->imu2vision_pose_pub.publish(pose);
         }
     }
 
@@ -258,7 +282,7 @@ private:
                 if(vimotion->imu_initialized)
                 {
                     Eigen::Quaterniond q_init_w_i;
-                    vimotion->vision_trigger(q_init_w_i);
+                    vimotion->viVisiontrigger(q_init_w_i);
                     Vec3 rpy = Q2rpy(q_init_w_i);
                     cout << "roll:"   << rpy[0]*57.2958
                          << " pitch:" << rpy[1]*57.2958
@@ -303,27 +327,30 @@ private:
             cout << "vo_tracking_state = Working" << endl;
 
             //if has tf between map and odom
-
-            try
+            if(0)
             {
-              listenerOdomMap.lookupTransform("map","odom",ros::Time(0), tranOdomMap);
+                try
+                {
+                    listenerOdomMap.lookupTransform("map","odom",ros::Time(0), tranOdomMap);
 
-              tf::Vector3 tf_t= tranOdomMap.getOrigin();
-              tf::Quaternion tf_q = tranOdomMap.getRotation();
-              Vec3 se3_t(tf_t.x(),tf_t.y(),tf_t.z());
-              Quaterniond se3_q(tf_q.w(),tf_q.x(),tf_q.y(),tf_q.z());
-              //cout<<tf_t.x()<<" "<<tf_t.y()<<" "<<tf_t.z()<<" "<<tf_q.x()<<" "<<tf_q.y()<<" "<<tf_q.z()<<" "<<tf_q.w()<<" "<<endl;
-              SE3 T_map_odom(se3_q,se3_t);
-              SE3 T_map_c = T_map_odom.inverse()*curr_frame->T_c_w.inverse();
-              path_lc_pub->pubPathT_w_c(T_map_c,currStamp);
+                    tf::Vector3 tf_t= tranOdomMap.getOrigin();
+                    tf::Quaternion tf_q = tranOdomMap.getRotation();
+                    Vec3 se3_t(tf_t.x(),tf_t.y(),tf_t.z());
+                    Quaterniond se3_q(tf_q.w(),tf_q.x(),tf_q.y(),tf_q.z());
+                    //cout<<tf_t.x()<<" "<<tf_t.y()<<" "<<tf_t.z()<<" "<<tf_q.x()<<" "<<tf_q.y()<<" "<<tf_q.z()<<" "<<tf_q.w()<<" "<<endl;
+                    SE3 T_map_odom(se3_q,se3_t);
+                    SE3 T_map_c = T_map_odom.inverse()*curr_frame->T_c_w.inverse();
+                    path_lc_pub->pubPathT_w_c(T_map_c,currStamp);
 
 
+                }
+                catch (tf::TransformException ex)
+                {
+                    ROS_ERROR("%s",ex.what());
+                    cout<<"no transform between map and odom yet."<<endl;
+                }
             }
-            catch (tf::TransformException ex)
-            {
-              ROS_ERROR("%s",ex.what());
-              cout<<"no transform between map and odom yet."<<endl;
-            }
+
 
 
 
@@ -390,7 +417,7 @@ private:
             vector<Point2f> p2d;
             vector<Point3f> p3d;
             curr_frame->getValid2d3dPair_cvPf(p2d,p3d);
-            if(p2d.size()<=15)
+            if(p2d.size()<=10)
             {
                 cout << "[Critical Warning] Tracking Fail-no enough lm pairs" << endl;
                 break;
@@ -405,11 +432,11 @@ private:
             //(Option) ->IMU roll pitch compensation
             if(this->has_imu)
             {
-                vimotion->Camera_rp_compensation(curr_frame->frame_time.toSec(),
+                vimotion->viVisionRPCompensation(curr_frame->frame_time.toSec(),
                                                  curr_frame->T_c_w,
-                                                 0.5);
-                cout << "Camera_rp_compensation" << endl;
+                                                 0.1);
             }
+
 
             //STEP4:
             bundleAdjustment::BAInFrame(*curr_frame);
@@ -418,11 +445,11 @@ private:
             curr_frame->CalReprjInlierOutlier(mean_reprojection_error,outlier_reproject,1.5);
             curr_frame->reprojection_error=mean_reprojection_error;
 
-            //(Option) ->IMU ACC GYRO BIAS ESTIMATION
-
+            //(Option) ->Vision Feedback and bias estimation
             if(this->has_imu)
             {
-
+                vimotion->viCorrectionFromVision(curr_frame->frame_time.toSec(),
+                                                 curr_frame->T_c_w,Vec3(0,0,0));
             }
 
             //STEP5:
@@ -449,7 +476,7 @@ private:
             tmp.frame_id = curr_frame->frame_id;
             tmp.T_c_w = curr_frame->T_c_w;
             pose_records.push_back(tmp);
-            if(pose_records.size() >= 100)
+            if(pose_records.size() >= 1000)
             {
                 pose_records.pop_front();
             }
@@ -473,32 +500,34 @@ private:
             octomap_pub->pub(curr_frame->T_c_w,curr_frame->d_img,currStamp);
 
 
-            //STEP9:
             //if has tf between map and odom
-
-            try
+            if(0)
             {
-              listenerOdomMap.lookupTransform("map","odom",ros::Time(0), tranOdomMap);
+                try
+                {
+                    listenerOdomMap.lookupTransform("map","odom",ros::Time(0), tranOdomMap);
 
-              tf::Vector3 tf_t= tranOdomMap.getOrigin();
-              tf::Quaternion tf_q = tranOdomMap.getRotation();
-              Vec3 se3_t(tf_t.x(),tf_t.y(),tf_t.z());
-              Quaterniond se3_q(tf_q.w(),tf_q.x(),tf_q.y(),tf_q.z());
-              //cout<<tf_t.x()<<" "<<tf_t.y()<<" "<<tf_t.z()<<" "<<tf_q.x()<<" "<<tf_q.y()<<" "<<tf_q.z()<<" "<<tf_q.w()<<" "<<endl;
-              SE3 T_map_odom(se3_q,se3_t);
-              SE3 T_map_c = T_map_odom*curr_frame->T_c_w.inverse();
-              path_lc_pub->pubPathT_w_c(T_map_c,currStamp);
+                    tf::Vector3 tf_t= tranOdomMap.getOrigin();
+                    tf::Quaternion tf_q = tranOdomMap.getRotation();
+                    Vec3 se3_t(tf_t.x(),tf_t.y(),tf_t.z());
+                    Quaterniond se3_q(tf_q.w(),tf_q.x(),tf_q.y(),tf_q.z());
+                    //cout<<tf_t.x()<<" "<<tf_t.y()<<" "<<tf_t.z()<<" "<<tf_q.x()<<" "<<tf_q.y()<<" "<<tf_q.z()<<" "<<tf_q.w()<<" "<<endl;
+                    SE3 T_map_odom(se3_q,se3_t);
+                    SE3 T_map_c = T_map_odom*curr_frame->T_c_w.inverse();
+                    path_lc_pub->pubPathT_w_c(T_map_c,currStamp);
 
 
+                }
+                catch (tf::TransformException ex)
+                {
+                    ROS_ERROR("%s",ex.what());
+                    cout<<"no trans between map and odom yet."<<endl;
+                }
             }
-            catch (tf::TransformException ex)
-            {
-              ROS_ERROR("%s",ex.what());
-              cout<<"no trans between map and odom yet."<<endl;
-            }
 
 
-            //STEP8:
+
+            //STEP9:
 
             SE3 T_diff_key_curr = T_c_w_last_keyframe*(curr_frame->T_c_w.inverse());
             Vec3 t=T_diff_key_curr.translation();
