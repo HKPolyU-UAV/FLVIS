@@ -51,7 +51,7 @@ Visualization Manager:
       Head Length: 0.200000003
       Length: 0.300000012
       Line Style: Billboards
-      Line Width: 0.0799999982
+      Line Width: 0.0299999993
       Name: Path
       Offset:
         X: 0
@@ -90,13 +90,13 @@ Visualization Manager:
       Update Interval: 0
       Value: true
     - Class: rviz/Marker
-      Enabled: true
+      Enabled: false
       Marker Topic: /vo_curr_frame
       Name: Marker
       Namespaces:
         {}
       Queue Size: 100
-      Value: true
+      Value: false
     - Class: rviz/Image
       Enabled: true
       Image Topic: /vo_img
@@ -133,7 +133,7 @@ Visualization Manager:
       Color: 255; 255; 255
       Color Transformer: Intensity
       Decay Time: 0
-      Enabled: true
+      Enabled: false
       Invert Rainbow: false
       Max Color: 255; 255; 255
       Max Intensity: 4096
@@ -150,7 +150,7 @@ Visualization Manager:
       Unreliable: false
       Use Fixed Frame: true
       Use rainbow: true
-      Value: true
+      Value: false
     - Class: rviz/MarkerArray
       Enabled: true
       Marker Topic: /occupied_cells_vis_array
@@ -175,11 +175,34 @@ Visualization Manager:
       Class: rviz/Map
       Color Scheme: map
       Draw Behind: false
-      Enabled: true
+      Enabled: false
       Name: Map
       Topic: /projected_map
       Unreliable: false
       Use Timestamp: false
+      Value: false
+    - Alpha: 1
+      Buffer Length: 1
+      Class: rviz/Path
+      Color: 170; 0; 0
+      Enabled: true
+      Head Diameter: 0.300000012
+      Head Length: 0.200000003
+      Length: 0.300000012
+      Line Style: Billboards
+      Line Width: 0.0500000007
+      Name: Path
+      Offset:
+        X: 0
+        Y: 0
+        Z: 0
+      Pose Color: 255; 85; 255
+      Pose Style: None
+      Radius: 0.0299999993
+      Shaft Diameter: 0.100000001
+      Shaft Length: 0.100000001
+      Topic: /vo_path_lc
+      Unreliable: false
       Value: true
   Enabled: true
   Global Options:
@@ -206,7 +229,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/ThirdPersonFollower
-      Distance: 0.0861275941
+      Distance: 10.2652292
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.0599999987
         Stereo Focal Distance: 1
@@ -221,10 +244,10 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.00999999978
-      Pitch: -1.56979632
+      Pitch: 1.18520272
       Target Frame: vo_local
       Value: ThirdPersonFollower (rviz)
-      Yaw: 2.65572119
+      Yaw: 0.482549965
     Saved: ~
 Window Geometry:
   Displays:
@@ -238,5 +261,5 @@ Window Geometry:
   Views:
     collapsed: false
   Width: 1551
-  X: 417
+  X: 369
   Y: 191

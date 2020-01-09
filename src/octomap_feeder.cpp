@@ -1,4 +1,5 @@
 #include "include/octomap_feeder.h"
+#include <pcl/filters/statistical_outlier_removal.h>
 
 
 OctomapFeeder::OctomapFeeder()
@@ -22,9 +23,10 @@ void OctomapFeeder::pub(const SE3 &T_c_w,const  Mat &d_img, const ros::Time stam
     this->transform.setOrigin(tf::Vector3(t[0],t[1],t[2]));
     this->transform.setRotation(tf::Quaternion(q.x(),q.y(),q.z(),q.w()));
 
-    br.sendTransform(tf::StampedTransform(transform, stamp, "odom", this->tf_frame_name));
+    br.sendTransform(tf::StampedTransform(transform, stamp, "map", this->tf_frame_name));
 
-    PointCloudP pc_c;
+    PointCloudP::Ptr pc_c(new PointCloudP);
+    PointCloudP::Ptr pc_c_filter(new PointCloudP);
     int width_count=0;
     Vec3 pos_w_c= T_c_w.inverse().translation();
     double height=pos_w_c[2];
@@ -45,7 +47,7 @@ void OctomapFeeder::pub(const SE3 &T_c_w,const  Mat &d_img, const ros::Time stam
                 if(z>=0.5&&z<=6.5)
                 {
                     Vec3 pt_w = this->d_camera.pixel2worldT_c_w(Vec2(u,v),T_c_w,z);
-                    if(pt_w[2]>height+0.2)
+                    if(pt_w[2]>height+0.2 || pt_w[2]<0)
                     {
                         continue;
                     }
@@ -53,7 +55,7 @@ void OctomapFeeder::pub(const SE3 &T_c_w,const  Mat &d_img, const ros::Time stam
                     PointP p(static_cast<float>(pt_c[0]),
                             static_cast<float>(pt_c[1]),
                             static_cast<float>(pt_c[2]));
-                    pc_c.points.push_back(p);
+                    pc_c->points.push_back(p);
                     width_count++;
                 }else
                 {
@@ -62,11 +64,18 @@ void OctomapFeeder::pub(const SE3 &T_c_w,const  Mat &d_img, const ros::Time stam
             }
         }
     }
-    pc_c.width=width_count;
-    pc_c.height=1;
-    pc_c.is_dense = false;
+    pc_c->width=width_count;
+    pc_c->height=1;
+    pc_c->is_dense = false;
+
+
+    pcl::StatisticalOutlierRemoval<PointP> sor;
+    sor.setInputCloud (pc_c);
+    sor.setMeanK (50);
+    sor.setStddevMulThresh (1.0);
+    sor.filter (*pc_c_filter);
     sensor_msgs::PointCloud2 output;
-    pcl::toROSMsg(pc_c,output);
+    pcl::toROSMsg(*pc_c_filter,output);
     output.header.frame_id = tf_frame_name;
     octp_pc_pub.publish(output);
 }

@@ -95,7 +95,7 @@ struct sort_descriptor_by_queryIdx
 #define ratioMax (0.5)
 #define ratioRansac (0.5)
 #define minPts (20)
-#define minScore (0.13)
+#define minScore (0.08)
 struct KeyFrameLC
 {
   int64_t         frame_id;
@@ -670,7 +670,7 @@ private:
         transform.setOrigin(tf::Vector3(t_tf[0],t_tf[1],t_tf[2]));
         transform.setRotation(tf::Quaternion(q_tf.x(),q_tf.y(),q_tf.z(),q_tf.w()));
 
-        br.sendTransform(tf::StampedTransform(transform, tt, "map", "odom"));
+        br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "map", "odom"));
 
         tic_toc_ros feature_tt;
 
@@ -684,7 +684,7 @@ private:
         ORBFeatures.clear();
         ORBDescriptors.clear();
 
-        Ptr<ORB> orb = ORB::create(500,1.2f,8,31,0,2, ORB::HARRIS_SCORE,31,50);
+        Ptr<ORB> orb = ORB::create(500,1.2f,8,31,0,2, ORB::HARRIS_SCORE,31,20);
         orb->detectAndCompute(img_unpack,Mat(),ORBFeatures,ORBDescriptorsL);
 
         KeyPoint::convert(ORBFeatures,kps);
@@ -694,7 +694,7 @@ private:
 
         kf.lm_descriptor = ORBDescriptors;
 
-     //   cout<<"descriptor numbers: "<<ORBDescriptors.size()<<endl;
+       cout<<"descriptor numbers: "<<ORBDescriptors.size()<<endl;
        // cout<<"feature cost: ";feature_tt.toc();
 
 
@@ -824,7 +824,7 @@ private:
         transform.setOrigin(tf::Vector3(t_tf[0],t_tf[1],t_tf[2]));
         transform.setRotation(tf::Quaternion(q_tf.x(),q_tf.y(),q_tf.z(),q_tf.w()));
 
-        br.sendTransform(tf::StampedTransform(transform, tt, "map", "odom"));
+        br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "map", "odom"));
 
 
 

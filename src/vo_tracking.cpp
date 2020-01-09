@@ -73,6 +73,7 @@ private:
     CameraFrame::Ptr curr_frame,last_frame;
     //KF, Pose Records and Correction Information
     SE3 T_c_w_last_keyframe;
+    SE3 T_map_c =SE3();
     KeyFrameMsg* kf_pub;
     deque<ID_POSE> pose_records;
     bool has_feedback;
@@ -241,7 +242,7 @@ private:
             //-1  0  0
             // 0 -1  0
             R_i_c << 0, 0, 1, -1, 0, 0, 0,-1, 0;
-            Vec3   t=Vec3(0,0,0);
+            Vec3   t=Vec3(0,0,1);
             SE3    T_w_c(R_i_c,t);
             curr_frame->T_c_w=T_w_c.inverse();//Tcw = (Twc)^-1
             if(this->has_imu)
@@ -305,7 +306,7 @@ private:
               Quaterniond se3_q(tf_q.w(),tf_q.x(),tf_q.y(),tf_q.z());
               //cout<<tf_t.x()<<" "<<tf_t.y()<<" "<<tf_t.z()<<" "<<tf_q.x()<<" "<<tf_q.y()<<" "<<tf_q.z()<<" "<<tf_q.w()<<" "<<endl;
               SE3 T_map_odom(se3_q,se3_t);
-              SE3 T_map_c = T_map_odom.inverse()*curr_frame->T_c_w.inverse();
+              T_map_c = T_map_odom.inverse()*curr_frame->T_c_w.inverse();
               path_lc_pub->pubPathT_w_c(T_map_c,currStamp);
 
 
@@ -439,7 +440,7 @@ private:
             dimg_pub.publish(dimg_msg);
             frame_pub->pubFramePtsPoseT_c_w(curr_frame->getValid3dPts(),curr_frame->T_c_w);
             path_pub->pubPathT_c_w(curr_frame->T_c_w,currStamp);
-            octomap_pub->pub(curr_frame->T_c_w,curr_frame->d_img,currStamp);
+            //octomap_pub->pub(curr_frame->T_c_w,curr_frame->d_img,currStamp);
 
             //if has tf between map and odom
 
@@ -453,8 +454,9 @@ private:
               Quaterniond se3_q(tf_q.w(),tf_q.x(),tf_q.y(),tf_q.z());
               //cout<<tf_t.x()<<" "<<tf_t.y()<<" "<<tf_t.z()<<" "<<tf_q.x()<<" "<<tf_q.y()<<" "<<tf_q.z()<<" "<<tf_q.w()<<" "<<endl;
               SE3 T_map_odom(se3_q,se3_t);
-              SE3 T_map_c = T_map_odom*curr_frame->T_c_w.inverse();
+              T_map_c = T_map_odom*curr_frame->T_c_w.inverse();
               path_lc_pub->pubPathT_w_c(T_map_c,currStamp);
+              octomap_pub->pub(T_map_c.inverse(),curr_frame->d_img,currStamp);
 
 
             }
