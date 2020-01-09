@@ -1,13 +1,13 @@
 #ifndef POSELMBAG_H
 #define POSELMBAG_H
 
-#include "include/common.h"
+#include <include/common.h>
 #include <stdio.h>
 #include <cstdint>
 
 using namespace std;
 
-#define POSE_LOOP_BUFFER_SIZE (6)
+#define POSE_LOOP_BUFFER_SIZE (8)
 
 struct LM_ITEM {
   int64_t id;

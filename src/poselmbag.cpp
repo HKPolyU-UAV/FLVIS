@@ -1,4 +1,6 @@
 #include "include/poselmbag.h"
+#include <include/common.h>
+#include <stdio.h>
 
 PoseLMBag::PoseLMBag()
 {
