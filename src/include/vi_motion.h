@@ -5,9 +5,11 @@
 #include <include/imu_state.h>
 #include <include/kinetic_math.h>
 #include <deque>
+#include <mutex>
 
 #define ACC_MEASUREMENT_FEEDBACK_P (0.1)
-#define MAGNITUDE_OF_GRAVITY (9.81)
+#define MAGNITUDE_OF_GRAVITY       (9.81)
+#define STATES_QUEUE_SIZE          (400)
 
 struct MOTION_STATE{
     Vec3 pos;
@@ -19,28 +21,39 @@ struct MOTION_STATE{
 class VIMOTION
 {
 public:
-  Vec3 acc_bias;
-  Vec3 gyro_bias;
-  Vec3 gravity;
-  std::deque<MOTION_STATE> states;
+    SE3  T_i_c;//transformation from camera frame to imu frame
+    SE3  T_c_i;
 
-  MOTION_STATE init_state;
-  bool imu_initialized;
+    Vec3 acc_bias;
+    Vec3 gyro_bias;
+    Vec3 gravity;
+    std::deque<MOTION_STATE> states;
+    std::mutex mtx_states_RW;
 
-  bool is_first_data;
+    MOTION_STATE init_state;
+    bool imu_initialized;
 
-  void imu_initialization(IMUSTATE imu_read);
+    bool is_first_data;
 
-  //this is the vimotion trigger, the module will be triggered when the first vision frame come
-  //after that the pos vel and orientation will be integrate
-  void vision_trigger(Quaterniond& init_orientation);
+    VIMOTION(SE3 T_i_c_fromCalibration);
 
+    void viIMUinitialization(const IMUSTATE imu_read);
+    void viIMUPropagation(const IMUSTATE imu_read);
 
-  VIMOTION();
-  void imu_propagation(IMUSTATE imu_read);
-  void imu_correction_from_vision(SE3 T_c_w_vision, Vec3 vec_vision);
-  void getState(SE3& pose, Vec3& vel);
+    //this is the vimotion trigger, the module will be triggered when the first vision frame come
+    //after that the pos vel and orientation will be integrate
+    void viVisiontrigger(Quaterniond& init_orientation);
+    bool viVisionRPCompensation(const double time, SE3& T_c_w, double proportion);
+    void viGetLatestImuState(SE3& T_w_i, Vec3& vel);
+
+    void viCorrectionFromVision(const double time, SE3 T_c_w_vision, Vec3 vec_vision);
+
+    bool viGetIMURollPitchAtTime(const double time, double& roll, double& pitch);
+
 private:
+
+    bool viFindStateIdx(const double time, int& idx_in_q);
+
 
 };
 
