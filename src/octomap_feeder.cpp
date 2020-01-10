@@ -1,5 +1,6 @@
 #include "include/octomap_feeder.h"
 #include <pcl/filters/statistical_outlier_removal.h>
+#include "include/tic_toc_ros.h"
 
 
 OctomapFeeder::OctomapFeeder()
@@ -30,9 +31,11 @@ void OctomapFeeder::pub(const SE3 &T_c_w,const  cv::Mat &d_img, const ros::Time 
     int width_count=0;
     Vec3 pos_w_c= T_c_w.inverse().translation();
     double height=pos_w_c[2];
-    for(int u =0; u< d_img.cols; u+=7)
+    int step = 7;
+    int lines = 3;
+    for(int v = d_img.rows/2-step*lines-1;v <d_img.rows/2+step*lines;v+=step )
     {
-        for(int v = 0; v<d_img.rows; v+=7)
+        for(int u = 0; u<d_img.cols; u+=step)
         {
             cv::Point2f pt=cv::Point2f(u,v);
             Vec3 pt3d;
@@ -47,9 +50,9 @@ void OctomapFeeder::pub(const SE3 &T_c_w,const  cv::Mat &d_img, const ros::Time 
                 if(z>=0.5&&z<=6.5)
                 {
                     Vec3 pt_w = this->d_camera.pixel2worldT_c_w(Vec2(u,v),T_c_w,z);
-                    if(pt_w[2]>height+0.2 || pt_w[2]<0)
+                    if(pt_w[2]>height+0.3 || pt_w[2]<0)
                     {
-                        continue;
+                        //continue;
                     }
                     Vec3 pt_c = this->d_camera.pixel2camera(Vec2(u,v),z);
                     PointP p(static_cast<float>(pt_c[0]),
@@ -68,7 +71,7 @@ void OctomapFeeder::pub(const SE3 &T_c_w,const  cv::Mat &d_img, const ros::Time 
     pc_c->height=1;
     pc_c->is_dense = false;
 
-
+    tic_toc_ros pc_filter;
     pcl::StatisticalOutlierRemoval<PointP> sor;
     sor.setInputCloud (pc_c);
     sor.setMeanK (50);
@@ -78,5 +81,7 @@ void OctomapFeeder::pub(const SE3 &T_c_w,const  cv::Mat &d_img, const ros::Time 
     pcl::toROSMsg(*pc_c_filter,output);
     output.header.frame_id = tf_frame_name;
     octp_pc_pub.publish(output);
+    cout<<"point cloud filter cost: ";
+    pc_filter.toc();
 }
 

@@ -94,7 +94,7 @@ struct sort_descriptor_by_queryIdx
 #define ratioMax (0.5)
 #define ratioRansac (0.5)
 #define minPts (20)
-#define minScore (0.08)
+#define minScore (0.12)
 struct KeyFrameLC
 {
   int64_t         frame_id;

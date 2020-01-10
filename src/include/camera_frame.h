@@ -50,6 +50,9 @@ public:
   void forceCorrectLM3DW(const int& cnt, const vector<int64_t>& ids, const vector<Vec3>& lms_3d);
   void forceMarkOutlier( const int& cnt, const vector<int64_t>& ids);
 
+  //outlier from ransac pnp
+  void updateLMState(vector<uchar> status);
+
   //IO
   void getValid2d3dPair_cvPf(vector<cv::Point2f>& p2d,vector<cv::Point3f>& p3d);
   void getValidInliersPair(vector<LandMarkInFrame> &lms);

@@ -434,6 +434,15 @@ private:
             cv::Mat inliers;
             solvePnPRansac(p3d,p2d,cameraMatrix,distCoeffs,r_,t_,false,100,2.0,0.99,inliers,cv::SOLVEPNP_P3P);
             curr_frame->T_c_w = SE3_from_rvec_tvec(r_,t_);
+            std::vector<uchar> status;
+            for (int i = 0; i < (int)p2d.size(); i++)
+                status.push_back(0);
+            for( int i = 0; i < inliers.rows; i++)
+            {
+                int n = inliers.at<int>(i);
+                status[n] = 1;
+            }
+            curr_frame->updateLMState(status);
 
             //(Option) ->IMU roll pitch compensation
             if(this->has_imu)

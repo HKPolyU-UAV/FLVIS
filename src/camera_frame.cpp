@@ -257,6 +257,23 @@ void CameraFrame::getValid2d3dPair_cvPf(vector<cv::Point2f> &p2d, vector<cv::Poi
     }
 }
 
+void CameraFrame::updateLMState(vector<uchar> status)
+{
+  int indexLM = 0;
+  for(size_t i=0; i<landmarks.size(); i++)
+  {
+      LandMarkInFrame lm=landmarks.at(i);
+      if(lm.hasDepthInf() && lm.lm_tracking_state==LM_TRACKING_INLIER)
+      {
+       if(status[indexLM] == 0)
+         landmarks[i].lm_tracking_state = LM_TRACKING_OUTLIER;
+       indexLM += 1;
+      }
+  }
+
+  cout<<status.size()<<" compare "<<indexLM<<endl;
+
+}
 void CameraFrame::getValidInliersPair(vector<LandMarkInFrame> &lms)
 {
     lms.clear();
