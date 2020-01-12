@@ -28,12 +28,12 @@ void VIMOTION::viIMUinitialization(const IMUSTATE imu_read)
         Vec3 rpy;
         if(fabs(sqrt(acc[0]*acc[0]+acc[1]*acc[1]+acc[2]*acc[2])-MAGNITUDE_OF_GRAVITY)<0.5)//valid acc data
         {//feedback
-            cout << "init_imu: ax:" << acc[0] << " ay:" << acc[1] << " az:" << acc[2] << endl;
             rpy[0] = atan2(-acc[1],-acc[2]);
             rpy[1] = atan2(acc[0],-acc[2]);
             rpy[2] = 0;
             this->init_state.q_w_i = rpy2Q(rpy);
-            cout << "roll:"   << rpy[0]*57.2958
+            cout << "init_imu: "
+                 << "roll:"   << rpy[0]*57.2958
                  << " pitch:" << rpy[1]*57.2958
                  << " yaw:"   << rpy[2]*57.2958 << endl;
         }
@@ -92,28 +92,29 @@ void VIMOTION::viVisiontrigger(Quaterniond &init_orientation)
     //reset yaw angle to zero
     Vec3 rpy = Q2rpy(state.q_w_i);
     rpy[2] = 0;
-    cout << "roll:"   << rpy[0]*57.2958
+    cout << "Vision Trigger at: "
+         << "roll:"   << rpy[0]*57.2958
          << " pitch:" << rpy[1]*57.2958
          << " yaw:"   << rpy[2]*57.2958 << endl;
     Quaterniond q = rpy2Q(rpy);
-    cout << q.w() << ","
-         << q.x() << ","
-         << q.y() << ","
-         << q.z() << endl;
+    //    cout << q.w() << ","
+    //         << q.x() << ","
+    //         << q.y() << ","
+    //         << q.z() << endl;
     q.normalize();
-    cout << q.w() << ","
-         << q.x() << ","
-         << q.y() << ","
-         << q.z() << endl;
+    //    cout << q.w() << ","
+    //         << q.x() << ","
+    //         << q.y() << ","
+    //         << q.z() << endl;
     state.q_w_i = q;
 
     states.clear();
     states.push_back(state);
     init_orientation = state.q_w_i;
-    cout << init_orientation.w() << ","
-         << init_orientation.x() << ","
-         << init_orientation.y() << ","
-         << init_orientation.z() << endl;
+    //    cout << init_orientation.w() << ","
+    //         << init_orientation.x() << ","
+    //         << init_orientation.y() << ","
+    //         << init_orientation.z() << endl;
 }
 
 void VIMOTION::viIMUPropagation(const IMUSTATE imu_read)
@@ -135,7 +136,7 @@ void VIMOTION::viIMUPropagation(const IMUSTATE imu_read)
     Quaterniond qdot = scalar_multi_q(0.5*dt,q1_multi_q2(q_prev,omega));
     Quaterniond q_new = q_plus_q(q_prev,qdot);
     q_new.normalize();
-    if(fabs(sqrt(acc[0]*acc[0]+acc[1]*acc[1]+acc[2]*acc[2])-MAGNITUDE_OF_GRAVITY)<0.3)//valid acc data
+    if(fabs(sqrt(acc[0]*acc[0]+acc[1]*acc[1]+acc[2]*acc[2])-MAGNITUDE_OF_GRAVITY)<0.2)//valid acc data
     {//feedback
         Vec3 rpy = Q2rpy(q_new);
         Vec3 rpy_acc;
@@ -170,17 +171,22 @@ void VIMOTION::viCorrectionFromVision(const double time, SE3 T_c_w_vision, Vec3 
     Vec3 gyro_bias_est;
     this->mtx_states_RW.lock();
     int idx;
-    this->viFindStateIdx(time, idx);
-    SE3 T_w_i_orig=SE3(SO3(states.at(idx).q_w_i),states.at(idx).pos);
-    SE3 T_w_i_corr=T_c_w_vision.inverse()*this->T_c_i;
-    SE3 T_corr_orig= T_w_i_corr*T_w_i_orig.inverse();
-    int qsize=states.size();
-    for (;idx<qsize;idx++) {
-        SE3 T_orig = SE3(SO3(states.at(idx).q_w_i),states.at(idx).pos);
-        SE3 T_corr = T_corr_orig*T_orig;
-        states.at(idx).q_w_i = T_corr.unit_quaternion();
-        states.at(idx).pos = T_corr.translation();
-    };
+    if(this->viFindStateIdx(time, idx))
+    {
+        SE3 T_w_i_orig=SE3(SO3(states.at(idx).q_w_i),states.at(idx).pos);
+        SE3 T_w_i_corr=T_c_w_vision.inverse()*this->T_c_i;
+        SE3 T_corr_orig= T_w_i_corr*T_w_i_orig.inverse();
+        int qsize=states.size();
+        for (;idx<qsize;idx++) {
+            SE3 T_orig = SE3(SO3(states.at(idx).q_w_i),states.at(idx).pos);
+            SE3 T_corr = T_corr_orig*T_orig;
+            states.at(idx).q_w_i = T_corr.unit_quaternion();
+            states.at(idx).pos = T_corr.translation();
+        };
+    }else
+    {
+        cout << "No Correction" << endl;
+    }
     //    Vec3 pos = T_w_i_corr.translation();
     //    cout << pos(0) << " " << pos(1) << " " <<pos(2) << endl;
     //    pos = states.back().pos;
@@ -219,19 +225,21 @@ bool VIMOTION::viFindStateIdx(const double time, int& idx_in_q)
             break;
         }
     }
-    //    cout << "Frame time  :" << std::setprecision (15) << time << endl;
-    //    cout << "q begin time:" << this->states.front().imu_data.timestamp << endl;
-    //    cout << "q end time  :" << this->states.back().imu_data.timestamp << endl;
-    //    cout << "queue   size:" << states.size() << endl;
-    //    cout << "idx in queue:" << idx << endl;
-    //    cout << "      time  :" << this->states.at(idx).imu_data.timestamp << endl;
 
     if(idx>0 && idx!=9999)
     {
         idx_in_q = idx;
+        //    cout << "idx in queue:" << idx << endl;
+        //    cout << "      time  :" << this->states.at(idx).imu_data.timestamp << endl;
         ret = true;
     }
-    else {
+    else
+    {
+        cout << "[Critical Warning]: motion not in queue! please enlarge the buffer size" << endl;
+        cout << "queue   size:" << states.size() << endl;
+        cout << "Frame time  :" << std::setprecision (15) << time << endl;
+        cout << "q begin time:" << this->states.front().imu_data.timestamp << endl;
+        cout << "q end time  :" << this->states.back().imu_data.timestamp << endl;
         ret = false;
     }
     return ret;
@@ -256,7 +264,7 @@ bool VIMOTION::viGetIMURollPitchAtTime(const double time, double &roll, double &
         found = true;
     }else
     {
-        cout << "[Critical Warning]: motion not in queue! please enlarge the buffer size" << endl;
+        //cout << "viGetIMURollPitchAtTime fail" << endl;
         //        cout << "Frame time   :" << std::setprecision (15) << time << endl;
         //        cout << "q begin time :" << this->states.front().imu_data.timestamp << endl;
         //        cout << "q end time   :" << this->states.back().imu_data.timestamp << endl;
@@ -275,16 +283,13 @@ void VIMOTION::viGetLatestImuState(SE3 &T_w_i, Vec3 &vel)
     this->mtx_states_RW.unlock();
 }
 
-bool VIMOTION::viVisionRPCompensation(const double time, SE3 &T_c_w, double proportion)
+void VIMOTION::viVisionRPCompensation(const double time, SE3 &T_c_w, double proportion)
 {
-    cout << "In Camera_rp_compensation" << endl;
-
     Vec3 rpy_before, rpy_vimotion, ryp_after;//ryp_w_c
 
     SE3 T_c_w_before = T_c_w;
     SE3 T_w_i_before = (T_c_w_before.inverse())*this->T_c_i;
     rpy_before = Q2rpy(T_w_i_before.so3().unit_quaternion());
-
     if(this->viGetIMURollPitchAtTime(time,rpy_vimotion[0],rpy_vimotion[1]))
     {
         rpy_vimotion[2]=rpy_before[2];
@@ -301,12 +306,9 @@ bool VIMOTION::viVisionRPCompensation(const double time, SE3 &T_c_w, double prop
         SE3 T_w_i_after = SE3(SO3(rpy2Q(ryp_after)),T_w_i_before.translation());
         SE3 T_c_w_after= (T_w_i_after*this->T_i_c).inverse();
         T_c_w = T_c_w_after;
-        cout << "Camera_rp_compensation" << endl;
-        return true;
     }else
     {
-        cout << "No Cali" << endl;
-        return false;
+        cout << "No RPCompensation" << endl;
     }
-
+    return;
 }
