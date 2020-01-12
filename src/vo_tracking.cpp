@@ -449,9 +449,8 @@ private:
             {
                 vimotion->viVisionRPCompensation(curr_frame->frame_time.toSec(),
                                                  curr_frame->T_c_w,
-                                                 0.1);
+                                                 0.01);
             }
-
 
             //STEP4:
             bundleAdjustment::BAInFrame(*curr_frame);
@@ -459,6 +458,7 @@ private:
             double mean_reprojection_error;
             curr_frame->CalReprjInlierOutlier(mean_reprojection_error,outlier_reproject,1.5);
             curr_frame->reprojection_error=mean_reprojection_error;
+
 
             //(Option) ->Vision Feedback and bias estimation
             if(this->has_imu)
