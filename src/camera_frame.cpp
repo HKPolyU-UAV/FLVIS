@@ -271,7 +271,7 @@ void CameraFrame::updateLMState(vector<uchar> status)
       }
   }
 
-  cout<<status.size()<<" compare "<<indexLM<<endl;
+  //cout<<status.size()<<" compare "<<indexLM<<endl;
 
 }
 void CameraFrame::getValidInliersPair(vector<LandMarkInFrame> &lms)

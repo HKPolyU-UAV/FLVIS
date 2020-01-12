@@ -693,7 +693,7 @@ private:
 
         kf.lm_descriptor = ORBDescriptors;
 
-       cout<<"descriptor numbers: "<<ORBDescriptors.size()<<endl;
+       //cout<<"descriptor numbers: "<<ORBDescriptors.size()<<endl;
        // cout<<"feature cost: ";feature_tt.toc();
 
 
@@ -755,7 +755,7 @@ private:
 
         if(kf_id < 50)
         {
-          cout<<"KF number is less than 50. Return."<<endl;
+          //cout<<"KF number is less than 50. Return."<<endl;
           return;
         }
 

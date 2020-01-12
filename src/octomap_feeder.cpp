@@ -27,7 +27,6 @@ void OctomapFeeder::pub(const SE3 &T_c_w,const  cv::Mat &d_img, const ros::Time 
     br.sendTransform(tf::StampedTransform(transform, stamp, "map", this->tf_frame_name));
 
     PointCloudP::Ptr pc_c(new PointCloudP);
-    PointCloudP::Ptr pc_c_filter(new PointCloudP);
     int width_count=0;
     Vec3 pos_w_c= T_c_w.inverse().translation();
     double height=pos_w_c[2];
@@ -71,17 +70,12 @@ void OctomapFeeder::pub(const SE3 &T_c_w,const  cv::Mat &d_img, const ros::Time 
     pc_c->height=1;
     pc_c->is_dense = false;
 
-    tic_toc_ros pc_filter;
-    pcl::StatisticalOutlierRemoval<PointP> sor;
-    sor.setInputCloud (pc_c);
-    sor.setMeanK (50);
-    sor.setStddevMulThresh (1.0);
-    sor.filter (*pc_c_filter);
+
     sensor_msgs::PointCloud2 output;
-    pcl::toROSMsg(*pc_c_filter,output);
+    pcl::toROSMsg(*pc_c,output);
     output.header.frame_id = tf_frame_name;
     octp_pc_pub.publish(output);
-    cout<<"point cloud filter cost: ";
-    pc_filter.toc();
+    //cout<<"point cloud filter cost: ";
+
 }
 
