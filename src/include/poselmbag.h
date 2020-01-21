@@ -7,7 +7,6 @@
 
 using namespace std;
 
-#define POSE_LOOP_BUFFER_SIZE (8)
 
 struct LM_ITEM {
   int64_t id;
@@ -25,16 +24,17 @@ struct POSE_ITEM {
 class PoseLMBag
 {
 public:
-    vector<LM_ITEM> lm_sub_bag;
-    POSE_ITEM       pose_sub_bag[POSE_LOOP_BUFFER_SIZE];
+    vector<LM_ITEM>    lm_sub_bag;
+    vector<POSE_ITEM>  pose_sub_bag;
 
+    int             pose_buffer_size;
     int             newest;//idx of newest pose in pose_sub_bag
     int             oldest;//idx of oldest pose in pose_sub_bag
     int             wp_init;//write pointer for initialization process
     int             pose_cnt_init;//pose count for initialization process
     bool            pose_sub_bag_initialized;
 
-    PoseLMBag();
+    PoseLMBag(int pose_buffer_size_in);
 
     bool hasTheLM(int64_t id_in, int &idx);
     bool addLMObservation(int64_t id_in, Vec3 p3d_w_in);

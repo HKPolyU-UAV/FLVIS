@@ -1,10 +1,17 @@
 #include "include/poselmbag.h"
 #include <include/common.h>
 #include <stdio.h>
-
-PoseLMBag::PoseLMBag()
+//pose_buffer_size
+PoseLMBag::PoseLMBag(int pose_buffer_size_in)
 {
+    this->pose_buffer_size = pose_buffer_size_in;
     this->lm_sub_bag.clear();
+    this->pose_sub_bag.clear();
+    POSE_ITEM pose;
+    for(int i=0; i<pose_buffer_size; i++)
+    {
+        pose_sub_bag.push_back(pose);
+    }
     wp_init=0;//write pointer for initialization
     pose_cnt_init=0;
     pose_sub_bag_initialized=false;
@@ -95,7 +102,7 @@ void PoseLMBag::addPose(int64_t id_in, SE3 pose_in)
         this->pose_sub_bag[newest].relevent_frame_id = id_in;
         this->pose_sub_bag[newest].pose = pose_in;
         this->oldest++;
-        if(this->oldest==POSE_LOOP_BUFFER_SIZE)
+        if(this->oldest==pose_buffer_size)
         {
             this->oldest = 0;
         }
@@ -105,11 +112,11 @@ void PoseLMBag::addPose(int64_t id_in, SE3 pose_in)
         this->pose_sub_bag[wp_init].pose = pose_in;
         this->pose_sub_bag[wp_init].pose_id = wp_init;
         wp_init++;
-        if(this->wp_init==POSE_LOOP_BUFFER_SIZE)
+        if(this->wp_init==pose_buffer_size)
         {
             this->pose_sub_bag_initialized = true;
             this->oldest = 0;
-            this->newest = (POSE_LOOP_BUFFER_SIZE-1);
+            this->newest = (pose_buffer_size-1);
         }
     }
 }
@@ -135,7 +142,7 @@ void PoseLMBag::getMultiViewLMs(vector<LM_ITEM> &lms_out, int view_cnt)
 void PoseLMBag::getAllPoses(vector<POSE_ITEM> &poses_out)
 {
     poses_out.clear();
-    for (int i=0; i<POSE_LOOP_BUFFER_SIZE; i++) {
+    for (int i=0; i<pose_buffer_size; i++) {
         poses_out.push_back(this->pose_sub_bag[i]);
     }
 }
@@ -154,7 +161,7 @@ int PoseLMBag::getOldestPoseInOptimizerIdx(void)
 int64_t PoseLMBag::getPoseIdByReleventFrameId(int64_t frame_id)
 {
     int64_t ret_val=-1;
-    for(int i=0; i<POSE_LOOP_BUFFER_SIZE; i++)
+    for(int i=0; i<pose_buffer_size; i++)
     {
         if(pose_sub_bag[i].relevent_frame_id == frame_id)
         {
@@ -169,7 +176,7 @@ void PoseLMBag::debug_output(void)
 {
     cout << "debug output" << endl;
     cout << "Poses:" << endl;
-    for(int i=0; i<POSE_LOOP_BUFFER_SIZE; i++)
+    for(int i=0; i<pose_buffer_size; i++)
     {
         cout << "pose id " << pose_sub_bag[i].pose_id
              << " relevent frame id: " << pose_sub_bag[i].relevent_frame_id
