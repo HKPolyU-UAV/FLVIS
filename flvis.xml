@@ -1,0 +1,23 @@
+<library path="lib/libflvis">
+
+        <class name="flvis/TrackingNodeletClass" type="flvis_ns::TrackingNodeletClass"
+		base_class_type="nodelet::Nodelet">
+		<description>
+                        TrackingNodeletClass.
+		</description>
+	</class>
+
+        <class name="flvis/LocalMapNodeletClass" type="flvis_ns::LocalMapNodeletClass"
+		base_class_type="nodelet::Nodelet">
+		<description>
+                        LocalMapNodeletClass.
+		</description>
+	</class>
+
+        <class name="flvis/LoopClosingNodeletClass" type="flvis_ns::LoopClosingNodeletClass"
+                base_class_type="nodelet::Nodelet">
+                <description>
+                        LoopClosingNodeletClass.
+                </description>
+        </class>
+</library>

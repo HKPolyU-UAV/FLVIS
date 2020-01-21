@@ -7,12 +7,12 @@ KeyFrameMsg::KeyFrameMsg()
 
 KeyFrameMsg::KeyFrameMsg(ros::NodeHandle &nh, string topic_name, int buffersize)
 {
-    kf_pub = nh.advertise<vo_nodelet::KeyFrame>(topic_name,1);
+    kf_pub = nh.advertise<flvis::KeyFrame>(topic_name,1);
 }
 
 void KeyFrameMsg::pub(CameraFrame& frame, ros::Time stamp)
 {
-    vo_nodelet::KeyFrame kf;
+    flvis::KeyFrame kf;
 
     kf.header.stamp = stamp;
     kf.frame_id = frame.frame_id;
@@ -93,7 +93,7 @@ void KeyFrameMsg::pub(CameraFrame& frame, ros::Time stamp)
     kf_pub.publish(kf);
 }
 
-void KeyFrameMsg::unpack(vo_nodelet::KeyFrameConstPtr kf_const_ptr,
+void KeyFrameMsg::unpack(flvis::KeyFrameConstPtr kf_const_ptr,
                          int64_t         &frame_id,
                          cv::Mat             &img,
                          cv::Mat             &d_img,

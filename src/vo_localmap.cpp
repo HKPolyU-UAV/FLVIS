@@ -11,7 +11,7 @@
 #include <include/correction_inf_msg.h>
 
 #include <include/keyframe_msg.h>
-#include <vo_nodelet/KeyFrame.h>
+#include <flvis/KeyFrame.h>
 #include <geometry_msgs/Vector3.h>
 #include <include/poselmbag.h>
 
@@ -38,16 +38,16 @@
 using namespace cv;
 using namespace std;
 
-#define FIX_WINDOW_OPTIMIZER_SIZE (8)
+
 
 static int64_t edge_id;
 
 
-namespace vo_nodelet_ns
+namespace flvis_ns
 {
 
 std::deque<KeyFrameStruct> kfs;
-PoseLMBag bag;
+PoseLMBag* bag;
 
 
 enum LMOPTIMIZER_STATE{
@@ -58,11 +58,11 @@ enum LMOPTIMIZER_STATE{
 
 
 
-class VOLocalMapNodeletClass : public nodelet::Nodelet
+class LocalMapNodeletClass : public nodelet::Nodelet
 {
 public:
-    VOLocalMapNodeletClass()  {;}
-    ~VOLocalMapNodeletClass() {;}
+    LocalMapNodeletClass()  {;}
+    ~LocalMapNodeletClass() {;}
 
 private:
     ros::Subscriber sub_kf;
@@ -71,6 +71,7 @@ private:
 
     int image_width,image_height;
     Mat diplay_img;
+    int fix_window_optimizer_size;
 
 
     double fx,fy,cx,cy;
@@ -80,7 +81,7 @@ private:
     vector<g2o::EdgeProjectXYZ2UV*> edges;
 
 
-    void frame_callback(const vo_nodelet::KeyFrameConstPtr& msg)
+    void frame_callback(const flvis::KeyFrameConstPtr& msg)
     {
         KeyFrameStruct kf;
         ros::Time tt;
@@ -108,30 +109,34 @@ private:
         case UN_INITIALIZED:
             if(1){
                 cout << "LocalMap: optimizer uninitialized" << endl;
-                if(kfs.size()>=FIX_WINDOW_OPTIMIZER_SIZE)
+                if(kfs.size()>=fix_window_optimizer_size)
                 {
                     std::unique_ptr<g2o::BlockSolver_6_3::LinearSolverType> linearSolver(new g2o::LinearSolverCholmod<g2o::BlockSolver_6_3::PoseMatrixType>());
                     std::unique_ptr<g2o::BlockSolver_6_3> solver_ptr(new g2o::BlockSolver_6_3(std::move(linearSolver)));
                     g2o::OptimizationAlgorithmLevenberg *solver = new g2o::OptimizationAlgorithmLevenberg(std::move(solver_ptr));
                     optimizer.setAlgorithm (solver);
-                    for(int f_idx = 0; f_idx<FIX_WINDOW_OPTIMIZER_SIZE; f_idx++)//add pose
+                    for(int f_idx = 0; f_idx<fix_window_optimizer_size; f_idx++)//add pose
                     {
-                        bag.addPose(kfs.at(f_idx).frame_id,
-                                    kfs.at(f_idx).T_c_w);
+                        bag->addPose(kfs.at(f_idx).frame_id,
+                                     kfs.at(f_idx).T_c_w);
                         //cout << "lm_cout " << kfs.at(f_idx).lm_count << " " << kfs.at(f_idx).lm_3d.size() << endl;
                         for(int lm_idx=0; lm_idx < kfs.at(f_idx).lm_count; lm_idx++)//add landmarks
                         {
-                            bag.addLMObservation(kfs.at(f_idx).lm_id.at(lm_idx),
-                                                 kfs.at(f_idx).lm_3d.at(lm_idx));
+                            bag->addLMObservation(kfs.at(f_idx).lm_id.at(lm_idx),
+                                                  kfs.at(f_idx).lm_3d.at(lm_idx));
                         }
                     }
                     cout << "LocalMap: Initialize Optimizer*****" << endl;
-                    //STEP1: Add Camera Pose Vertex;
+                    //STEP1: Add Camera Pose Vertex
+                    //STEP2: Add LandMark Vertex
+                    //STEP3: Add All Observation Edge
+
+                    //STEP1:
                     vector<POSE_ITEM> poses;
-                    int oldest_idx1 = bag.getOldestPoseInOptimizerIdx();
+                    int oldest_idx1 = bag->getOldestPoseInOptimizerIdx();
                     int oldest_idx2 = (oldest_idx1+1);
-                    if(oldest_idx2 == FIX_WINDOW_OPTIMIZER_SIZE) oldest_idx2 = 0;
-                    bag.getAllPoses(poses);
+                    if(oldest_idx2 == fix_window_optimizer_size) oldest_idx2 = 0;
+                    bag->getAllPoses(poses);
                     for(std::vector<POSE_ITEM>::iterator it = poses.begin(); it != poses.end(); ++it)
                     {
                         g2o::VertexSE3Expmap* v_pose = new g2o::VertexSE3Expmap();
@@ -145,9 +150,10 @@ private:
                                                          it->pose.translation()));
                         optimizer.addVertex(v_pose);
                     }
+
                     //STEP2: Add LandMark Vertex;
                     vector<LM_ITEM> lms;
-                    bag.getAllLMs(lms);
+                    bag->getAllLMs(lms);
                     for(std::vector<LM_ITEM>::iterator it = lms.begin(); it != lms.end(); ++it) {
                         g2o::VertexSBAPointXYZ* point = new g2o::VertexSBAPointXYZ();
                         point->setId (it->id);
@@ -162,9 +168,9 @@ private:
                     optimizer.addParameter(camera);
                     edge_id = 0;
                     edges.clear();
-                    for(int f_idx = 0; f_idx<FIX_WINDOW_OPTIMIZER_SIZE; f_idx++)//add pose
+                    for(int f_idx = 0; f_idx<fix_window_optimizer_size; f_idx++)//add pose
                     {
-                        int64_t pose_vertex_idx = bag.getPoseIdByReleventFrameId(kfs.at(f_idx).frame_id);
+                        int64_t pose_vertex_idx = bag->getPoseIdByReleventFrameId(kfs.at(f_idx).frame_id);
                         //cout << pose_vertex_idx << endl;
                         for(int lm_idx=0; lm_idx < kfs.at(f_idx).lm_count; lm_idx++)//add landmarks
                         {
@@ -194,32 +200,31 @@ private:
         case SLIDING_WINDOW:
             if(1)
             {
-                //cout << "LocalMap: SLIDING WINDOW" << endl;
+
                 //STEP1: Delete Oldest Frame and idle LM;
-                //cout << "LocalMap: Remove Inf From Optimizer*****" << endl;
-                optimizer.removeVertex(dynamic_cast<g2o::VertexSE3Expmap*>(optimizer.vertex(bag.getOldestPoseInOptimizerIdx())));
+                //STEP2: Add new Frame, LM and Observation;
+
+                optimizer.removeVertex(dynamic_cast<g2o::VertexSE3Expmap*>(optimizer.vertex(bag->getOldestPoseInOptimizerIdx())));
                 for(auto id:kfs.at(0).lm_id)
                 {
-                    if(bag.removeLMObservation(id))
+                    if(bag->removeLMObservation(id))
                     {
                         optimizer.removeVertex(dynamic_cast<g2o::VertexSBAPointXYZ*>(optimizer.vertex(id)));
                     }
                 }
-                //cout << "LocalMap: Add Pose to Optimizer*****" << endl;
-                //STEP2: Add new Frame, LM and Observation;
-                bag.addPose(kfs.back().frame_id,
-                            kfs.back().T_c_w);
+                //STEP2:
+                bag->addPose(kfs.back().frame_id,
+                             kfs.back().T_c_w);
                 g2o::VertexSE3Expmap* v_pose = new g2o::VertexSE3Expmap();
-                v_pose->setId(bag.getNewestPoseInOptimizerIdx());
+                v_pose->setId(bag->getNewestPoseInOptimizerIdx());
                 v_pose->setEstimate(g2o::SE3Quat(kfs.back().T_c_w.so3().unit_quaternion().toRotationMatrix(),
                                                  kfs.back().T_c_w.translation()));
                 optimizer.addVertex(v_pose);
-                optimizer.vertex(bag.getOldestPoseInOptimizerIdx())->setFixed(true);
-                //cout << "LocalMap: Add LM to Optimizer*****" << endl;
-                for(int i=0; i < kfs.back().lm_count; i++)//add landmarks
+                optimizer.vertex(bag->getOldestPoseInOptimizerIdx())->setFixed(true);
+                for(int i=0; i < kfs.back().lm_count; i++)
                 {
-                    if(bag.addLMObservationSlidingWindow(kfs.back().lm_id.at(i),
-                                                         kfs.back().lm_3d.at(i)))
+                    if(bag->addLMObservationSlidingWindow(kfs.back().lm_id.at(i),
+                                                          kfs.back().lm_3d.at(i)))
                     {
                         g2o::VertexSBAPointXYZ* v_lm = new g2o::VertexSBAPointXYZ();
                         v_lm->setId (kfs.back().lm_id.at(i));
@@ -228,7 +233,6 @@ private:
                         optimizer.addVertex (v_lm);
                     }
                 }
-                //cout << "LocalMap: Add Edge to Optimizer*****" << endl;
                 g2o::HyperGraph::EdgeSet es = optimizer.edges();
                 vector<g2o::HyperGraph::Edge*> v(es.begin(), es.end());
                 edges.clear();
@@ -245,7 +249,7 @@ private:
                     edge->setVertex(0,dynamic_cast<g2o::VertexSBAPointXYZ*>
                                     (optimizer.vertex(  lm_vertex_idx)));
                     edge->setVertex(1,dynamic_cast<g2o::VertexSE3Expmap*>
-                                    (optimizer.vertex(bag.getNewestPoseInOptimizerIdx())));
+                                    (optimizer.vertex(bag->getNewestPoseInOptimizerIdx())));
                     edge->setMeasurement(kfs.back().lm_2d.at(i));
                     edge->setInformation(Eigen::Matrix2d::Identity() );
                     edge->setParameterId(0,0);
@@ -295,13 +299,13 @@ private:
             //update pose of newest frame
             correction_inf.frame_id=kfs.back().frame_id;
 
-            g2o::VertexSE3Expmap* v = dynamic_cast<g2o::VertexSE3Expmap*>(optimizer.vertex(bag.getNewestPoseInOptimizerIdx()));
+            g2o::VertexSE3Expmap* v = dynamic_cast<g2o::VertexSE3Expmap*>(optimizer.vertex(bag->getNewestPoseInOptimizerIdx()));
             Eigen::Isometry3d pose = v->estimate();
             correction_inf.T_c_w = SE3(pose.rotation(),pose.translation());
 
             //landmark position
             vector<LM_ITEM> lms;
-            bag.getMultiViewLMs(lms,4);
+            bag->getMultiViewLMs(lms,4);
             cout<<"multi view lm  number:  "<<lms.size()<<endl;
             //bag.getAllLMs(lms);
             correction_inf.lm_count = lms.size();
@@ -329,7 +333,7 @@ private:
 
     virtual void onInit()
     {
-        ros::NodeHandle nh = getNodeHandle();
+        ros::NodeHandle nh = getPrivateNodeHandle();
 
         string configFilePath;
         nh.getParam("/yamlconfigfile",   configFilePath);
@@ -342,29 +346,40 @@ private:
         fy = cameraMatrix.at<double>(1,1);
         cx = cameraMatrix.at<double>(0,2);
         cy = cameraMatrix.at<double>(1,2);
-        cout << "cameraMatrix:" << endl << cameraMatrix << endl
-             << "distCoeffs:" << endl << distCoeffs << endl
-             << "image_width: "  << image_width << " image_height: "  << image_height << endl
-             << "fx: "  << fx << " fy: "  << fy <<  " cx: "  << cx <<  " cy: "  << cy << endl;
+//        cout << "cameraMatrix:" << endl << cameraMatrix << endl
+//             << "distCoeffs:" << endl << distCoeffs << endl
+//             << "image_width: "  << image_width << " image_height: "  << image_height << endl
+//             << "fx: "  << fx << " fy: "  << fy <<  " cx: "  << cx <<  " cy: "  << cy << endl;
         diplay_img.create(image_height+1,image_width*2+5,CV_8UC(3));
+        nh.getParam("/yamlconfigfile",   configFilePath);
+
+        optimizer_state = UN_INITIALIZED;
+        fix_window_optimizer_size = 0;
+        nh.getParam("window_size",   fix_window_optimizer_size);
+        cout << "window_size: " << fix_window_optimizer_size << endl;
+        if(fix_window_optimizer_size < 3 || fix_window_optimizer_size > 100)
+        {
+            fix_window_optimizer_size = 10;
+            cout << "invalide window_size use default :" << fix_window_optimizer_size << endl;
+        }
+        bag = new PoseLMBag(fix_window_optimizer_size);
 
         pub_correction_inf = new CorrectionInfMsg(nh,"/vo_localmap_feedback");
-        optimizer_state = UN_INITIALIZED;
 
-        sub_kf = nh.subscribe<vo_nodelet::KeyFrame>(
+        sub_kf = nh.subscribe<flvis::KeyFrame>(
                     "/vo_kf",
                     10,
-                    boost::bind(&VOLocalMapNodeletClass::frame_callback, this, _1));
+                    boost::bind(&LocalMapNodeletClass::frame_callback, this, _1));
 
     }
 
 
 
 
-};//class VOLocalMapNodeletClass
-}//namespace vo_nodelet_ns
+};//class LocalMapNodeletClass
+}//namespace flvis_ns
 
 
 
-PLUGINLIB_EXPORT_CLASS(vo_nodelet_ns::VOLocalMapNodeletClass, nodelet::Nodelet)
+PLUGINLIB_EXPORT_CLASS(flvis_ns::LocalMapNodeletClass, nodelet::Nodelet)
 

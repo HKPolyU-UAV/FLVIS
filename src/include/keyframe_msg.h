@@ -3,7 +3,7 @@
 #include <ros/ros.h>
 #include <cv_bridge/cv_bridge.h>
 
-#include <vo_nodelet/KeyFrame.h>
+#include <flvis/KeyFrame.h>
 #include <include/common.h>
 #include <include/camera_frame.h>
 
@@ -27,7 +27,7 @@ public:
     KeyFrameMsg();
     KeyFrameMsg(ros::NodeHandle& nh, string topic_name, int buffersize=2);
     void pub(CameraFrame& frame, ros::Time stamp=ros::Time::now());
-    static void unpack(vo_nodelet::KeyFrameConstPtr kf_const_ptr,
+    static void unpack(flvis::KeyFrameConstPtr kf_const_ptr,
                        int64_t         &frame_id,
                        cv::Mat             &img,
                        cv::Mat             &d_img,

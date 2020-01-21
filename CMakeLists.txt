@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(vo_nodelet)
+project(flvis)
 
 add_definitions(-std=c++11)
 #set(CMAKE_CXX_FLAGS "-std=c++11)
@@ -85,7 +85,7 @@ SET(G2O_LIBS cholmod cxsparse -lg2o_cli -lg2o_core
 -lg2o_types_slam3d)
 
 ## Declare a C++ library
-add_library(vo_nodelet
+add_library(flvis
     src/vo_tracking.cpp
     src/vo_localmap.cpp
     src/vo_loopclosing.cpp
@@ -107,7 +107,7 @@ add_library(vo_nodelet
     src/vi_motion.cpp
     )
 
-target_link_libraries(vo_nodelet
+target_link_libraries(flvis
     ${catkin_LIBRARIES}
     ${OpenCV_LIBRARIES}
     ${CSPARSE_LIBRARY}

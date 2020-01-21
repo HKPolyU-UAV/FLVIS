@@ -3,7 +3,7 @@
 
 #include <ros/ros.h>
 
-#include <vo_nodelet/CorrectionInf.h>
+#include <flvis/CorrectionInf.h>
 #include <include/common.h>
 #include <include/camera_frame.h>
 
@@ -33,7 +33,7 @@ public:
              const vector<int64_t> &lm_outlier_id_in,
              ros::Time             stamp=ros::Time::now());
 
-    static void unpack(vo_nodelet::CorrectionInfConstPtr c_inf_ptr,
+    static void unpack(flvis::CorrectionInfConstPtr c_inf_ptr,
                        int64_t                           &frame_id_out,
                        SE3                               &T_c_w_out,
                        int                               &lm_count_out,

@@ -1,0 +1,19 @@
+<launch>
+
+    <param name="/yamlconfigfile" type="string" value="$(find flvis)/launch/d435_sn912112073494.yaml"/>
+
+    <include file="$(find flvis)/launch/d435_sn912112073494.launch"/>
+
+    <include file="$(find flvis)/launch/flvis.launch"/>
+
+    <node pkg="octomap_server" type="octomap_server_node" name="octomap_server">
+        <param name="resolution" value="0.15" />
+        <param name="frame_id" type="string" value="map" />
+        <param name="sensor_model/max_range" value="8.0" />
+        <remap from="cloud_in" to="/vo_octo_tracking" />
+    </node>
+
+</launch>
+
+
+

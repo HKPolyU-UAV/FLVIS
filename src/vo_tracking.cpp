@@ -28,8 +28,8 @@
 #include <include/camera_frame.h>
 #include <include/yamlRead.h>
 #include <include/cv_draw.h>
-#include <vo_nodelet/KeyFrame.h>
-#include <vo_nodelet/CorrectionInf.h>
+#include <flvis/KeyFrame.h>
+#include <flvis/CorrectionInf.h>
 #include <include/keyframe_msg.h>
 #include <include/bundle_adjustment.h>
 #include <include/correction_inf_msg.h>
@@ -43,13 +43,13 @@ struct ID_POSE {
     int    frame_id;
     SE3    T_c_w;
 };
-namespace vo_nodelet_ns
+namespace flvis_ns
 {
-class VOTrackingNodeletClass : public nodelet::Nodelet
+class TrackingNodeletClass : public nodelet::Nodelet
 {
 public:
-    VOTrackingNodeletClass()  {;}
-    ~VOTrackingNodeletClass() {;}
+    TrackingNodeletClass()  {;}
+    ~TrackingNodeletClass() {;}
 private:
     //Subscribers
     message_filters::Subscriber<sensor_msgs::Image> image_sub;
@@ -63,6 +63,7 @@ private:
     F2FTracking        *tracker;
     //VIMOTION
     bool               has_imu;
+    bool               enable_imu;
     VIMOTION           *vimotion;
     //State
     enum TRACKINGSTATE   vo_tracking_state;
@@ -116,11 +117,10 @@ private:
         double fy = cameraMatrix.at<double>(1,1);
         double cx = cameraMatrix.at<double>(0,2);
         double cy = cameraMatrix.at<double>(1,2);
-        cout << "cameraMatrix:" << endl << cameraMatrix << endl
-             << "distCoeffs:" << endl << distCoeffs << endl
-             << "image_width: "  << image_width << " image_height: "  << image_height << endl
-             << "fx: "  << fx << " fy: "  << fy <<  " cx: "  << cx <<  " cy: "  << cy << endl;
-
+        //        cout << "cameraMatrix:" << endl << cameraMatrix << endl
+        //             << "distCoeffs:" << endl << distCoeffs << endl
+        //             << "image_width: "  << image_width << " image_height: "  << image_height << endl
+        //             << "fx: "  << fx << " fy: "  << fy <<  " cx: "  << cx <<  " cy: "  << cy << endl;
         featureDEM  = new FeatureDEM(image_width,image_height,5);
         tracker     = new F2FTracking(image_width,image_height);
 
@@ -134,6 +134,7 @@ private:
         SE3    T_i_c(R_i_c,t_i_c);
         vimotion    = new VIMOTION(T_i_c);
         has_imu     = false;
+        enable_imu  = true;
 
         curr_frame = std::make_shared<CameraFrame>();
         last_frame = std::make_shared<CameraFrame>();
@@ -144,7 +145,6 @@ private:
         frameCount = 0;
         vo_tracking_state = UnInit;
         has_feedback = false;
-
         //Publish
         path_pub  = new RVIZPath(nh,"/vo_path");
         path_lc_pub  = new RVIZPath(nh,"/vo_path_lc");
@@ -157,80 +157,79 @@ private:
         dimg_pub = it.advertise("/vo_dimg", 1);
         //Subscribe
         //Sync Subscribe Image and Rectified Depth Image
-        image_sub.subscribe(nh, "/vo/image", 1);
-        depth_sub.subscribe(nh, "/vo/depth_image", 1);
-        exactSync_ = new message_filters::Synchronizer<MyExactSyncPolicy>(MyExactSyncPolicy(2), image_sub, depth_sub);
-        exactSync_->registerCallback(boost::bind(&VOTrackingNodeletClass::image_input_callback, this, _1, _2));
         //Correction information
-        correction_inf_sub = nh.subscribe<vo_nodelet::CorrectionInf>(
+        correction_inf_sub = nh.subscribe<flvis::CorrectionInf>(
                     "/vo_localmap_feedback",
                     1,
-                    boost::bind(&VOTrackingNodeletClass::correction_feedback_callback, this, _1));
+                    boost::bind(&TrackingNodeletClass::correction_feedback_callback, this, _1));
         imu_sub = nh.subscribe<sensor_msgs::Imu>(
                     "/imu",
                     10,
-                    boost::bind(&VOTrackingNodeletClass::imu_callback, this, _1));
-        cout << "init Subscribe" << endl;
+                    boost::bind(&TrackingNodeletClass::imu_callback, this, _1));
+        image_sub.subscribe(nh, "/vo/image", 1);
+        depth_sub.subscribe(nh, "/vo/depth_image", 1);
+        exactSync_ = new message_filters::Synchronizer<MyExactSyncPolicy>(MyExactSyncPolicy(2), image_sub, depth_sub);
+        exactSync_->registerCallback(boost::bind(&TrackingNodeletClass::image_input_callback, this, _1, _2));
 
-        cout << "onInit() finished" << endl;
+        cout << "Tracking start!" << endl;
     }
 
 #define USE_RSD435I (1)
-
     void imu_callback(const sensor_msgs::ImuConstPtr& msg)
     {
-        if(!has_imu){
-            has_imu = true;
-        }
-        //SETP1: TO ENU Frame
-        Vec3 acc,gyro;
-        double stamp = msg->header.stamp.toSec();
-        if(USE_RSD435I)
+        if(!has_imu){has_imu = true;}
+        if(enable_imu)
         {
-            acc = Vec3(-msg->linear_acceleration.z,
-                       msg->linear_acceleration.x,
-                       msg->linear_acceleration.y);
-            gyro = Vec3(msg->angular_velocity.z,
-                        -msg->angular_velocity.x,
-                        -msg->angular_velocity.y);
+            //SETP1: TO ENU Frame
+            Vec3 acc,gyro;
+            double stamp = msg->header.stamp.toSec();
+            if(USE_RSD435I)
+            {
+                acc = Vec3(-msg->linear_acceleration.z,
+                           msg->linear_acceleration.x,
+                           msg->linear_acceleration.y);
+                gyro = Vec3(msg->angular_velocity.z,
+                            -msg->angular_velocity.x,
+                            -msg->angular_velocity.y);
+            }else//Default
+            {
+                gyro = Vec3(msg->angular_velocity.x,
+                            msg->angular_velocity.y,
+                            msg->angular_velocity.z);
+                acc = Vec3(msg->linear_acceleration.x,
+                           msg->linear_acceleration.y,
+                           msg->linear_acceleration.z);
+            }
+            if(!(vimotion->imu_initialized))
+            {
+                //estimate orientation
+                vimotion->viIMUinitialization(IMUSTATE(stamp,acc,gyro));
+            }else {
+                //estimate pos vel and orientation
+                vimotion->viIMUPropagation(IMUSTATE(stamp,acc,gyro));
+                geometry_msgs::PoseStamped pose;
+                SE3 T_w_i_from_imu;
+                Vec3 vel_from_imu;
+                vimotion->viGetLatestImuState(T_w_i_from_imu,vel_from_imu);
+                SE3 T_w_c=T_w_i_from_imu*vimotion->T_i_c;
+                pose.header.stamp = msg->header.stamp;
+                pose.header.frame_id = "map";
+                Vec3 p = T_w_c.translation();
+                Quaterniond q = T_w_c.unit_quaternion();
+                pose.pose.position.x = p[0];
+                pose.pose.position.y = p[1];
+                pose.pose.position.z = p[2];
+                pose.pose.orientation.w = q.w();
+                pose.pose.orientation.x = q.x();
+                pose.pose.orientation.y = q.y();
+                pose.pose.orientation.z = q.z();
+                this->imu2vision_pose_pub.publish(pose);
+            }
+        }
 
-        }else//Default
-        {
-            gyro = Vec3(msg->angular_velocity.x,
-                        msg->angular_velocity.y,
-                        msg->angular_velocity.z);
-            acc = Vec3(msg->linear_acceleration.x,
-                       msg->linear_acceleration.y,
-                       msg->linear_acceleration.z);
-        }
-        if(!(vimotion->imu_initialized))
-        {
-            //estimate orientation
-            vimotion->viIMUinitialization(IMUSTATE(stamp,acc,gyro));
-        }else {
-            //estimate pos vel and orientation
-            vimotion->viIMUPropagation(IMUSTATE(stamp,acc,gyro));
-            geometry_msgs::PoseStamped pose;
-            SE3 T_w_i_from_imu;
-            Vec3 vel_from_imu;
-            vimotion->viGetLatestImuState(T_w_i_from_imu,vel_from_imu);
-            SE3 T_w_c=T_w_i_from_imu*vimotion->T_i_c;
-            pose.header.stamp = msg->header.stamp;
-            pose.header.frame_id = "map";
-            Vec3 p = T_w_c.translation();
-            Quaterniond q = T_w_c.unit_quaternion();
-            pose.pose.position.x = p[0];
-            pose.pose.position.y = p[1];
-            pose.pose.position.z = p[2];
-            pose.pose.orientation.w = q.w();
-            pose.pose.orientation.x = q.x();
-            pose.pose.orientation.y = q.y();
-            pose.pose.orientation.z = q.z();
-            this->imu2vision_pose_pub.publish(pose);
-        }
     }
 
-    void correction_feedback_callback(const vo_nodelet::CorrectionInf::ConstPtr& msg)
+    void correction_feedback_callback(const flvis::CorrectionInf::ConstPtr& msg)
     {
         //unpacking and update the structure
         CorrectionInfMsg::unpack(msg,
@@ -250,7 +249,6 @@ private:
 
         frameCount++;
         if(frameCount<30) return;
-
         //15hz Frame Rate
         //if((frameCount%2)==0) return;
         //cout << "Frame No: " << frameCount << endl;
@@ -274,8 +272,6 @@ private:
             // 0  0  1
             //-1  0  0
             // 0 -1  0
-
-
             R_w_c << 0, 0, 1, -1, 0, 0, 0,-1, 0;
             Vec3   t_w_c=Vec3(0,0,1);
             SE3    T_w_c(R_w_c,t_w_c);
@@ -300,6 +296,8 @@ private:
                 {
                     break;
                 }
+            }else {
+                enable_imu = false;
             }
 
             vector<Vec2> pts2d;
@@ -331,34 +329,23 @@ private:
             cout << "vo_tracking_state = Working" << endl;
 
             //if has tf between map and odom
-            if(1)
+            try
             {
-                try
-                {
-                    listenerOdomMap.lookupTransform("map","odom",ros::Time(0), tranOdomMap);
-
-
-              tf::Vector3 tf_t= tranOdomMap.getOrigin();
-              tf::Quaternion tf_q = tranOdomMap.getRotation();
-              Vec3 se3_t(tf_t.x(),tf_t.y(),tf_t.z());
-              Quaterniond se3_q(tf_q.w(),tf_q.x(),tf_q.y(),tf_q.z());
-              //cout<<tf_t.x()<<" "<<tf_t.y()<<" "<<tf_t.z()<<" "<<tf_q.x()<<" "<<tf_q.y()<<" "<<tf_q.z()<<" "<<tf_q.w()<<" "<<endl;
-              SE3 T_map_odom(se3_q,se3_t);
-              T_map_c = T_map_odom.inverse()*curr_frame->T_c_w.inverse();
-              path_lc_pub->pubPathT_w_c(T_map_c,currStamp);
-
-
-
-                }
-                catch (tf::TransformException ex)
-                {
-                    ROS_ERROR("%s",ex.what());
-                    cout<<"no transform between map and odom yet."<<endl;
-                }
+                listenerOdomMap.lookupTransform("map","odom",ros::Time(0), tranOdomMap);
+                tf::Vector3 tf_t= tranOdomMap.getOrigin();
+                tf::Quaternion tf_q = tranOdomMap.getRotation();
+                Vec3 se3_t(tf_t.x(),tf_t.y(),tf_t.z());
+                Quaterniond se3_q(tf_q.w(),tf_q.x(),tf_q.y(),tf_q.z());
+                //cout<<tf_t.x()<<" "<<tf_t.y()<<" "<<tf_t.z()<<" "<<tf_q.x()<<" "<<tf_q.y()<<" "<<tf_q.z()<<" "<<tf_q.w()<<" "<<endl;
+                SE3 T_map_odom(se3_q,se3_t);
+                T_map_c = T_map_odom.inverse()*curr_frame->T_c_w.inverse();
+                path_lc_pub->pubPathT_w_c(T_map_c,currStamp);
             }
-
-
-
+            catch (tf::TransformException ex)
+            {
+                //                ROS_ERROR("%s",ex.what());
+                //                cout<<"no transform between map and odom yet."<<endl;
+            }
 
             break;
         }
@@ -432,7 +419,7 @@ private:
             cv::Mat t_ = cv::Mat::zeros(3, 1, CV_64FC1);
             SE3_to_rvec_tvec(last_frame->T_c_w, r_ , t_ );
             cv::Mat inliers;
-            solvePnPRansac(p3d,p2d,cameraMatrix,distCoeffs,r_,t_,false,100,2.0,0.99,inliers,cv::SOLVEPNP_P3P);
+            solvePnPRansac(p3d,p2d,cameraMatrix,distCoeffs,r_,t_,false,100,3.0,0.99,inliers,cv::SOLVEPNP_P3P);
             curr_frame->T_c_w = SE3_from_rvec_tvec(r_,t_);
             std::vector<uchar> status;
             for (int i = 0; i < (int)p2d.size(); i++)
@@ -449,15 +436,16 @@ private:
             {
                 vimotion->viVisionRPCompensation(curr_frame->frame_time.toSec(),
                                                  curr_frame->T_c_w,
-                                                 0.01);
+                                                 0.05);
             }
 
             //STEP4:
             bundleAdjustment::BAInFrame(*curr_frame);
             vector<Vec2> outlier_reproject;
             double mean_reprojection_error;
-            curr_frame->CalReprjInlierOutlier(mean_reprojection_error,outlier_reproject,1.5);
+            curr_frame->calReprjInlierOutlier(mean_reprojection_error,outlier_reproject,1.5);
             curr_frame->reprojection_error=mean_reprojection_error;
+            curr_frame->eraseReprjOutlier();
 
 
             //(Option) ->Vision Feedback and bias estimation
@@ -516,47 +504,36 @@ private:
 
 
             //if has tf between map and odom
-            if(1)
+            try
             {
-                try
-                {
-                    listenerOdomMap.lookupTransform("map","odom",ros::Time(0), tranOdomMap);
-
-
-              tf::Vector3 tf_t= tranOdomMap.getOrigin();
-              tf::Quaternion tf_q = tranOdomMap.getRotation();
-              Vec3 se3_t(tf_t.x(),tf_t.y(),tf_t.z());
-              Quaterniond se3_q(tf_q.w(),tf_q.x(),tf_q.y(),tf_q.z());
-              //cout<<tf_t.x()<<" "<<tf_t.y()<<" "<<tf_t.z()<<" "<<tf_q.x()<<" "<<tf_q.y()<<" "<<tf_q.z()<<" "<<tf_q.w()<<" "<<endl;
-              SE3 T_map_odom(se3_q,se3_t);
-              T_map_c = T_map_odom*curr_frame->T_c_w.inverse();
-              path_lc_pub->pubPathT_w_c(T_map_c,currStamp);
-              octomap_pub->pub(T_map_c.inverse(),curr_frame->d_img,currStamp);
-
-
-                }
-                catch (tf::TransformException ex)
-                {
-                    ROS_ERROR("%s",ex.what());
-                    cout<<"no trans between map and odom yet."<<endl;
-                }
+                listenerOdomMap.lookupTransform("map","odom",ros::Time(0), tranOdomMap);
+                tf::Vector3 tf_t= tranOdomMap.getOrigin();
+                tf::Quaternion tf_q = tranOdomMap.getRotation();
+                Vec3 se3_t(tf_t.x(),tf_t.y(),tf_t.z());
+                Quaterniond se3_q(tf_q.w(),tf_q.x(),tf_q.y(),tf_q.z());
+                //cout<<tf_t.x()<<" "<<tf_t.y()<<" "<<tf_t.z()<<" "<<tf_q.x()<<" "<<tf_q.y()<<" "<<tf_q.z()<<" "<<tf_q.w()<<" "<<endl;
+                SE3 T_map_odom(se3_q,se3_t);
+                T_map_c = T_map_odom*curr_frame->T_c_w.inverse();
+                path_lc_pub->pubPathT_w_c(T_map_c,currStamp);
+                octomap_pub->pub(T_map_c.inverse(),curr_frame->d_img,currStamp);
+            }
+            catch (tf::TransformException ex)
+            {
+//                ROS_ERROR("%s",ex.what());
+//                cout<<"no trans between map and odom yet."<<endl;
             }
 
-
-
             //STEP9:
-
             SE3 T_diff_key_curr = T_c_w_last_keyframe*(curr_frame->T_c_w.inverse());
             Vec3 t=T_diff_key_curr.translation();
             Vec3 r=T_diff_key_curr.so3().log();
             double t_norm = fabs(t[0]) + fabs(t[1]) + fabs(t[2]);
             double r_norm = fabs(r[0]) + fabs(r[1]) + fabs(r[2]);
-            if(t_norm>=0.15 || r_norm>=0.2)
+            if(t_norm>=0.1 || r_norm>=0.3)
             {
                 kf_pub->pub(*curr_frame,currStamp);
                 T_c_w_last_keyframe = curr_frame->T_c_w;
             }
-
             break;
         }
 
@@ -574,9 +551,9 @@ private:
 
         //tt_cb.toc();
     }//image_input_callback(const sensor_msgs::ImageConstPtr & imgPtr, const sensor_msgs::ImageConstPtr & depthImgPtr)
-};//class VOTrackingNodeletClass
-}//namespace vo_nodelet_ns
+};//class TrackingNodeletClass
+}//namespace flvis_ns
 
-PLUGINLIB_EXPORT_CLASS(vo_nodelet_ns::VOTrackingNodeletClass, nodelet::Nodelet)
+PLUGINLIB_EXPORT_CLASS(flvis_ns::TrackingNodeletClass, nodelet::Nodelet)
 
 

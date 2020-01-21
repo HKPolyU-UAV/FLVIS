@@ -12,7 +12,7 @@
 #include <include/yamlRead.h>
 
 #include <include/keyframe_msg.h>
-#include <vo_nodelet/KeyFrame.h>
+#include <flvis/KeyFrame.h>
 #include <geometry_msgs/Vector3.h>
 
 // DBoW3
@@ -69,7 +69,7 @@ using namespace DBoW3;
 using namespace std;
 
 
-namespace vo_nodelet_ns
+namespace flvis_ns
 {
 
 
@@ -125,11 +125,11 @@ struct KeyFrameLCStruct
 };
 
 
-class VOLoopClosingNodeletClass : public nodelet::Nodelet
+class LoopClosingNodeletClass : public nodelet::Nodelet
 {
 public:
-    VOLoopClosingNodeletClass()  {;}
-    ~VOLoopClosingNodeletClass() {;}
+    LoopClosingNodeletClass()  {;}
+    ~LoopClosingNodeletClass() {;}
 
 private:
     ros::Subscriber sub_kf;
@@ -626,7 +626,7 @@ private:
     }
 
 
-    void frame_callback(const vo_nodelet::KeyFrameConstPtr& msg)
+    void frame_callback(const flvis::KeyFrameConstPtr& msg)
     {
       
 
@@ -848,10 +848,10 @@ private:
         fy = cameraMatrix.at<double>(1,1);
         cx = cameraMatrix.at<double>(0,2);
         cy = cameraMatrix.at<double>(1,2);
-        cout << "cameraMatrix:" << endl << cameraMatrix << endl
-             << "distCoeffs:" << endl << distCoeffs << endl
-             << "image_width: "  << image_width << " image_height: "  << image_height << endl
-             << "fx: "  << fx << " fy: "  << fy <<  " cx: "  << cx <<  " cy: "  << cy << endl;
+//        cout << "cameraMatrix:" << endl << cameraMatrix << endl
+//             << "distCoeffs:" << endl << distCoeffs << endl
+//             << "image_width: "  << image_width << " image_height: "  << image_height << endl
+//             << "fx: "  << fx << " fy: "  << fy <<  " cx: "  << cx <<  " cy: "  << cy << endl;
         string vocFile;
 
 
@@ -870,20 +870,20 @@ private:
 
 
 
-        sub_kf = nh.subscribe<vo_nodelet::KeyFrame>(
+        sub_kf = nh.subscribe<flvis::KeyFrame>(
                     "/vo_kf",
                     10,
-                    boost::bind(&VOLoopClosingNodeletClass::frame_callback, this, _1));
+                    boost::bind(&LoopClosingNodeletClass::frame_callback, this, _1));
 
     }
 
 
 
 
-};//class VOLoopClosingNodeletClass
-}//namespace vo_nodelet_ns
+};//class LoopClosingNodeletClass
+}//namespace flvis_ns
 
 
 
-PLUGINLIB_EXPORT_CLASS(vo_nodelet_ns::VOLoopClosingNodeletClass, nodelet::Nodelet)
+PLUGINLIB_EXPORT_CLASS(flvis_ns::LoopClosingNodeletClass, nodelet::Nodelet)
 

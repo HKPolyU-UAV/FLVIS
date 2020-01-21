@@ -7,7 +7,7 @@ CorrectionInfMsg::CorrectionInfMsg()
 
 CorrectionInfMsg::CorrectionInfMsg(ros::NodeHandle& nh, string topic_name, int buffersize)
 {
-    correction_inf_pub = nh.advertise<vo_nodelet::CorrectionInf>(topic_name,1);
+    correction_inf_pub = nh.advertise<flvis::CorrectionInf>(topic_name,1);
 }
 
 void CorrectionInfMsg::pub(const int64_t         &frame_id_in,
@@ -19,7 +19,7 @@ void CorrectionInfMsg::pub(const int64_t         &frame_id_in,
                            const vector<int64_t> &lm_outlier_id_in,
                            ros::Time             stamp)
 {
-    vo_nodelet::CorrectionInf c_inf;
+    flvis::CorrectionInf c_inf;
     c_inf.frame_id = frame_id_in;
 
     Vec3 t=T_c_w_in.translation();
@@ -63,7 +63,7 @@ void CorrectionInfMsg::pub(const int64_t         &frame_id_in,
     this->correction_inf_pub.publish(c_inf);
 }
 
-void CorrectionInfMsg::unpack(vo_nodelet::CorrectionInfConstPtr c_inf_ptr,
+void CorrectionInfMsg::unpack(flvis::CorrectionInfConstPtr c_inf_ptr,
                               int64_t &frame_id_out,
                               SE3 &T_c_w_out,
                               int &lm_count_out,
