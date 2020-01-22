@@ -36,7 +36,8 @@ public:
   CameraFrame();
   void clear();
 
-  void CalReprjInlierOutlier(double &mean_prjerr, vector<Vec2> &outlier, double sh_over_med = 3.0);
+  void calReprjInlierOutlier(double &mean_prjerr, vector<Vec2> &outlier, double sh_over_med = 3.0);
+  void eraseReprjOutlier();
   void updateLMT_c_w();
 
   void recover3DPts_c_FromDepthImg(vector<Vec3>& pt3ds,

@@ -20,7 +20,19 @@ void CameraFrame::updateLMT_c_w()
     }
 }
 
-void CameraFrame::CalReprjInlierOutlier(double &mean_prjerr, vector<Vec2> &outlier, double sh_over_med)
+void CameraFrame::eraseReprjOutlier()
+{
+    for(int i=this->landmarks.size()-1; i>=0; i--)
+    {
+        LandMarkInFrame lm=landmarks.at(i);
+        if(lm.lm_tracking_state==LM_TRACKING_OUTLIER)
+        {
+            landmarks.erase(landmarks.begin()+i);
+        }
+    }
+}
+
+void CameraFrame::calReprjInlierOutlier(double &mean_prjerr, vector<Vec2> &outlier, double sh_over_med)
 {
     vector<double> distances;
     vector<double> valid_distances;
@@ -235,7 +247,7 @@ void CameraFrame::forceMarkOutlier(const int &cnt, const vector<int64_t> &ids)
         {
             if(landmarks.at(j).lm_id==correct_lm_id)
             {
-//                cout <<"match!" << endl;
+                //                cout <<"match!" << endl;
                 landmarks.at(j).lm_tracking_state=LM_TRACKING_OUTLIER;
             }
         }
@@ -259,19 +271,19 @@ void CameraFrame::getValid2d3dPair_cvPf(vector<cv::Point2f> &p2d, vector<cv::Poi
 
 void CameraFrame::updateLMState(vector<uchar> status)
 {
-  int indexLM = 0;
-  for(size_t i=0; i<landmarks.size(); i++)
-  {
-      LandMarkInFrame lm=landmarks.at(i);
-      if(lm.hasDepthInf() && lm.lm_tracking_state==LM_TRACKING_INLIER)
-      {
-       if(status[indexLM] == 0)
-         landmarks[i].lm_tracking_state = LM_TRACKING_OUTLIER;
-       indexLM += 1;
-      }
-  }
+    int indexLM = 0;
+    for(size_t i=0; i<landmarks.size(); i++)
+    {
+        LandMarkInFrame lm=landmarks.at(i);
+        if(lm.hasDepthInf() && lm.lm_tracking_state==LM_TRACKING_INLIER)
+        {
+            if(status[indexLM] == 0)
+                landmarks[i].lm_tracking_state = LM_TRACKING_OUTLIER;
+            indexLM += 1;
+        }
+    }
 
-  //cout<<status.size()<<" compare "<<indexLM<<endl;
+    //cout<<status.size()<<" compare "<<indexLM<<endl;
 
 }
 void CameraFrame::getValidInliersPair(vector<LandMarkInFrame> &lms)
