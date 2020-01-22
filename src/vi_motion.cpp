@@ -36,10 +36,10 @@ void VIMOTION::viIMUinitialization(const IMUSTATE imu_read)
                  << "roll:"   << rpy[0]*57.2958
                  << " pitch:" << rpy[1]*57.2958
                  << " yaw:"   << rpy[2]*57.2958 << endl;
+            this->states.push_back(init_state);
+            if(states.size()>=STATES_QUEUE_SIZE) {states.pop_front();}
+            this->is_first_data =  false;
         }
-        this->states.push_back(init_state);
-        if(states.size()>=STATES_QUEUE_SIZE) {states.pop_front();}
-        this->is_first_data =  false;
     }else
     {   //In the initialization process only update orientation, the position and velocity remain 0.
         //madgwick orientation filter
