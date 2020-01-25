@@ -254,6 +254,22 @@ void CameraFrame::forceMarkOutlier(const int &cnt, const vector<int64_t> &ids)
     }
 }
 
+int CameraFrame::validLMCount()
+{
+    int ret=0;
+    if(landmarks.size()>0)
+    {
+        for(size_t i=0; i<landmarks.size(); i++)
+        {
+            if(landmarks.at(i).hasDepthInf()&&(landmarks.at(i).lm_tracking_state==LM_TRACKING_INLIER))
+            {
+                ret++;
+            }
+        }
+    }
+    return ret;
+}
+
 void CameraFrame::getValid2d3dPair_cvPf(vector<cv::Point2f> &p2d, vector<cv::Point3f> &p3d)
 {
     p2d.clear();

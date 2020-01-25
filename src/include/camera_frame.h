@@ -39,13 +39,11 @@ public:
   void calReprjInlierOutlier(double &mean_prjerr, vector<Vec2> &outlier, double sh_over_med = 3.0);
   void eraseReprjOutlier();
   void updateLMT_c_w();
-
   void recover3DPts_c_FromDepthImg(vector<Vec3>& pt3ds,
                                    vector<bool>& maskHas3DInf);
 
   void recover3DPts_c_FromTriangulation(vector<Vec3>& pt3ds,
                                         vector<bool>& maskHas3DInf);
-
   void depthInnovation(void);
   void correctLMP3DWByLMP3DCandT(void);//correct lm_3d_w by lm_3d_w and T_c_w
   void forceCorrectLM3DW(const int& cnt, const vector<int64_t>& ids, const vector<Vec3>& lms_3d);
@@ -55,6 +53,7 @@ public:
   void updateLMState(vector<uchar> status);
 
   //IO
+  int  validLMCount(void);
   void getValid2d3dPair_cvPf(vector<cv::Point2f>& p2d,vector<cv::Point3f>& p3d);
   void getValidInliersPair(vector<LandMarkInFrame> &lms);
   void unpack(vector<Vec2>& pt2d,

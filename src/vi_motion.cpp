@@ -117,21 +117,24 @@ void VIMOTION::viVisiontrigger(Quaterniond &init_orientation)
     //         << init_orientation.z() << endl;
 }
 
-void VIMOTION::viIMUPropagation(const IMUSTATE imu_read)
+void VIMOTION::viIMUPropagation(const IMUSTATE imu_read,
+                                Quaterniond& q_w_i,
+                                Vec3& pos_w_i,
+                                Vec3& vel_w_i)
 {
-    double dt = imu_read.timestamp - this->states.back().imu_data.timestamp;
-    //cout << dt << endl;
     MOTION_STATE s_prev,s_new;//previous state and new state
     Vec3 acc, gyro;
-    acc = imu_read.acc_raw-this->acc_bias;
-    gyro = imu_read.gyro_raw-this->gyro_bias;
+    acc =  imu_read.acc_raw  - this->acc_bias;
+    gyro = imu_read.gyro_raw - this->gyro_bias;
     s_prev = states.back();
+    double dt = imu_read.timestamp - s_prev.imu_data.timestamp;
     Quaterniond q_prev = s_prev.q_w_i;
-    Mat3x3 R_prev = q_prev.toRotationMatrix();
-    Vec3 p_prev = s_prev.pos;
-    Vec3 v_prev = s_prev.vel;
-    Vec3 p_dot,v_dot;
+    Mat3x3      R_prev = q_prev.toRotationMatrix();
+    Vec3        p_prev = s_prev.pos;
+    Vec3        v_prev = s_prev.vel;
+    Vec3        p_dot,v_dot;
 
+    //propagation for q
     Quaterniond omega(0,gyro[0],gyro[1],gyro[2]);
     Quaterniond qdot = scalar_multi_q(0.5*dt,q1_multi_q2(q_prev,omega));
     Quaterniond q_new = q_plus_q(q_prev,qdot);
@@ -147,21 +150,23 @@ void VIMOTION::viIMUPropagation(const IMUSTATE imu_read)
         rpy_acc[2] = 0;
         q_new = rpy2Q(rpy);
     }
-
-    v_dot = ((R_prev*acc)-gravity)*dt;
-    p_dot = v_prev*dt;
-
     s_new.q_w_i = q_new;
+    //propagation for pos
+    p_dot = v_prev*dt;
     s_new.pos = p_prev+p_dot;
-    //s_new.vel = v_prev+v_dot;
-    s_new.vel = Vec3(0,0,0);
+    //propagation for vel
+    v_dot = ((R_prev*acc)-gravity)*dt;
+    s_new.vel = v_prev+v_dot;
+
     s_new.imu_data = imu_read;
-    //propagation for q
+
     this->mtx_states_RW.lock();
     states.push_back(s_new);
     if(states.size()>=STATES_QUEUE_SIZE) {states.pop_front();}
     this->mtx_states_RW.unlock();
-
+    q_w_i   = s_new.q_w_i;
+    pos_w_i = s_new.pos;
+    vel_w_i = s_new.vel;
 }
 //this->mtx_states_RW.lock();
 //this->mtx_states_RW.unlock();

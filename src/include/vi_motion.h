@@ -38,7 +38,10 @@ public:
     VIMOTION(SE3 T_i_c_fromCalibration);
 
     void viIMUinitialization(const IMUSTATE imu_read);
-    void viIMUPropagation(const IMUSTATE imu_read);
+    void viIMUPropagation(const IMUSTATE imu_read,
+                          Quaterniond& q_w_i,
+                          Vec3& pos_w_i,
+                          Vec3& vel_w_i);
 
     //this is the vimotion trigger, the module will be triggered when the first vision frame come
     //after that the pos vel and orientation will be integrate
