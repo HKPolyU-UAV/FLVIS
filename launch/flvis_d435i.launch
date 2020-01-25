@@ -2,7 +2,7 @@
 
     <param name="/yamlconfigfile" type="string" value="$(find flvis)/launch/d435_sn912112073494.yaml"/>
 
-    <include file="$(find flvis)/launch/d435_sn912112073494.launch"/>
+    <include file="$(find flvis)/launch/d435i.launch"/>
 
     <include file="$(find flvis)/launch/flvis.launch"/>
 

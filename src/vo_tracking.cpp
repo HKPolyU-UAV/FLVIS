@@ -62,6 +62,7 @@ private:
     FeatureDEM         *featureDEM;
     F2FTracking        *tracker;
     //VIMOTION
+    SE3                T_i_c;//T_imu_cam
     bool               has_imu;
     bool               enable_imu;
     VIMOTION           *vimotion;
@@ -78,7 +79,7 @@ private:
     SE3 T_map_c =SE3();
     KeyFrameMsg* kf_pub;
     deque<ID_POSE> pose_records;
-    bool has_feedback;
+    bool has_localmap_feedback;
     CorrectionInfStruct correction_inf;
     //Octomap
     OctomapFeeder* octomap_pub;
@@ -87,10 +88,8 @@ private:
     cv::Mat dimg_vis;
     image_transport::Publisher img_pub;
     image_transport::Publisher dimg_pub;
-
     ros::Publisher imu2vision_pose_pub;
     ros::Publisher vision_pose_pub;
-
     RVIZFrame* frame_pub;
     RVIZPath*  path_pub;
     RVIZPath* path_lc_pub;
@@ -103,48 +102,40 @@ private:
         ros::NodeHandle& nh = getMTPrivateNodeHandle();
         //cv::startWindowThread(); //Bug report https://github.com/ros-perception/image_pipeline/issues/201
 
-        imu2vision_pose_pub = nh.advertise<geometry_msgs::PoseStamped>("imu", 10);
-        vision_pose_pub = nh.advertise<geometry_msgs::PoseStamped>("vision",10);
-
         //Load Parameter
         string configFilePath;
         nh.getParam("/yamlconfigfile",   configFilePath);
         image_width  = getIntVariableFromYaml(configFilePath,"image_width");
         image_height = getIntVariableFromYaml(configFilePath,"image_height");
-        cameraMatrix = cameraMatrixFromYamlIntrinsics(configFilePath);
-        distCoeffs = distCoeffsFromYaml(configFilePath);
+        cameraMatrix = cameraMatrixFromYamlIntrinsics(configFilePath,"intrinsics");
+        distCoeffs   = distCoeffsFromYaml(configFilePath,"distortion_coeffs");
+        Mat4x4 mat_imu_cam  = Mat44FromYaml(configFilePath,"T_imu_cam");
+        cout << "cameraMatrix:" << endl << cameraMatrix << endl;
+        cout << "distCoeffs  :" << endl << distCoeffs << endl;
+        cout << "image_width :" << image_width << endl;
+        cout << "image_height:" << image_height << endl;
+        cout << "Mat_imu_cam :" << endl << mat_imu_cam << endl;
+        T_i_c = SE3(mat_imu_cam.topLeftCorner(3,3),mat_imu_cam.topRightCorner(3,1));
         double fx = cameraMatrix.at<double>(0,0);
         double fy = cameraMatrix.at<double>(1,1);
         double cx = cameraMatrix.at<double>(0,2);
         double cy = cameraMatrix.at<double>(1,2);
-        //        cout << "cameraMatrix:" << endl << cameraMatrix << endl
-        //             << "distCoeffs:" << endl << distCoeffs << endl
-        //             << "image_width: "  << image_width << " image_height: "  << image_height << endl
-        //             << "fx: "  << fx << " fy: "  << fy <<  " cx: "  << cx <<  " cy: "  << cy << endl;
+
         featureDEM  = new FeatureDEM(image_width,image_height,5);
         tracker     = new F2FTracking(image_width,image_height);
-
-        //This setting is for realsense d435i. IMU in ENU frame facing forward.
-        Mat3x3 R_i_c;
-        // 0  0  1
-        //-1  0  0
-        // 0 -1  0
-        R_i_c << 0, 0, 1, -1, 0, 0, 0,-1, 0;
-        Vec3   t_i_c=Vec3(0,0,0);
-        SE3    T_i_c(R_i_c,t_i_c);
-        vimotion    = new VIMOTION(T_i_c);
-        has_imu     = false;
-        enable_imu  = true;
-
         curr_frame = std::make_shared<CameraFrame>();
         last_frame = std::make_shared<CameraFrame>();
         curr_frame->height = last_frame->height = image_height;
         curr_frame->width = last_frame->width = image_width;
         curr_frame->d_camera = last_frame->d_camera = DepthCamera(fx,fy,cx,cy,1000.0);
 
-        frameCount = 0;
+        vimotion    = new VIMOTION(T_i_c);
+        //Init the variable
+        has_imu     = false;
+        enable_imu  = true;
+        frameCount  = 0;
         vo_tracking_state = UnInit;
-        has_feedback = false;
+        has_localmap_feedback = false;
         //Publish
         path_pub  = new RVIZPath(nh,"/vo_path");
         path_lc_pub  = new RVIZPath(nh,"/vo_path_lc");
@@ -152,6 +143,8 @@ private:
         kf_pub    = new KeyFrameMsg(nh,"/vo_kf");
         octomap_pub = new OctomapFeeder(nh,"/vo_octo_tracking","vo_local",1);
         octomap_pub->d_camera=curr_frame->d_camera;
+        imu2vision_pose_pub = nh.advertise<geometry_msgs::PoseStamped>("imu", 10);
+        vision_pose_pub = nh.advertise<geometry_msgs::PoseStamped>("vision",10);
         image_transport::ImageTransport it(nh);
         img_pub = it.advertise("/vo_img", 1);
         dimg_pub = it.advertise("/vo_dimg", 1);
@@ -206,23 +199,19 @@ private:
                 vimotion->viIMUinitialization(IMUSTATE(stamp,acc,gyro));
             }else {
                 //estimate pos vel and orientation
-                vimotion->viIMUPropagation(IMUSTATE(stamp,acc,gyro));
+                Quaterniond q_w_i;
+                Vec3 pos_w_i, vel_w_i;
+                vimotion->viIMUPropagation(IMUSTATE(stamp,acc,gyro),q_w_i,pos_w_i,vel_w_i);
                 geometry_msgs::PoseStamped pose;
-                SE3 T_w_i_from_imu;
-                Vec3 vel_from_imu;
-                vimotion->viGetLatestImuState(T_w_i_from_imu,vel_from_imu);
-                SE3 T_w_c=T_w_i_from_imu*vimotion->T_i_c;
                 pose.header.stamp = msg->header.stamp;
                 pose.header.frame_id = "map";
-                Vec3 p = T_w_c.translation();
-                Quaterniond q = T_w_c.unit_quaternion();
-                pose.pose.position.x = p[0];
-                pose.pose.position.y = p[1];
-                pose.pose.position.z = p[2];
-                pose.pose.orientation.w = q.w();
-                pose.pose.orientation.x = q.x();
-                pose.pose.orientation.y = q.y();
-                pose.pose.orientation.z = q.z();
+                pose.pose.position.x = pos_w_i[0];
+                pose.pose.position.y = pos_w_i[1];
+                pose.pose.position.z = pos_w_i[2];
+                pose.pose.orientation.w = q_w_i.w();
+                pose.pose.orientation.x = q_w_i.x();
+                pose.pose.orientation.y = q_w_i.y();
+                pose.pose.orientation.z = q_w_i.z();
                 this->imu2vision_pose_pub.publish(pose);
             }
         }
@@ -240,7 +229,7 @@ private:
                                  correction_inf.lm_3d,
                                  correction_inf.lm_outlier_count,
                                  correction_inf.lm_outlier_id);
-        has_feedback=true;
+        has_localmap_feedback=true;
     }
 
     void image_input_callback(const sensor_msgs::ImageConstPtr & imgPtr, const sensor_msgs::ImageConstPtr & depthImgPtr)
@@ -273,10 +262,10 @@ private:
             //-1  0  0
             // 0 -1  0
             R_w_c << 0, 0, 1, -1, 0, 0, 0,-1, 0;
-            Vec3   t_w_c=Vec3(0,0,1);
+            Vec3   t_w_c=Vec3(0,0,0);
             SE3    T_w_c(R_w_c,t_w_c);
-
             curr_frame->T_c_w=T_w_c.inverse();//Tcw = (Twc)^-1
+
             if(this->has_imu)
             {
                 if(vimotion->imu_initialized)
@@ -284,13 +273,13 @@ private:
                     Eigen::Quaterniond q_init_w_i;
                     vimotion->viVisiontrigger(q_init_w_i);
                     Vec3 rpy = Q2rpy(q_init_w_i);
+                    cout << "use imu pose" << endl;
                     cout << "roll:"   << rpy[0]*57.2958
                          << " pitch:" << rpy[1]*57.2958
                          << " yaw:"   << rpy[2]*57.2958 << endl;
                     Mat3x3 R_w_c = q_init_w_i.toRotationMatrix()*vimotion->T_i_c.rotation_matrix();
                     SE3    T_w_c(R_w_c,t_w_c);
                     curr_frame->T_c_w=T_w_c.inverse();//Tcw = (Twc)^-1
-                    cout << "use imu pose" << endl;
                 }
                 else
                 {
@@ -316,17 +305,19 @@ private:
                                                                 curr_frame->T_c_w));
             }
             curr_frame->depthInnovation();
-
-
-            drawKeyPts(img_vis, vVec2_2_vcvP2f(pts2d));
-            frame_pub->pubFramePtsPoseT_c_w(curr_frame->getValid3dPts(),curr_frame->T_c_w,currStamp);
-            path_pub->pubPathT_c_w(curr_frame->T_c_w,currStamp);
-
-            kf_pub->pub(*curr_frame,currStamp);
-            T_c_w_last_keyframe = curr_frame->T_c_w;
-
-            vo_tracking_state = Working;
-            cout << "vo_tracking_state = Working" << endl;
+            if(curr_frame->validLMCount()>30)
+            {
+                drawKeyPts(img_vis, vVec2_2_vcvP2f(pts2d));
+                frame_pub->pubFramePtsPoseT_c_w(curr_frame->getValid3dPts(),curr_frame->T_c_w,currStamp);
+                path_pub->pubPathT_c_w(curr_frame->T_c_w,currStamp);
+                kf_pub->pub(*curr_frame,currStamp);
+                T_c_w_last_keyframe = curr_frame->T_c_w;
+                vo_tracking_state = Working;
+                cout << "vo_tracking_state = Working" << endl;
+            }else
+            {
+                cout << "No enough measurement for init process" << endl;
+            }
 
             //if has tf between map and odom
             try
@@ -367,7 +358,7 @@ private:
                      STEP8: Switch KeyFrame
             */
             //STEP1:
-            if(has_feedback)
+            if(has_localmap_feedback)
             {
                 //find pose;
                 int corr_id = correction_inf.frame_id;
@@ -395,7 +386,7 @@ private:
                 //update last_frame landmake lm_3d_w and mask outlier
                 last_frame->forceCorrectLM3DW(correction_inf.lm_count,correction_inf.lm_id,correction_inf.lm_3d);
                 last_frame->forceMarkOutlier(correction_inf.lm_outlier_count,correction_inf.lm_outlier_id);
-                has_feedback = false;
+                has_localmap_feedback = false;
             }
 
             //STEP2:
@@ -492,12 +483,6 @@ private:
             //drawOutlier(img_vis,outlier);
             drawFlow(img_vis,lm2d_from,lm2d_to);
             drawFrame(img_vis,*curr_frame);
-            visualizeDepthImg(dimg_vis,*curr_frame);
-
-            sensor_msgs::ImagePtr img_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", img_vis).toImageMsg();
-            sensor_msgs::ImagePtr dimg_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", dimg_vis).toImageMsg();
-            img_pub.publish(img_msg);
-            dimg_pub.publish(dimg_msg);
             frame_pub->pubFramePtsPoseT_c_w(curr_frame->getValid3dPts(),curr_frame->T_c_w);
             path_pub->pubPathT_c_w(curr_frame->T_c_w,currStamp);
             //octomap_pub->pub(curr_frame->T_c_w,curr_frame->d_img,currStamp);
@@ -519,8 +504,8 @@ private:
             }
             catch (tf::TransformException ex)
             {
-//                ROS_ERROR("%s",ex.what());
-//                cout<<"no trans between map and odom yet."<<endl;
+                //                ROS_ERROR("%s",ex.what());
+                //                cout<<"no trans between map and odom yet."<<endl;
             }
 
             //STEP9:
@@ -546,7 +531,11 @@ private:
         default:
             cout<<"error"<<endl;
         }//end of state machine
-        cv::waitKey(1);
+        visualizeDepthImg(dimg_vis,*curr_frame);
+        sensor_msgs::ImagePtr img_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", img_vis).toImageMsg();
+        sensor_msgs::ImagePtr dimg_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", dimg_vis).toImageMsg();
+        img_pub.publish(img_msg);
+        dimg_pub.publish(dimg_msg);
         last_frame.swap(curr_frame);
 
         //tt_cb.toc();

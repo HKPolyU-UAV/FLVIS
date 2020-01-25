@@ -16,7 +16,7 @@
     "aux-param-depthclampmin": "0",
     "aux-param-disparityshift": "0",
     "controls-autoexposure-auto": "True",
-    "controls-autoexposure-manual": "4000",
+    "controls-autoexposure-manual": "6000",
     "controls-color-autoexposure-auto": "True",
     "controls-color-autoexposure-manual": "166",
     "controls-color-backlight-compensation": "0",
