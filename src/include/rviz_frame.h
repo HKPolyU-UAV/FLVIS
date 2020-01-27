@@ -14,6 +14,8 @@ class RVIZFrame
 private:
   ros::Publisher pose_pub;
   ros::Publisher marker_pub;
+  string frame_id_pose;
+  string frame_id_pts;
   float f;
 
   void pubFramePtsPoseT_w_c(const vector<Vec3>& pts3d,
@@ -25,7 +27,8 @@ private:
 public:
 
   RVIZFrame(ros::NodeHandle& nh,
-            string poseTopicName, string ptsTopicName,
+            string poseTopicName, string frameIDPose,
+            string ptsTopicName,  string frameIDPts,
             int bufferPose=10,
             int bufferPts=10);
 

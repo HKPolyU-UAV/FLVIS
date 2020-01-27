@@ -1,7 +1,7 @@
 #include <include/rviz_path.h>
 
 
-RVIZPath::RVIZPath(ros::NodeHandle& nh, string topic_name, int bufferCount, int maxNumOfPose)
+RVIZPath::RVIZPath(ros::NodeHandle& nh, string topic_name, string frame_id, int bufferCount, int maxNumOfPose)
 {
   path_pub = nh.advertise<nav_msgs::Path>(topic_name, bufferCount);
   if(maxNumOfPose==-1)
@@ -11,7 +11,8 @@ RVIZPath::RVIZPath(ros::NodeHandle& nh, string topic_name, int bufferCount, int 
   {
     numOfPose = maxNumOfPose;
   }
-  path.header.frame_id = "map";
+  this->frame_id_path = frame_id;
+  path.header.frame_id = frame_id_path;
 }
 
 void RVIZPath::pubPathT_c_w(const SE3 T_c_w, const ros::Time stamp)
@@ -22,8 +23,8 @@ void RVIZPath::pubPathT_c_w(const SE3 T_c_w, const ros::Time stamp)
 void RVIZPath::pubPathT_w_c(const SE3 T_w_c, const ros::Time stamp)
 {
   geometry_msgs::PoseStamped poseStamped;
-  poseStamped.header.frame_id="map";
-  poseStamped.header.stamp = ros::Time::now();
+  poseStamped.header.frame_id =frame_id_path;
+  poseStamped.header.stamp    = stamp;
 
   Quaterniond q = T_w_c.so3().unit_quaternion();
   Vec3        t = T_w_c.translation();

@@ -2,11 +2,15 @@
 
 
 RVIZFrame::RVIZFrame(ros::NodeHandle& nh,
-                     string poseTopicName, string ptsTopicName,
-                     int bufferPose, int bufferPts)
+                     string poseTopicName, string frameIDPose,
+                     string ptsTopicName,  string frameIDPts,
+                     int bufferPose,
+                     int bufferPts)
 {
   pose_pub   = nh.advertise<geometry_msgs::PoseStamped>(poseTopicName, bufferPose);
   marker_pub = nh.advertise<visualization_msgs::Marker>(ptsTopicName, bufferPts);
+  this->frame_id_pose = frameIDPose;
+  this->frame_id_pts = frameIDPts;
 }
 
 RVIZFrame::~RVIZFrame(){}
@@ -23,8 +27,8 @@ void RVIZFrame::pubFramePoseT_w_c(const SE3 T_w_c,
                                   const ros::Time stamp)
 {
   geometry_msgs::PoseStamped poseStamped;
-  poseStamped.header.frame_id="map";
-  poseStamped.header.stamp = stamp;
+  poseStamped.header.frame_id = frame_id_pose;
+  poseStamped.header.stamp    = stamp;
 
   Quaterniond q = T_w_c.so3().unit_quaternion();
   Vec3        t = T_w_c.translation();
@@ -54,7 +58,7 @@ void RVIZFrame::pubFramePtsPoseT_w_c(const vector<Vec3>& pts3d,
   pubFramePoseT_w_c(T_w_c);
 
   visualization_msgs::Marker points, line_list,camera_pyramid;
-  points.header.frame_id = line_list.header.frame_id = camera_pyramid.header.frame_id= "map";
+  points.header.frame_id = line_list.header.frame_id = camera_pyramid.header.frame_id = frame_id_pts;
   points.header.stamp = line_list.header.stamp = camera_pyramid.header.stamp = stamp;
   points.ns = line_list.ns = camera_pyramid.ns = "points_and_lines";
   points.action = line_list.action = camera_pyramid.action = visualization_msgs::Marker::ADD;

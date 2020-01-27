@@ -7,7 +7,7 @@
 #include <include/common.h>
 
 
-#define DEFAULT_NUM_OF_POSE (9000)
+#define DEFAULT_NUM_OF_POSE (200)
 
 class RVIZPath
 {
@@ -15,12 +15,12 @@ private:
   ros::Publisher path_pub;
   nav_msgs::Path path;
   unsigned int numOfPose;
-
+  string frame_id_path;
 
 
 public:
 
-  RVIZPath(ros::NodeHandle& nh, string topic_name, int bufferCount=10, int maxNumOfPose=-1);
+  RVIZPath(ros::NodeHandle& nh, string topic_name, string frame_id, int bufferCount=1, int maxNumOfPose=-1);
   ~RVIZPath();
 
   void pubPathT_c_w(const SE3 T_c_w, const ros::Time stamp=ros::Time::now());
