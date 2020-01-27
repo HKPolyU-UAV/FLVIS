@@ -96,6 +96,7 @@ add_library(flvis
     src/camera_frame.cpp
     src/rviz_frame.cpp
     src/rviz_path.cpp
+    src/rviz_pose.cpp
     src/triangulation.cpp
     src/keyframe_msg.cpp
     src/poselmbag.cpp
