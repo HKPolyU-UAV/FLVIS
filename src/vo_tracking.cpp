@@ -25,6 +25,7 @@
 #include <include/feature_dem.h>
 #include <include/rviz_frame.h>
 #include <include/rviz_path.h>
+#include <include/rviz_pose.h>
 #include <include/camera_frame.h>
 #include <include/yamlRead.h>
 #include <include/cv_draw.h>
@@ -88,12 +89,12 @@ private:
     cv::Mat dimg_vis;
     image_transport::Publisher img_pub;
     image_transport::Publisher dimg_pub;
-    ros::Publisher imu2vision_pose_pub;
+    ros::Publisher imu_pose_pub;
     ros::Publisher vision_pose_pub;
     RVIZFrame* frame_pub;
     RVIZPath*  path_pub;
-    RVIZPath* path_lc_pub;
-
+    RVIZPath*  path_lc_pub;
+    RVIZPose*  pose_imu_pub;
     tf::StampedTransform tranOdomMap;
     tf::TransformListener listenerOdomMap;
 
@@ -137,14 +138,13 @@ private:
         vo_tracking_state = UnInit;
         has_localmap_feedback = false;
         //Publish
-        path_pub  = new RVIZPath(nh,"/vo_path");
-        path_lc_pub  = new RVIZPath(nh,"/vo_path_lc");
-        frame_pub = new RVIZFrame(nh,"/vo_camera_pose","/vo_curr_frame");
-        kf_pub    = new KeyFrameMsg(nh,"/vo_kf");
-        octomap_pub = new OctomapFeeder(nh,"/vo_octo_tracking","vo_local",1);
+        path_pub     = new RVIZPath(nh,"/vo_path","map");
+        path_lc_pub  = new RVIZPath(nh,"/vo_path_lc","map");
+        frame_pub    = new RVIZFrame(nh,"/vo_camera_pose","map","/vo_curr_frame","map");
+        pose_imu_pub = new RVIZPose(nh,"/imu_pose","map");
+        kf_pub       = new KeyFrameMsg(nh,"/vo_kf");
+        octomap_pub  = new OctomapFeeder(nh,"/vo_octo_tracking","vo_local",1);
         octomap_pub->d_camera=curr_frame->d_camera;
-        imu2vision_pose_pub = nh.advertise<geometry_msgs::PoseStamped>("imu", 10);
-        vision_pose_pub = nh.advertise<geometry_msgs::PoseStamped>("vision",10);
         image_transport::ImageTransport it(nh);
         img_pub = it.advertise("/vo_img", 1);
         dimg_pub = it.advertise("/vo_dimg", 1);
@@ -175,7 +175,7 @@ private:
         {
             //SETP1: TO ENU Frame
             Vec3 acc,gyro;
-            double stamp = msg->header.stamp.toSec();
+            ros::Time stamp = msg->header.stamp;
             if(USE_RSD435I)
             {
                 acc = Vec3(-msg->linear_acceleration.z,
@@ -196,23 +196,13 @@ private:
             if(!(vimotion->imu_initialized))
             {
                 //estimate orientation
-                vimotion->viIMUinitialization(IMUSTATE(stamp,acc,gyro));
+                vimotion->viIMUinitialization(IMUSTATE(stamp.toSec(),acc,gyro));
             }else {
                 //estimate pos vel and orientation
                 Quaterniond q_w_i;
                 Vec3 pos_w_i, vel_w_i;
-                vimotion->viIMUPropagation(IMUSTATE(stamp,acc,gyro),q_w_i,pos_w_i,vel_w_i);
-                geometry_msgs::PoseStamped pose;
-                pose.header.stamp = msg->header.stamp;
-                pose.header.frame_id = "map";
-                pose.pose.position.x = pos_w_i[0];
-                pose.pose.position.y = pos_w_i[1];
-                pose.pose.position.z = pos_w_i[2];
-                pose.pose.orientation.w = q_w_i.w();
-                pose.pose.orientation.x = q_w_i.x();
-                pose.pose.orientation.y = q_w_i.y();
-                pose.pose.orientation.z = q_w_i.z();
-                this->imu2vision_pose_pub.publish(pose);
+                vimotion->viIMUPropagation(IMUSTATE(stamp.toSec(),acc,gyro),q_w_i,pos_w_i,vel_w_i);
+                this->pose_imu_pub->pubPose(q_w_i,pos_w_i,stamp);
             }
         }
 
@@ -235,7 +225,6 @@ private:
     void image_input_callback(const sensor_msgs::ImageConstPtr & imgPtr, const sensor_msgs::ImageConstPtr & depthImgPtr)
     {
         tic_toc_ros tt_cb;
-
         frameCount++;
         if(frameCount<30) return;
         //15hz Frame Rate
@@ -253,6 +242,7 @@ private:
         curr_frame->frame_time = imgPtr->header.stamp;
         cvtColor(curr_frame->img,img_vis,CV_GRAY2BGR);
         ros::Time currStamp = imgPtr->header.stamp;
+
         switch(vo_tracking_state)
         {
         case UnInit:
@@ -290,9 +280,7 @@ private:
             }
 
             vector<Vec2> pts2d;
-            vector<Vec3> pts3d_c;
             vector<cv::Mat>  descriptors;
-            vector<bool> maskHas3DInf;
 
             featureDEM->detect(curr_frame->img,pts2d,descriptors);
             cout << "Detect " << pts2d.size() << " Features"<< endl;
@@ -334,10 +322,10 @@ private:
             }
             catch (tf::TransformException ex)
             {
-                //                ROS_ERROR("%s",ex.what());
-                //                cout<<"no transform between map and odom yet."<<endl;
+                //ROS_ERROR("%s",ex.what());
+                //cout<<"no transform between map and odom yet."<<endl;
             }
-
+            last_frame.swap(curr_frame);
             break;
         }
 
@@ -401,11 +389,20 @@ private:
             vector<cv::Point2f> p2d;
             vector<cv::Point3f> p3d;
             curr_frame->getValid2d3dPair_cvPf(p2d,p3d);
+            static int continus_tracking_fail_cnt = 0;//anti flashlight/autoexposure vibration
             if(p2d.size()<=10)
             {
+                continus_tracking_fail_cnt++;
                 cout << "[Critical Warning] Tracking Fail-no enough lm pairs" << endl;
+                if(continus_tracking_fail_cnt>3)
+                {
+                    vo_tracking_state = trackingFail;
+                    cout << "Tracking failed! Swith to tracking Fail Mode" << endl;
+                    continus_tracking_fail_cnt = 0;
+                }
                 break;
             }
+            continus_tracking_fail_cnt = 0;
             cv::Mat r_ = cv::Mat::zeros(3, 1, CV_64FC1);
             cv::Mat t_ = cv::Mat::zeros(3, 1, CV_64FC1);
             SE3_to_rvec_tvec(last_frame->T_c_w, r_ , t_ );
@@ -437,7 +434,6 @@ private:
             curr_frame->calReprjInlierOutlier(mean_reprojection_error,outlier_reproject,1.5);
             curr_frame->reprojection_error=mean_reprojection_error;
             curr_frame->eraseReprjOutlier();
-
 
             //(Option) ->Vision Feedback and bias estimation
             if(this->has_imu)
@@ -487,7 +483,6 @@ private:
             path_pub->pubPathT_c_w(curr_frame->T_c_w,currStamp);
             //octomap_pub->pub(curr_frame->T_c_w,curr_frame->d_img,currStamp);
 
-
             //if has tf between map and odom
             try
             {
@@ -519,25 +514,73 @@ private:
                 kf_pub->pub(*curr_frame,currStamp);
                 T_c_w_last_keyframe = curr_frame->T_c_w;
             }
+            last_frame.swap(curr_frame);
             break;
         }
 
         case trackingFail:
         {
-            vo_tracking_state = UnInit;
+            static int cnt=0;
+            cnt++;
+            if(cnt==15)
+            {
+                cout << "vision tracking fail, IMU motion only" << endl << "Tring to recover~" << endl;
+                vector<Vec2> pts2d;
+                vector<cv::Mat>  descriptors;
+                featureDEM->detect(curr_frame->img,pts2d,descriptors);
+                cout << "Detect " << pts2d.size() << " Features"<< endl;
+                if(this->vimotion->viGetCorrFrameState(curr_frame->frame_time.toSec(),
+                                                       curr_frame->T_c_w))
+                {
+                    for(size_t i=0; i<pts2d.size(); i++)
+                    {
+                        curr_frame->landmarks.push_back(LandMarkInFrame(descriptors.at(i),
+                                                                        pts2d.at(i),
+                                                                        Vec3(0,0,0),
+                                                                        false,
+                                                                        curr_frame->T_c_w));
+                    }
+                    curr_frame->depthInnovation();
+                    if(curr_frame->validLMCount()>30)
+                    {
+
+                        drawKeyPts(img_vis, vVec2_2_vcvP2f(pts2d));
+                        frame_pub->pubFramePtsPoseT_c_w(curr_frame->getValid3dPts(),curr_frame->T_c_w,currStamp);
+                        path_pub->pubPathT_c_w(curr_frame->T_c_w,currStamp);
+                        kf_pub->pub(*curr_frame,currStamp);
+                        T_c_w_last_keyframe = curr_frame->T_c_w;
+                        vo_tracking_state = Working;
+                        cout << "vo_tracking_state = Working" << endl;
+
+                    }else
+                    {
+                        cout << "Re-initialization fail: no enough measurement" << endl;
+                    }
+                }
+                else
+                {
+                    cout << "Re-initialization fail: can not find the frame in motion module" << endl;
+                }
+                cnt=0;
+            }else
+            {
+                if((cnt%5)==0)
+                kf_pub->cmdLMResetPub(curr_frame->frame_time);
+            }
+            last_frame.swap(curr_frame);
+            //vo_tracking_state = UnInit;
             break;
         }
 
         default:
             cout<<"error"<<endl;
+            last_frame.swap(curr_frame);
         }//end of state machine
         visualizeDepthImg(dimg_vis,*curr_frame);
         sensor_msgs::ImagePtr img_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", img_vis).toImageMsg();
         sensor_msgs::ImagePtr dimg_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", dimg_vis).toImageMsg();
         img_pub.publish(img_msg);
         dimg_pub.publish(dimg_msg);
-        last_frame.swap(curr_frame);
-
         //tt_cb.toc();
     }//image_input_callback(const sensor_msgs::ImageConstPtr & imgPtr, const sensor_msgs::ImageConstPtr & depthImgPtr)
 };//class TrackingNodeletClass

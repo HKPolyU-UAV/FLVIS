@@ -7,6 +7,9 @@
 #include <include/common.h>
 #include <include/camera_frame.h>
 
+#define KFMSG_CMD_NONE          (0)
+#define KFMSG_CMD_RESET_LM      (1)
+
 
 struct KeyFrameStruct {
     cv::Mat         img;
@@ -26,6 +29,7 @@ class KeyFrameMsg
 public:
     KeyFrameMsg();
     KeyFrameMsg(ros::NodeHandle& nh, string topic_name, int buffersize=2);
+    void cmdLMResetPub(ros::Time stamp=ros::Time::now());//publish reset command to localmap thread
     void pub(CameraFrame& frame, ros::Time stamp=ros::Time::now());
     static void unpack(flvis::KeyFrameConstPtr kf_const_ptr,
                        int64_t         &frame_id,

@@ -10,12 +10,30 @@ KeyFrameMsg::KeyFrameMsg(ros::NodeHandle &nh, string topic_name, int buffersize)
     kf_pub = nh.advertise<flvis::KeyFrame>(topic_name,1);
 }
 
+void KeyFrameMsg::cmdLMResetPub(ros::Time stamp)
+{
+    flvis::KeyFrame kf;
+    kf.header.stamp = stamp;
+    kf.frame_id = 0;
+    kf.lm_count = 0;
+    kf.command = KFMSG_CMD_RESET_LM;
+    kf.img = sensor_msgs::Image();
+    kf.d_img = sensor_msgs::Image();
+    kf.lm_count = 0;
+    kf.lm_id_data = std_msgs::Int64MultiArray();
+    kf.lm_2d_data.clear();
+    kf.lm_3d_data.clear();
+    kf.lm_descriptor_data = std_msgs::UInt8MultiArray();
+    kf.T_c_w = geometry_msgs::Transform();
+    kf_pub.publish(kf);
+}
 void KeyFrameMsg::pub(CameraFrame& frame, ros::Time stamp)
 {
     flvis::KeyFrame kf;
 
     kf.header.stamp = stamp;
     kf.frame_id = frame.frame_id;
+    kf.command = KFMSG_CMD_NONE;
     cv_bridge::CvImage cvimg(std_msgs::Header(), "mono8", frame.img);
     cvimg.toImageMsg(kf.img);
 
@@ -89,6 +107,7 @@ void KeyFrameMsg::pub(CameraFrame& frame, ros::Time stamp)
     kf.T_c_w.rotation.x=uq.x();
     kf.T_c_w.rotation.y=uq.y();
     kf.T_c_w.rotation.z=uq.z();
+    kf.command = KFMSG_CMD_NONE;
 
     kf_pub.publish(kf);
 }

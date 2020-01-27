@@ -83,6 +83,16 @@ private:
 
     void frame_callback(const flvis::KeyFrameConstPtr& msg)
     {
+        if(msg->command==KFMSG_CMD_RESET_LM)
+        {
+            optimizer_state=UN_INITIALIZED;
+            bag->reset();
+            kfs.clear();
+            optimizer.clear();
+            edges.clear();
+            cout << "reset the local map" << endl;
+            return;
+        }
         KeyFrameStruct kf;
         ros::Time tt;
         KeyFrameMsg::unpack(msg,

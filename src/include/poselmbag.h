@@ -35,6 +35,7 @@ public:
     bool            pose_sub_bag_initialized;
 
     PoseLMBag(int pose_buffer_size_in);
+    void reset(void);
 
     bool hasTheLM(int64_t id_in, int &idx);
     bool addLMObservation(int64_t id_in, Vec3 p3d_w_in);

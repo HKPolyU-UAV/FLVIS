@@ -25,8 +25,10 @@ bool F2FTracking::tracking(CameraFrame& from,
     vector<unsigned char> mask_hasorb;
     vector<unsigned char> mask_matched;
     cv::TermCriteria criteria = cv::TermCriteria((cv::TermCriteria::COUNT) + (cv::TermCriteria::EPS), 10, 0.03);
+
     cv::calcOpticalFlowPyrLK(from.img, to.img, from_cvP2f, tracked_cvP2f,
                          mask_tracked, err, cv::Size(20,20), 5, criteria);
+
 
     cv::Ptr<cv::DescriptorExtractor> extractor = cv::ORB::create();
     if(0)//use patch
@@ -166,8 +168,8 @@ bool F2FTracking::tracking(CameraFrame& from,
                 mask_matched.at(i)!=1)
         {//outliers
             outlier.push_back(from.landmarks.at(i).lm_2d);
-            tracked_cvP2f.erase(tracked_cvP2f.begin()+i);
-            from.landmarks.erase(from.landmarks.begin()+i);
+            //tracked_cvP2f.erase(tracked_cvP2f.begin()+i);
+            //from.landmarks.erase(from.landmarks.begin()+i);
         }else
         {//inliers
             lm2d_from.push_back(from.landmarks.at(i).lm_2d);

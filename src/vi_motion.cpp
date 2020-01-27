@@ -86,35 +86,24 @@ void VIMOTION::viIMUinitialization(const IMUSTATE imu_read)
 
 void VIMOTION::viVisiontrigger(Quaterniond &init_orientation)
 {
+    this->mtx_states_RW.lock();
     MOTION_STATE state = this->states.back();
     state.pos = Vec3(0,0,0);
     state.vel = Vec3(0,0,0);
     //reset yaw angle to zero
     Vec3 rpy = Q2rpy(state.q_w_i);
+    Quaterniond q = rpy2Q(rpy);
+    q.normalize();
+    state.q_w_i = q;
+    states.clear();
+    states.push_back(state);
+    this->mtx_states_RW.unlock();
     rpy[2] = 0;
     cout << "Vision Trigger at: "
          << "roll:"   << rpy[0]*57.2958
          << " pitch:" << rpy[1]*57.2958
          << " yaw:"   << rpy[2]*57.2958 << endl;
-    Quaterniond q = rpy2Q(rpy);
-    //    cout << q.w() << ","
-    //         << q.x() << ","
-    //         << q.y() << ","
-    //         << q.z() << endl;
-    q.normalize();
-    //    cout << q.w() << ","
-    //         << q.x() << ","
-    //         << q.y() << ","
-    //         << q.z() << endl;
-    state.q_w_i = q;
-
-    states.clear();
-    states.push_back(state);
     init_orientation = state.q_w_i;
-    //    cout << init_orientation.w() << ","
-    //         << init_orientation.x() << ","
-    //         << init_orientation.y() << ","
-    //         << init_orientation.z() << endl;
 }
 
 void VIMOTION::viIMUPropagation(const IMUSTATE imu_read,
@@ -157,7 +146,7 @@ void VIMOTION::viIMUPropagation(const IMUSTATE imu_read,
     //propagation for vel
     v_dot = ((R_prev*acc)-gravity)*dt;
     s_new.vel = v_prev+v_dot;
-
+    s_new.vel = Vec3(0,0,0);
     s_new.imu_data = imu_read;
 
     this->mtx_states_RW.lock();
@@ -241,7 +230,7 @@ bool VIMOTION::viFindStateIdx(const double time, int& idx_in_q)
     else
     {
         cout << "[Critical Warning]: motion not in queue! please enlarge the buffer size" << endl;
-        cout << "queue   size:" << states.size() << endl;
+        cout << "queue size:" << states.size() << endl;
         cout << "Frame time  :" << std::setprecision (15) << time << endl;
         cout << "q begin time:" << this->states.front().imu_data.timestamp << endl;
         cout << "q end time  :" << this->states.back().imu_data.timestamp << endl;
@@ -255,10 +244,8 @@ bool VIMOTION::viGetIMURollPitchAtTime(const double time, double &roll, double &
 {
     MOTION_STATE state;
     bool found;
-
     this->mtx_states_RW.lock();
     int idx;
-
     if(this->viFindStateIdx(time,idx))
     {
         state=states.at(idx);
@@ -269,14 +256,9 @@ bool VIMOTION::viGetIMURollPitchAtTime(const double time, double &roll, double &
         found = true;
     }else
     {
-        //cout << "viGetIMURollPitchAtTime fail" << endl;
-        //        cout << "Frame time   :" << std::setprecision (15) << time << endl;
-        //        cout << "q begin time :" << this->states.front().imu_data.timestamp << endl;
-        //        cout << "q end time   :" << this->states.back().imu_data.timestamp << endl;
         found = false;
     }
     this->mtx_states_RW.unlock();
-
     return found;
 }
 
@@ -288,10 +270,31 @@ void VIMOTION::viGetLatestImuState(SE3 &T_w_i, Vec3 &vel)
     this->mtx_states_RW.unlock();
 }
 
+bool VIMOTION::viGetCorrFrameState(const double time, SE3 &T_c_w)
+{
+    bool ret;
+    int  idx;
+    MOTION_STATE state;
+    this->mtx_states_RW.lock();
+    if(this->viFindStateIdx(time,idx))
+    {
+        state=states.at(idx);
+        SE3 T_w_i = SE3(state.q_w_i,state.pos);
+        SE3 T_w_c = T_w_i * this->T_i_c;
+        T_c_w = T_w_c.inverse();
+        cout << T_w_i.translation() << endl;
+        ret = true;
+    }else
+    {
+        ret = false;
+    }
+    this->mtx_states_RW.unlock();
+    return ret;
+}
+
 void VIMOTION::viVisionRPCompensation(const double time, SE3 &T_c_w, double proportion)
 {
     Vec3 rpy_before, rpy_vimotion, ryp_after;//ryp_w_c
-
     SE3 T_c_w_before = T_c_w;
     SE3 T_w_i_before = (T_c_w_before.inverse())*this->T_c_i;
     rpy_before = Q2rpy(T_w_i_before.so3().unit_quaternion());

@@ -17,6 +17,20 @@ PoseLMBag::PoseLMBag(int pose_buffer_size_in)
     pose_sub_bag_initialized=false;
 }
 
+void PoseLMBag::reset()
+{
+    this->lm_sub_bag.clear();
+    this->pose_sub_bag.clear();
+    POSE_ITEM pose;
+    for(int i=0; i<pose_buffer_size; i++)
+    {
+        pose_sub_bag.push_back(pose);
+    }
+    wp_init=0;//write pointer for initialization
+    pose_cnt_init=0;
+    pose_sub_bag_initialized=false;
+}
+
 bool PoseLMBag::hasTheLM(int64_t id_in, int &idx)
 {
     idx = 0;

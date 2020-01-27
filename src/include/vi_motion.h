@@ -47,7 +47,8 @@ public:
     //after that the pos vel and orientation will be integrate
     void viVisiontrigger(Quaterniond& init_orientation);
     void viVisionRPCompensation(const double time, SE3& T_c_w, double proportion);
-    void viGetLatestImuState(SE3& T_w_i, Vec3& vel);
+    void viGetLatestImuState(SE3& T_w_i, Vec3& vel);//latest imu state in queue
+    bool viGetCorrFrameState(const double time, SE3& T_c_w);//get correspond frame time
 
     void viCorrectionFromVision(const double time, SE3 T_c_w_vision, Vec3 vec_vision);
     bool viGetIMURollPitchAtTime(const double time, double& roll, double& pitch);
