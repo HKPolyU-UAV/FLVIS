@@ -45,7 +45,7 @@ void OctomapFeeder::pub(const SE3 &T_c_w,const  cv::Mat &d_img, const ros::Time 
             }
             else
             {
-                float z = (d_img.at<ushort>(pt))/d_camera.camera_scale_factor;
+                float z = (d_img.at<ushort>(pt))/d_camera.cam_scale_factor;
                 if(z>=0.5&&z<=6.5)
                 {
                     Vec3 pt_w = this->d_camera.pixel2worldT_c_w(Vec2(u,v),T_c_w,z);

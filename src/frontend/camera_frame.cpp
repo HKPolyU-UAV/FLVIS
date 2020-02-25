@@ -108,12 +108,12 @@ void CameraFrame::recover3DPts_c_FromDepthImg(vector<Vec3>& pt3ds,
         }
         else
         {
-            float z = (d_img.at<ushort>(pt))/d_camera.camera_scale_factor;
+            float z = (d_img.at<ushort>(pt))/d_camera.cam_scale_factor;
             if(z>=0.3&&z<=8.0)
             {
                 pt3d[2] = z;
-                pt3d[0] = (pt.x - d_camera.camera_cx) * z / d_camera.camera_fx;
-                pt3d[1] = (pt.y - d_camera.camera_cy) * z / d_camera.camera_fy;
+                pt3d[0] = (pt.x - d_camera.cam0_cx) * z / d_camera.cam0_fx;
+                pt3d[1] = (pt.y - d_camera.cam0_cy) * z / d_camera.cam0_fy;
                 pt3ds.push_back(pt3d);
                 maskHas3DInf.push_back(true);
             }else
@@ -138,10 +138,10 @@ void CameraFrame::recover3DPts_c_FromTriangulation(vector<Vec3> &pt3ds, vector<b
         {
             Vec3 pt3d_w = Triangulation::triangulationPt(landmarks.at(i).lm_1st_obs_2d,landmarks.at(i).lm_2d,
                                                          landmarks.at(i).lm_1st_obs_frame_pose,T_c_w,
-                                                         d_camera.camera_fx,
-                                                         d_camera.camera_fy,
-                                                         d_camera.camera_cx,
-                                                         d_camera.camera_cy);
+                                                         d_camera.cam0_fx,
+                                                         d_camera.cam0_fy,
+                                                         d_camera.cam0_cx,
+                                                         d_camera.cam0_cy);
             Vec3 pt3d_c = DepthCamera::world2cameraT_c_w(pt3d_w,T_c_w);
             if(pt3d_c[2]>=0.5 && pt3d_c[2]<=15)
             {

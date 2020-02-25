@@ -1,3 +1,9 @@
+#type_of_cam: 
+#0---d435i
+#1---euroc_mav
+#2---others
+type_of_cam: 0
+
 #image_width: 640
 #image_height: 360
 #camera_model: pinhole

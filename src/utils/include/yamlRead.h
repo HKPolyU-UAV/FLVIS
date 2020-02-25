@@ -2,7 +2,7 @@
 #define YAMLREAD_H
 
 #include "../3rdPartLib/yaml-cpp-0.6.2/include/yaml-cpp/yaml.h"
-#include "common.h"
+#include "include/common.h"
 
 inline Mat3x3 Mat33FromYaml(string FilePath, string vName)
 {

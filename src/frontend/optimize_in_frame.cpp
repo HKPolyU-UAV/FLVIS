@@ -1,19 +1,19 @@
-#include "include/bundle_adjustment.h"
+#include "include/optimize_in_frame.h"
 
 
 
-bundleAdjustment::bundleAdjustment()
+OptimizeInFrame::OptimizeInFrame()
 {
 
 }
 
-void bundleAdjustment::BAInFrame(CameraFrame &frame)
+void OptimizeInFrame::optimize(CameraFrame &frame)
 {
     //get all landmarks (has depth information and is inliers)
-    double fx=frame.d_camera.camera_fx;
-    double fy=frame.d_camera.camera_fy;
-    double cx=frame.d_camera.camera_cx;
-    double cy=frame.d_camera.camera_cy;
+    double fx=frame.d_camera.cam0_fx;
+    double fy=frame.d_camera.cam0_fy;
+    double cx=frame.d_camera.cam0_cx;
+    double cy=frame.d_camera.cam0_cy;
     vector<LandMarkInFrame> lms_in_frame;
     frame.getValidInliersPair(lms_in_frame);
 //    cout << lms_in_frame.size() << "|" << frame.landmarks.size() << endl;

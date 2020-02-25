@@ -3,7 +3,7 @@
   <!-- <param name="/yamlconfigfile" type="string" value="$(find flvis)/launch/d435_sn841512070537.yaml"/>-->
     <param name="/yamlconfigfile" type="string" value="$(find flvis)/launch/d435_sn912112073494.yaml"/>
 
-    <include file="$(find flvis)/launch/vo.launch"/>
+    <include file="$(find flvis)/launch/flvis.launch"/>
 
     <node pkg="octomap_server" type="octomap_server_node" name="octomap_server">
         <param name="resolution" value="0.2" />
@@ -13,6 +13,6 @@
     </node>
 
    <!--  <node pkg="rosbag" type="play" name="rosbag" args="$(find flvis)/bag/2019-11-06-16-38-25.bag"/> -->
-   <node pkg="rosbag" type="play" name="rosbag" args="$(find flvis)/bag/2020-01-06-15-47-26.bag"/>
+   <node pkg="rosbag" type="play" name="rosbag" args="$(find flvis)/bag/2020-01-25-21-05-15.bag -s3"/>
 
 </launch>

@@ -863,12 +863,7 @@ private:
         Database dbTmp(voc, true, 0);
         db = dbTmp;
 
-        path_lc_pub  = new RVIZPath(nh,"/vo_path_lc_new");
-
-
-
-
-
+        path_lc_pub  = new RVIZPath(nh,"/vo_path_lc_new","map");
 
         sub_kf = nh.subscribe<flvis::KeyFrame>(
                     "/vo_kf",

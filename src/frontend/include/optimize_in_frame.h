@@ -23,11 +23,11 @@
 
 #include "include/camera_frame.h"
 
-class bundleAdjustment
+class OptimizeInFrame
 {
 public:
-    bundleAdjustment();
-    static void BAInFrame(CameraFrame &frame);
+    OptimizeInFrame();
+    static void optimize(CameraFrame &frame);
 };
 
 #endif // BUNDLEADJUSTMENT_H

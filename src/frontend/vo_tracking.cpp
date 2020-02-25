@@ -32,20 +32,23 @@
 #include <flvis/KeyFrame.h>
 #include <flvis/CorrectionInf.h>
 #include <include/keyframe_msg.h>
-#include <include/bundle_adjustment.h>
+#include <include/optimize_in_frame.h>
 #include <include/correction_inf_msg.h>
 #include <include/octomap_feeder.h>
-#include <include/f2f_tracking.h>
+#include <include/lkorb_tracking.h>
 #include <include/vi_motion.h>
 #include <tf/transform_listener.h>
 
-enum TRACKINGSTATE{UnInit, Working, trackingFail};
+
+namespace flvis_ns
+{
+
+enum TRACKINGSTATE{UnInit, Tracking, trackingFail};
 struct ID_POSE {
     int    frame_id;
     SE3    T_c_w;
 };
-namespace flvis_ns
-{
+
 class TrackingNodeletClass : public nodelet::Nodelet
 {
 public:
@@ -59,9 +62,10 @@ private:
     message_filters::Synchronizer<MyExactSyncPolicy> * exactSync_;
     ros::Subscriber imu_sub;
     ros::Subscriber correction_inf_sub;
+
     //Tools
     FeatureDEM         *featureDEM;
-    F2FTracking        *tracker;
+    LKORBTracking      *tracker;
     //VIMOTION
     SE3                T_i_c;//T_imu_cam
     bool               has_imu;
@@ -123,12 +127,14 @@ private:
         double cy = cameraMatrix.at<double>(1,2);
 
         featureDEM  = new FeatureDEM(image_width,image_height,5);
-        tracker     = new F2FTracking(image_width,image_height);
+        tracker     = new LKORBTracking(image_width,image_height);
         curr_frame = std::make_shared<CameraFrame>();
         last_frame = std::make_shared<CameraFrame>();
         curr_frame->height = last_frame->height = image_height;
         curr_frame->width = last_frame->width = image_width;
-        curr_frame->d_camera = last_frame->d_camera = DepthCamera(fx,fy,cx,cy,1000.0);
+        DepthCamera dc;
+        dc.setDepthCamInfo(fx,fy,cx,cy,1000.0);
+        curr_frame->d_camera = last_frame->d_camera = dc;
 
         vimotion    = new VIMOTION(T_i_c);
         //Init the variable
@@ -159,6 +165,8 @@ private:
                     "/imu",
                     10,
                     boost::bind(&TrackingNodeletClass::imu_callback, this, _1));
+
+
         image_sub.subscribe(nh, "/vo/image", 1);
         depth_sub.subscribe(nh, "/vo/depth_image", 1);
         exactSync_ = new message_filters::Synchronizer<MyExactSyncPolicy>(MyExactSyncPolicy(2), image_sub, depth_sub);
@@ -205,7 +213,6 @@ private:
                 this->pose_imu_pub->pubPose(q_w_i,pos_w_i,stamp);
             }
         }
-
     }
 
     void correction_feedback_callback(const flvis::CorrectionInf::ConstPtr& msg)
@@ -239,7 +246,7 @@ private:
         //Depth Img
         cv_bridge::CvImagePtr cvbridge_depth_image  = cv_bridge::toCvCopy(depthImgPtr, depthImgPtr->encoding);
         curr_frame->d_img=cvbridge_depth_image->image;
-        curr_frame->frame_time = imgPtr->header.stamp;
+        curr_frame->frame_time = imgPtr->header.stamp.toSec();
         cvtColor(curr_frame->img,img_vis,CV_GRAY2BGR);
         ros::Time currStamp = imgPtr->header.stamp;
 
@@ -255,7 +262,6 @@ private:
             Vec3   t_w_c=Vec3(0,0,0);
             SE3    T_w_c(R_w_c,t_w_c);
             curr_frame->T_c_w=T_w_c.inverse();//Tcw = (Twc)^-1
-
             if(this->has_imu)
             {
                 if(vimotion->imu_initialized)
@@ -275,13 +281,14 @@ private:
                 {
                     break;
                 }
-            }else {
+            }
+            else
+            {
                 enable_imu = false;
             }
 
             vector<Vec2> pts2d;
             vector<cv::Mat>  descriptors;
-
             featureDEM->detect(curr_frame->img,pts2d,descriptors);
             cout << "Detect " << pts2d.size() << " Features"<< endl;
             for(size_t i=0; i<pts2d.size(); i++)
@@ -300,7 +307,7 @@ private:
                 path_pub->pubPathT_c_w(curr_frame->T_c_w,currStamp);
                 kf_pub->pub(*curr_frame,currStamp);
                 T_c_w_last_keyframe = curr_frame->T_c_w;
-                vo_tracking_state = Working;
+                vo_tracking_state = Tracking;
                 cout << "vo_tracking_state = Working" << endl;
             }else
             {
@@ -330,7 +337,7 @@ private:
         }
 
 
-        case Working:
+        case Tracking:
         {
             /* F2F Workflow
                      STEP1: Recover from LocalMap Feedback msg
@@ -376,7 +383,6 @@ private:
                 last_frame->forceMarkOutlier(correction_inf.lm_outlier_count,correction_inf.lm_outlier_id);
                 has_localmap_feedback = false;
             }
-
             //STEP2:
             vector<Vec2> lm2d_from,lm2d_to,outlier_tracking;
             tracker->tracking(*last_frame,
@@ -384,7 +390,6 @@ private:
                               lm2d_from,
                               lm2d_to,
                               outlier_tracking);
-
             //STEP3:
             vector<cv::Point2f> p2d;
             vector<cv::Point3f> p3d;
@@ -418,17 +423,15 @@ private:
                 status[n] = 1;
             }
             curr_frame->updateLMState(status);
-
             //(Option) ->IMU roll pitch compensation
             if(this->has_imu)
             {
-                vimotion->viVisionRPCompensation(curr_frame->frame_time.toSec(),
+                vimotion->viVisionRPCompensation(curr_frame->frame_time,
                                                  curr_frame->T_c_w,
                                                  0.05);
             }
-
             //STEP4:
-            bundleAdjustment::BAInFrame(*curr_frame);
+            OptimizeInFrame::optimize(*curr_frame);
             vector<Vec2> outlier_reproject;
             double mean_reprojection_error;
             curr_frame->calReprjInlierOutlier(mean_reprojection_error,outlier_reproject,1.5);
@@ -438,10 +441,9 @@ private:
             //(Option) ->Vision Feedback and bias estimation
             if(this->has_imu)
             {
-                vimotion->viCorrectionFromVision(curr_frame->frame_time.toSec(),
+                vimotion->viCorrectionFromVision(curr_frame->frame_time,
                                                  curr_frame->T_c_w,Vec3(0,0,0));
             }
-
             //STEP5:
             vector<Vec2> newKeyPts;
             vector<cv::Mat>  newDescriptor;
@@ -459,8 +461,6 @@ private:
             }
             //STEP6:
             curr_frame->depthInnovation();
-
-
             //STEP7:
             ID_POSE tmp;
             tmp.frame_id = curr_frame->frame_id;
@@ -470,7 +470,6 @@ private:
             {
                 pose_records.pop_front();
             }
-
             //STEP8:
             vector<Vec2> outlier;
             outlier.insert(outlier.end(), outlier_tracking.begin(), outlier_tracking.end());
@@ -482,7 +481,6 @@ private:
             frame_pub->pubFramePtsPoseT_c_w(curr_frame->getValid3dPts(),curr_frame->T_c_w);
             path_pub->pubPathT_c_w(curr_frame->T_c_w,currStamp);
             //octomap_pub->pub(curr_frame->T_c_w,curr_frame->d_img,currStamp);
-
             //if has tf between map and odom
             try
             {
@@ -502,7 +500,6 @@ private:
                 //                ROS_ERROR("%s",ex.what());
                 //                cout<<"no trans between map and odom yet."<<endl;
             }
-
             //STEP9:
             SE3 T_diff_key_curr = T_c_w_last_keyframe*(curr_frame->T_c_w.inverse());
             Vec3 t=T_diff_key_curr.translation();
@@ -529,7 +526,7 @@ private:
                 vector<cv::Mat>  descriptors;
                 featureDEM->detect(curr_frame->img,pts2d,descriptors);
                 cout << "Detect " << pts2d.size() << " Features"<< endl;
-                if(this->vimotion->viGetCorrFrameState(curr_frame->frame_time.toSec(),
+                if(this->vimotion->viGetCorrFrameState(curr_frame->frame_time,
                                                        curr_frame->T_c_w))
                 {
                     for(size_t i=0; i<pts2d.size(); i++)
@@ -549,9 +546,8 @@ private:
                         path_pub->pubPathT_c_w(curr_frame->T_c_w,currStamp);
                         kf_pub->pub(*curr_frame,currStamp);
                         T_c_w_last_keyframe = curr_frame->T_c_w;
-                        vo_tracking_state = Working;
+                        vo_tracking_state = Tracking;
                         cout << "vo_tracking_state = Working" << endl;
-
                     }else
                     {
                         cout << "Re-initialization fail: no enough measurement" << endl;
@@ -565,10 +561,9 @@ private:
             }else
             {
                 if((cnt%5)==0)
-                kf_pub->cmdLMResetPub(curr_frame->frame_time);
+                kf_pub->cmdLMResetPub(ros::Time(curr_frame->frame_time));
             }
             last_frame.swap(curr_frame);
-            //vo_tracking_state = UnInit;
             break;
         }
 

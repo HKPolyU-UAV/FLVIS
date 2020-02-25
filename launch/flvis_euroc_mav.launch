@@ -4,7 +4,7 @@
 
     <include file="$(find flvis)/launch/d435i/d435i.launch"/>
 
-    <include file="$(find flvis)/launch/flvis.launch"/>
+    <include file="$(find flvis)/launch/d435i/flvis.launch"/>
 
     <node pkg="octomap_server" type="octomap_server_node" name="octomap_server">
         <param name="resolution" value="0.15" />

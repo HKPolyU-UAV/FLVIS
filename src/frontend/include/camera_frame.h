@@ -1,8 +1,7 @@
 #ifndef CAMERAFRAME_H
 #define CAMERAFRAME_H
 
-#include <ros/ros.h>
-#include <include/landmark_in_frame.h>
+#include <include/landmark.h>
 #include <include/common.h>
 #include <include/depth_camera.h>
 #include <include/triangulation.h>
@@ -14,8 +13,8 @@ class CameraFrame
 public:
   typedef std::shared_ptr<CameraFrame> Ptr;
 
-  int64_t   frame_id;
-  ros::Time frame_time;
+  int64_t frame_id;
+  double  frame_time;
   cv::Mat img;
   cv::Mat d_img;
 
