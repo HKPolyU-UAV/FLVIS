@@ -1,7 +1,7 @@
 <launch>
 
   <!-- <param name="/yamlconfigfile" type="string" value="$(find flvis)/launch/d435_sn841512070537.yaml"/>-->
-    <param name="/yamlconfigfile" type="string" value="$(find flvis)/launch/d435_sn912112073494.yaml"/>
+    <param name="/yamlconfigfile" type="string" value="$(find flvis)/launch/d435i/d435_sn912112073494.yaml"/>
 
     <include file="$(find flvis)/launch/flvis.launch"/>
 
@@ -12,7 +12,6 @@
         <remap from="cloud_in" to="/vo_octo_tracking" />
     </node>
 
-   <!--  <node pkg="rosbag" type="play" name="rosbag" args="$(find flvis)/bag/2019-11-06-16-38-25.bag"/> -->
    <node pkg="rosbag" type="play" name="rosbag" args="$(find flvis)/bag/2020-01-25-21-05-15.bag -s3"/>
 
 </launch>

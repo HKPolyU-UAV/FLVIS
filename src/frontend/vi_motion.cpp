@@ -17,9 +17,13 @@ VIMOTION::VIMOTION(SE3 T_i_c_fromCalibration)
     this->gravity = Vec3(0,0,-MAGNITUDE_OF_GRAVITY);
 }
 
-void VIMOTION::viIMUinitialization(const IMUSTATE imu_read)
+void VIMOTION::viIMUinitialization(const IMUSTATE imu_read,
+                                   Quaterniond& q_w_i,
+                                   Vec3& pos_w_i,
+                                   Vec3& vel_w_i)
 {
-    //estimate pitch and roll
+    q_w_i = Quaterniond(1,0,0,0);
+    pos_w_i = vel_w_i = Vec3(0,0,0);
     this->init_state.imu_data = imu_read;
     Vec3 acc = imu_read.acc_raw;
     Vec3 gyro = imu_read.gyro_raw;
@@ -39,30 +43,25 @@ void VIMOTION::viIMUinitialization(const IMUSTATE imu_read)
             this->states.push_back(init_state);
             if(states.size()>=STATES_QUEUE_SIZE) {states.pop_front();}
             this->is_first_data =  false;
+            q_w_i = rpy2Q(rpy);
         }
     }else
     {   //In the initialization process only update orientation, the position and velocity remain 0.
         //madgwick orientation filter
         //Link: https://x-io.co.uk/open-source-imu-and-ahrs-algorithms/
-        //cout << "ax:" << acc[0] << " ay:" << acc[1] << " az:" << acc[2] << endl;
-        //cout << "gx:" << gyro[0] << " gy:" << gyro[1] << " gz:" << gyro[2] << endl;
+
         //gyro update;
         double dt = imu_read.timestamp - this->states.back().imu_data.timestamp;
-        //cout << dt << endl;
         Quaterniond q_prev = this->states.back().q_w_i;
         Quaterniond omega(0,gyro[0],gyro[1],gyro[2]);
         Quaterniond qdot = scalar_multi_q(0.5*dt,q1_multi_q2(q_prev,omega));
         Quaterniond q_new = q_plus_q(q_prev,qdot);
         q_new.normalize();
-        Vec3 rpy;
-        rpy = Q2rpy(q_new);
-        //        cout << "roll:"   << rpy[0]*57.2958
-        //             << " pitch:" << rpy[1]*57.2958
-        //             << " yaw:"   << rpy[2]*57.2958 << endl;
+        Vec3 rpy = Q2rpy(q_new);
 
         //acc feedback if acc is valid
         if(fabs(sqrt(acc[0]*acc[0]+acc[1]*acc[1]+acc[2]*acc[2])-MAGNITUDE_OF_GRAVITY)<0.3)//valid acc data
-        {//feedback
+        {
             Vec3 rpy_acc;
             rpy_acc[0] = atan2(-acc[1],-acc[2]);
             rpy_acc[1] = atan2(acc[0],-acc[2]);
@@ -73,11 +72,12 @@ void VIMOTION::viIMUinitialization(const IMUSTATE imu_read)
             //            cout << "roll:"   << rpy[0]*57.2958
             //                 << " pitch:" << rpy[1]*57.2958
             //                 << " yaw:"   << rpy[2]*57.2958 << endl;
+            q_w_i = q_new;
         }
         this->init_state.q_w_i = q_new;
         this->states.push_back(init_state);
         if(states.size()>=STATES_QUEUE_SIZE) {states.pop_front();}
-        if(states.size()>90)
+        if(states.size()>30)
         {
             this->imu_initialized = true;
         }//end if IMU init

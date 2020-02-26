@@ -59,9 +59,12 @@ inline void drawFlow(cv::Mat& img, const vector<Vec2>& from, const vector<Vec2>&
 inline void drawFrame(cv::Mat& img, CameraFrame& frame)
 {
     drawRegion16(img);
-    int fps=floor(1/frame.solving_time);
-    cv::putText(img, "FPS:"+std::to_string(fps),
-            cv::Point(0,20), cv::FONT_HERSHEY_SIMPLEX, 0.8, cv::Scalar(0,255,0), 2, cv::LINE_8);
+    int fps=floor(1.0/frame.solving_time);
+    if(fps>0&&fps<500)
+    {
+        cv::putText(img, "FPS:"+std::to_string(fps),
+                cv::Point(0,20), cv::FONT_HERSHEY_SIMPLEX, 0.8, cv::Scalar(0,255,0), 2, cv::LINE_8);
+    }
     std::stringstream stream;
     stream << std::fixed << std::setprecision(2) << frame.reprojection_error;
     cv::putText(img, "ERR:"+stream.str(),

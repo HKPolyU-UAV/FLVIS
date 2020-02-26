@@ -2,7 +2,7 @@
 
 CameraFrame::CameraFrame()
 {
-
+    this->solving_time = 1;
 }
 
 void CameraFrame::clear()
