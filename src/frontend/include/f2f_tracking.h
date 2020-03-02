@@ -9,8 +9,13 @@
 #include "include/correction_inf_msg.h"
 #include "include/optimize_in_frame.h"
 
-enum TRACKINGSTATE{UnInit, Tracking, TrackingFail};
-enum TYPEOFCAMERA{DEPTH_D435I,STEREO_EuRoC_MAV};
+using namespace std::chrono;
+using namespace cv;
+
+enum TRACKINGSTATE{UnInit,
+                   Tracking,
+                   TrackingFail};
+
 struct ID_POSE {
     int    frame_id;
     SE3    T_c_w;
@@ -32,8 +37,14 @@ public:
     enum TRACKINGSTATE   vo_tracking_state;
 
     //varialbe
-    cv::Mat cameraMatrix;
-    cv::Mat distCoeffs;
+    cv::Mat K0,D0,K1,D1;
+    cv::Mat K0_rect;//cam0 rectified cameraMatrix;
+    cv::Mat D0_rect;//cam0 rectified distCoeffs;
+    cv::Mat K1_rect;//cam1 rectified cameraMatrix;
+    cv::Mat D1_rect;//cam1 rectified distCoeffs;
+    cv::Mat c0_RM[2];
+    cv::Mat c1_RM[2];
+
     CorrectionInfStruct correction_inf;
     SE3 T_c_w_last_keyframe;
     deque<ID_POSE> pose_records;
@@ -47,23 +58,25 @@ public:
                   Vec3& vel_w_i);
 
     void image_feed(const double time,
-                    const cv::Mat img0,
-                    const cv::Mat img1,
+                    const cv::Mat img0_in,
+                    const cv::Mat img1_in,
                     bool &new_keyframe,
                     bool &reset_cmd);
 
     void correction_feed(const double time, const CorrectionInfStruct corr);
 
     void init(const int w, const int h,
-              const double cam0_fx_in, const double cam0_fY_in,
-              const double cam0_cx_in, const double cam0_cy_in,
+              const Mat c0_cameraMatrix_in,
+              const Mat c0_distCoeffs_in,
               const SE3 T_i_c0_in,
               const TYPEOFCAMERA cam_type_in=DEPTH_D435I,
-              const double cam_scale_in=1000.1,
-              const double cam1_fx_in=0.0, const double cam1_fy_in=0.0,
-              const double cam1_cx_in=0.0, const double cam1_cy_in=0.0,
-              const SE3 T_cam0_cam1=SE3());
+              const double cam_scale_in=1000.0,
+              const Mat c1_cameraMatrix_in=Mat1d(3, 3),
+              const Mat c1_distCoeffs_in=Mat1d(4, 1),
+              const SE3 T_c0_c1=SE3());
 
+private:
+    bool init_frame(void);
 
 };//class F2FTracking
 

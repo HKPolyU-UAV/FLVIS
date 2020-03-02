@@ -47,7 +47,8 @@ void OptimizeInFrame::optimize(CameraFrame &frame)
             g2o::VertexSBAPointXYZ* v_point = new g2o::VertexSBAPointXYZ();
             v_point->setId (lm.lm_id);
             v_point->setEstimate (lm.lm_3d_w);
-            v_point->setMarginalized (true);
+            v_point->setFixed(true);
+            //v_point->setMarginalized (true);
             //v_point->setFixed(true);
             optimizer.addVertex (v_point);
             g2o::EdgeProjectXYZ2UV*  edge = new g2o::EdgeProjectXYZ2UV();
@@ -64,17 +65,17 @@ void OptimizeInFrame::optimize(CameraFrame &frame)
 //        cout<<"start optimization"<<endl;
         optimizer.setVerbose(false);
         optimizer.initializeOptimization();
-        optimizer.optimize(2);
+        optimizer.optimize(3);
         for (auto e:edges)
         {
             e->computeError();
-            if (e->chi2()>2.0){
+            if (e->chi2()>3.0){
                 optimizer.removeEdge(e);
                 e->id();
             }
         }
         optimizer.initializeOptimization();
-        optimizer.optimize(2);
+        optimizer.optimize(3);
 //        optimizer.initializeOptimization();
 //        optimizer.optimize(2);
 //        cout<<"end"<<endl;

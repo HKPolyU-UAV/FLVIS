@@ -38,7 +38,33 @@ Vec3 Triangulation::triangulationPt(Vec2 pt1, Vec2 pt2, Mat3x4 projection_matrix
     return V.block<3, 1>(0, 3);
 }
 
-Vec3 Triangulation::triangulationPt(Vec2 pt1, Vec2 pt2, SE3 T_c_w1, SE3 T_c_w2, double fx, double fy, double cx, double cy)
+bool Triangulation::trignaulationPtFromStereo(Vec2 pt0, Vec2 pt1,
+                                              Mat3x3 c0Matrix, Mat3x3 c1Matrix,
+                                              SE3 T_c1_c0,
+                                              Vec3 &pt3d_c)
+{
+    SE3 T_c1_w = T_c1_c0;
+    Mat3x4 T0,T1;
+    T0.topLeftCorner(3,3).setIdentity();
+    T0.topRightCorner(3,1).setZero();
+    T1.topLeftCorner(3,3)=T_c1_w.rotation_matrix();
+    T1.topRightCorner(3,1)=T_c1_w.translation();
+    Mat3x4 P0,P1;//Projection Matrix
+    P0 = c0Matrix*T0;
+    P1 = c1Matrix*T1;
+    pt3d_c = triangulationPt(pt0,pt1,P0,P1);
+    if(pt3d_c[2]<0 || pt3d_c[2]>8)
+    {
+        return false;
+    }else
+    {
+        return true;
+    }
+}
+
+Vec3 Triangulation::triangulationPt(Vec2 pt1, Vec2 pt2,
+                                    SE3 T_c_w1, SE3 T_c_w2,
+                                    double fx, double fy, double cx, double cy)
 {
     Mat3x3 K;//Kamera matrix
     K<<fx,0,cx,0,fy,cy,0,0,1;
@@ -66,13 +92,13 @@ Vec2 Triangulation::reProjection(Vec3 pt, SE3 T_c_w, double fx, double fy, doubl
 
 
     Mat3x4 P=K*T;//Projection Matrix
-//    cout << K << endl;
-//    cout << T << endl;
-//    cout << P << endl;
+    //    cout << K << endl;
+    //    cout << T << endl;
+    //    cout << P << endl;
 
     Vec4 pt3d_homogeneous = Vec4(pt(0),pt(1),pt(2),1);
     Vec3 pt2d_homogeneous=P*pt3d_homogeneous;
-//    cout << pt3d_homogeneous.transpose() << endl;
-//    cout << pt2d_homogeneous.transpose() << endl;
+    //    cout << pt3d_homogeneous.transpose() << endl;
+    //    cout << pt2d_homogeneous.transpose() << endl;
     return Vec2(pt2d_homogeneous(0)/pt2d_homogeneous(2),pt2d_homogeneous(1)/pt2d_homogeneous(2));
 }

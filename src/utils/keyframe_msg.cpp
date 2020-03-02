@@ -34,7 +34,7 @@ void KeyFrameMsg::pub(CameraFrame& frame, ros::Time stamp)
     kf.header.stamp = stamp;
     kf.frame_id = frame.frame_id;
     kf.command = KFMSG_CMD_NONE;
-    cv_bridge::CvImage cvimg(std_msgs::Header(), "mono8", frame.img);
+    cv_bridge::CvImage cvimg(std_msgs::Header(), "mono8", frame.img0);
     cvimg.toImageMsg(kf.img);
 
     cv_bridge::CvImage cv_d_img(std_msgs::Header(), "16UC1", frame.d_img);

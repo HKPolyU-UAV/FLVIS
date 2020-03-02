@@ -70,8 +70,8 @@ private:
         //cv::startWindowThread(); //Bug report https://github.com/ros-perception/image_pipeline/issues/201
 
         //Publisher
-        path_pub     = new RVIZPath(nh,"/vo_path","map");
-        path_lc_pub  = new RVIZPath(nh,"/vo_path_lc","map");
+        path_pub     = new RVIZPath(nh,"/vo_path","map",1,3000);
+        path_lc_pub  = new RVIZPath(nh,"/vo_path_lc","map",1,3000);
         frame_pub    = new RVIZFrame(nh,"/vo_camera_pose","map","/vo_curr_frame","map");
         pose_imu_pub = new RVIZPose(nh,"/imu_pose","map");
         kf_pub       = new KeyFrameMsg(nh,"/vo_kf");
@@ -86,28 +86,24 @@ private:
         string configFilePath;
         nh.getParam("/yamlconfigfile",   configFilePath);
         cout << configFilePath << endl;
-        int cam_type = getIntVariableFromYaml(configFilePath,"type_of_cam");
-        if(cam_type==0) cam_type=DEPTH_D435I;
-        if(cam_type==1) cam_type=STEREO_EuRoC_MAV;
+        int cam_type_from_yaml = getIntVariableFromYaml(configFilePath,"type_of_cam");
+        if(cam_type_from_yaml==0) cam_type=DEPTH_D435I;
+        if(cam_type_from_yaml==1) cam_type=STEREO_EuRoC_MAV;
         if(cam_type==DEPTH_D435I)
         {
             int image_width  = getIntVariableFromYaml(configFilePath,"image_width");
             int image_height = getIntVariableFromYaml(configFilePath,"image_height");
-            cv::Mat cameraMatrix = cameraMatrixFromYamlIntrinsics(configFilePath,"intrinsics");
-            cv::Mat distCoeffs   = distCoeffsFromYaml(configFilePath,"distortion_coeffs");
-            Mat4x4  mat_imu_cam  = Mat44FromYaml(configFilePath,"T_imu_cam");
-            double fx = cameraMatrix.at<double>(0,0);
-            double fy = cameraMatrix.at<double>(1,1);
-            double cx = cameraMatrix.at<double>(0,2);
-            double cy = cameraMatrix.at<double>(1,2);
+            cv::Mat cam0_cameraMatrix = cameraMatrixFromYamlIntrinsics(configFilePath,"cam0_intrinsics");
+            cv::Mat cam0_distCoeffs   = distCoeffsFromYaml(configFilePath,"cam0_distortion_coeffs");
+            Mat4x4  mat_imu_cam  = Mat44FromYaml(configFilePath,"T_imu_cam0");
             cout << "d435i camera" << endl;
             cout << "image_width :" << image_width << endl;
             cout << "image_height:" << image_height << endl;
-            cout << "cameraMatrix:" << endl << cameraMatrix << endl;
-            cout << "distCoeffs  :" << endl << distCoeffs << endl;
+            cout << "cameraMatrix:" << endl << cam0_cameraMatrix << endl;
+            cout << "distCoeffs  :" << endl << cam0_distCoeffs << endl;
             cout << "Mat_imu_cam0 :" << endl << mat_imu_cam << endl;
             SE3 T_i_c = SE3(mat_imu_cam.topLeftCorner(3,3),mat_imu_cam.topRightCorner(3,1));
-            cam_tracker->init(image_width,image_height,fx,fy,cx,cy,T_i_c);
+            cam_tracker->init(image_width,image_height,cam0_cameraMatrix,cam0_distCoeffs,T_i_c);
             img0_sub.subscribe(nh, "/vo/image", 1);
             img1_sub.subscribe(nh, "/vo/depth_image", 1);
         }
@@ -117,22 +113,38 @@ private:
             int image_height = getIntVariableFromYaml(configFilePath,"image_height");
             cv::Mat cam0_cameraMatrix = cameraMatrixFromYamlIntrinsics(configFilePath,"cam0_intrinsics");
             cv::Mat cam0_distCoeffs   = distCoeffsFromYaml(configFilePath,"cam0_distortion_coeffs");
-            Mat4x4  mat_imu_cam0  = Mat44FromYaml(configFilePath,"T_imu_cam0");
-            SE3 T_i_c0 = SE3(mat_imu_cam0.topLeftCorner(3,3),mat_imu_cam0.topRightCorner(3,1));
+            Mat4x4  mat_mavimu_cam0  = Mat44FromYaml(configFilePath,"T_mavimu_cam0");
+            SE3 T_mavi_c0 = SE3(mat_mavimu_cam0.topLeftCorner(3,3),
+                                mat_mavimu_cam0.topRightCorner(3,1));
             cv::Mat cam1_cameraMatrix = cameraMatrixFromYamlIntrinsics(configFilePath,"cam1_intrinsics");
-            cv::Mat cam1_distCoeffs   = distCoeffsFromYaml(configFilePath,"cam0_distortion_coeffs");
-            Mat4x4  mat_imu_cam1  = Mat44FromYaml(configFilePath,"T_imu_cam1");
-            SE3 T_i_c1 = SE3(mat_imu_cam1.topLeftCorner(3,3),mat_imu_cam1.topRightCorner(3,1));
-            SE3 T_c0_c1 = T_i_c0.inverse()*T_i_c1;
+            cv::Mat cam1_distCoeffs   = distCoeffsFromYaml(configFilePath,"cam1_distortion_coeffs");
+            Mat4x4  mat_mavimu_cam1  = Mat44FromYaml(configFilePath,"T_mavimu_cam1");
+            SE3 T_mavi_c1 = SE3(mat_mavimu_cam1.topLeftCorner(3,3),
+                                mat_mavimu_cam1.topRightCorner(3,1));
+
+            SE3 T_c0_c1 = T_mavi_c0.inverse()*T_mavi_c1;
+            Mat4x4  mat_i_mavimu  = Mat44FromYaml(configFilePath,"T_imu_mavimu");
+            SE3 T_i_mavi = SE3(mat_i_mavimu.topLeftCorner(3,3),mat_i_mavimu.topRightCorner(3,1));
+            SE3 T_i_c0 = T_i_mavi*T_mavi_c0;
+
             cout << "euroc mav dataset" << endl;
             cout << "image_width :" << image_width << endl;
             cout << "image_height:" << image_height << endl;
             cout << "cam0_cameraMatrix:" << endl << cam0_cameraMatrix << endl;
             cout << "cam0_distCoeffs  :" << endl << cam0_distCoeffs << endl;
-            cout << "Mat_imu_cam0 :" << endl << mat_imu_cam0 << endl;
+            cout << "Mat_camimu_cam0 :" << endl << mat_mavimu_cam0 << endl;
             cout << "cam1_cameraMatrix:" << endl << cam1_cameraMatrix << endl;
             cout << "cam1_distCoeffs  :" << endl << cam1_distCoeffs << endl;
-            cout << "Mat_imu_cam1 :" << endl << mat_imu_cam1 << endl;
+            cout << "Mat_camimu_cam1 :" << endl << mat_mavimu_cam1 << endl;
+            cout << "T_c0_c1_rot: " << endl << T_c0_c1.rotation_matrix() << endl;
+            cout << "T_c0_c1_tran: " << endl << T_c0_c1.translation() << endl;
+            cam_tracker->init(image_width,image_height,
+                              cam0_cameraMatrix,cam0_distCoeffs,
+                              T_i_c0,
+                              STEREO_EuRoC_MAV,
+                              1.0,
+                              cam1_cameraMatrix,cam1_distCoeffs,
+                              T_c0_c1);
             img0_sub.subscribe(nh, "/vo/image0", 1);
             img1_sub.subscribe(nh, "/vo/image1", 1);
         }
@@ -167,18 +179,22 @@ private:
         }
         if(cam_type==STEREO_EuRoC_MAV)
         {
-            gyro = Vec3(msg->angular_velocity.x,
-                        msg->angular_velocity.y,
-                        msg->angular_velocity.z);
-            acc = Vec3(msg->linear_acceleration.x,
+            gyro = Vec3(msg->angular_velocity.z,
+                        -msg->angular_velocity.y,
+                        msg->angular_velocity.x);
+            acc = Vec3(-msg->linear_acceleration.z,
                        msg->linear_acceleration.y,
-                       msg->linear_acceleration.z);
+                       -msg->linear_acceleration.x);
         }
+//        std::cout << std::fixed;
+//        std::cout << std::setprecision(2);
+//        cout << "gx" << gyro[0] << " gy" << gyro[1] << " gz" << gyro[2] << endl;
+//        cout << "ax" << acc[0]  << " ay" << acc[1]  << " az" << acc[2]  << endl;
         Quaterniond q_w_i;
         Vec3        pos_w_i, vel_w_i;
-        this->cam_tracker->imu_feed(tstamp.toSec(),acc,gyro,
-                                    q_w_i,pos_w_i,vel_w_i);
-        this->pose_imu_pub->pubPose(q_w_i,pos_w_i,tstamp);
+//        this->cam_tracker->imu_feed(tstamp.toSec(),acc,gyro,
+//                                    q_w_i,pos_w_i,vel_w_i);
+//        this->pose_imu_pub->pubPose(q_w_i,pos_w_i,tstamp);
     }
 
     void correction_feedback_callback(const flvis::CorrectionInf::ConstPtr& msg)
@@ -195,9 +211,10 @@ private:
                                  correction_inf.lm_outlier_id);
     }
 
-    void image_input_callback(const sensor_msgs::ImageConstPtr & img0_Ptr, const sensor_msgs::ImageConstPtr & img1_Ptr)
+    void image_input_callback(const sensor_msgs::ImageConstPtr & img0_Ptr,
+                              const sensor_msgs::ImageConstPtr & img1_Ptr)
     {
-        tic_toc_ros tt_cb;
+        //tic_toc_ros tt_cb;
         ros::Time tstamp = img0_Ptr->header.stamp;
         //input
         if(cam_type==DEPTH_D435I)
@@ -244,10 +261,47 @@ private:
             sensor_msgs::ImagePtr dimg_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", dimg_vis).toImageMsg();
             img_pub.publish(img_msg);
             dimg_pub.publish(dimg_msg);
-            drawFrame(img_vis,*this->cam_tracker->curr_frame);
         }
         if(cam_type==STEREO_EuRoC_MAV)
         {
+            cv_bridge::CvImagePtr cvbridge_img0  = cv_bridge::toCvCopy(img0_Ptr, img0_Ptr->encoding);
+            cv_bridge::CvImagePtr cvbridge_img1  = cv_bridge::toCvCopy(img1_Ptr, img1_Ptr->encoding);
+            bool newkf;//new key frame
+            bool reset_cmd;//reset command to localmap node
+            this->cam_tracker->image_feed(tstamp.toSec(),
+                                          cvbridge_img0->image,
+                                          cvbridge_img1->image,
+                                          newkf,
+                                          reset_cmd);
+            if(newkf) kf_pub->pub(*cam_tracker->curr_frame,tstamp);
+            if(reset_cmd) kf_pub->cmdLMResetPub(ros::Time(tstamp));
+            frame_pub->pubFramePtsPoseT_c_w(this->cam_tracker->curr_frame->getValid3dPts(),
+                                            this->cam_tracker->curr_frame->T_c_w,
+                                            tstamp);
+            path_pub->pubPathT_c_w(this->cam_tracker->curr_frame->T_c_w,tstamp);
+            SE3 T_map_c =SE3();
+            try{
+                listenerOdomMap.lookupTransform("map","odom",ros::Time(0), tranOdomMap);
+                tf::Vector3 tf_t= tranOdomMap.getOrigin();
+                tf::Quaternion tf_q = tranOdomMap.getRotation();
+                SE3 T_map_odom(Quaterniond(tf_q.w(),tf_q.x(),tf_q.y(),tf_q.z()),
+                               Vec3(tf_t.x(),tf_t.y(),tf_t.z()));
+                T_map_c = T_map_odom.inverse()*this->cam_tracker->curr_frame->T_c_w.inverse();
+                path_lc_pub->pubPathT_w_c(T_map_c,tstamp);
+            }
+            catch (tf::TransformException ex)
+            {
+                //cout<<"no transform between map and odom yet."<<endl;
+            }
+            cvtColor(cam_tracker->curr_frame->img0,img_vis,CV_GRAY2BGR);
+            drawFrame(img_vis,*this->cam_tracker->curr_frame);
+            sensor_msgs::ImagePtr img_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", img_vis).toImageMsg();
+            img_pub.publish(img_msg);
+            cvtColor(cam_tracker->curr_frame->img1,dimg_vis,CV_GRAY2BGR);
+            sensor_msgs::ImagePtr dimg_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", dimg_vis).toImageMsg();
+            img_pub.publish(img_msg);
+            dimg_pub.publish(dimg_msg);
+
 
         }
         //tt_cb.toc();

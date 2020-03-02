@@ -5,11 +5,43 @@ DepthCamera::DepthCamera()
 
 void DepthCamera::setDepthCamInfo(double fx, double fy, double cx, double cy, double scale_factor)
 {
-  cam0_fx = fx;
-  cam0_fy = fy;
-  cam0_cx = cx;
-  cam0_cy = cy;
-  cam_scale_factor = scale_factor;
+    cam0_fx = fx;
+    cam0_fy = fy;
+    cam0_cx = cx;
+    cam0_cy = cy;
+    cam0_matrix <<cam0_fx,0,cam0_cx,0,cam0_fy,cam0_cy,0,0,1;
+    cam_scale_factor = scale_factor;
+    cam_type = DEPTH_D435I;
+}
+
+void DepthCamera::setSteroCamInfo(const cv::Mat cam0_camera_matrix_in, const cv::Mat cam0_distCoeffs_in,
+                                  const cv::Mat cam1_camera_matrix_in, const cv::Mat cam1_distCoeffs_in,
+                                  const SE3 T_cam0_cam1_in)
+{
+    this->K0=cam0_camera_matrix_in;
+    this->K1=cam1_camera_matrix_in;
+    this->D0=cam0_distCoeffs_in;
+    this->D1=cam1_distCoeffs_in;
+    cout << "-------------------" << endl;
+    cout << K0 << endl;
+    cout << K1 << endl;
+    cout << D0 << endl;
+    cout << D1 << endl;
+    cout << "-------------------" << endl;
+    cam0_fx = K0.at<double>(0,0);
+    cam0_fy = K0.at<double>(1,1);
+    cam0_cx = K0.at<double>(0,2);
+    cam0_cy = K0.at<double>(1,2);
+
+    cam1_fx = K1.at<double>(0,0);
+    cam1_fy = K1.at<double>(1,1);
+    cam1_cx = K1.at<double>(0,2);
+    cam1_cy = K1.at<double>(1,2);
+    cam0_matrix << cam0_fx,0,cam0_cx,0,cam0_fy,cam0_cy,0,0,1;
+    cam1_matrix << cam1_fx,0,cam1_cx,0,cam1_fy,cam1_cy,0,0,1;
+    T_cam0_cam1 = T_cam0_cam1_in;
+    T_cam1_cam0 = T_cam0_cam1.inverse();
+    cam_type = STEREO_EuRoC_MAV;
 }
 
 Vec3 DepthCamera::world2cameraT_c_w ( const Vec3& p_w, const SE3& T_c_w )
@@ -25,18 +57,18 @@ Vec3 DepthCamera::camera2worldT_c_w ( const Vec3& p_c, const SE3& T_c_w )
 Vec2 DepthCamera::camera2pixel ( const Vec3& p_c )
 {
     return Vector2d (
-        cam0_fx * p_c ( 0,0 ) / p_c ( 2,0 ) + cam0_cx,
-        cam0_fy * p_c ( 1,0 ) / p_c ( 2,0 ) + cam0_cy
-    );
+                cam0_fx * p_c ( 0,0 ) / p_c ( 2,0 ) + cam0_cx,
+                cam0_fy * p_c ( 1,0 ) / p_c ( 2,0 ) + cam0_cy
+                );
 }
 
 Vec3 DepthCamera::pixel2camera ( const Vec2& p_p, double depth )
 {
     return Vector3d (
-        ( p_p ( 0,0 )-cam0_cx ) *depth/cam0_fx,
-        ( p_p ( 1,0 )-cam0_cy ) *depth/cam0_fy,
-        depth
-    );
+                ( p_p ( 0,0 )-cam0_cx ) *depth/cam0_fx,
+                ( p_p ( 1,0 )-cam0_cy ) *depth/cam0_fy,
+                depth
+                );
 }
 
 Vec2 DepthCamera::world2pixelT_c_w ( const Vec3& p_w, const SE3& T_c_w )

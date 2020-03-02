@@ -3,16 +3,13 @@
 #1---euroc mav dataset
 #2---others
 type_of_cam: 0
-#depth image is aligned to left camera
+#depth image is aligned to left cam0
 image_width: 640
 image_height: 480
-intrinsics: [379.8116149902344, 379.8116149902344, 317.59075927734375, 235.95370483398438]#fx fy cx cy
-distortion_coeffs: [0.0, 0.0, 0.0, 0.0]#k1 k2 r1 r2
-T_imu_cam:
+cam0_intrinsics: [379.8116149902344, 379.8116149902344, 317.59075927734375, 235.95370483398438]#fx fy cx cy
+cam0_distortion_coeffs: [0.0, 0.0, 0.0, 0.0]#k1 k2 r1 r2
+T_imu_cam0:
 [ 0.0,  0.0,  1.0,  0.0,
  -1.0,  0.0,  0.0,  0.0,
   0.0, -1.0,  0.0,  0.0,
   0.0,  0.0,  0.0,  1.0]
-timeshift_cam_imu: 0.0
-
-

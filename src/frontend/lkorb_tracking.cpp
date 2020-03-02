@@ -8,10 +8,10 @@ LKORBTracking::LKORBTracking(int width_in,int height_in)
 
 
 bool LKORBTracking::tracking(CameraFrame& from,
-                           CameraFrame& to,
-                           vector<Vec2>& lm2d_from,
-                           vector<Vec2>& lm2d_to,
-                           vector<Vec2>& outlier)
+                             CameraFrame& to,
+                             vector<Vec2>& lm2d_from,
+                             vector<Vec2>& lm2d_to,
+                             vector<Vec2>& outlier)
 {
     //STEP1: Optical Flow
     int outlier_untracked_cnt=0;
@@ -24,10 +24,10 @@ bool LKORBTracking::tracking(CameraFrame& from,
     vector<unsigned char> mask_tracked;
     vector<unsigned char> mask_hasorb;
     vector<unsigned char> mask_matched;
-    cv::TermCriteria criteria = cv::TermCriteria((cv::TermCriteria::COUNT) + (cv::TermCriteria::EPS), 10, 0.03);
+    cv::TermCriteria criteria = cv::TermCriteria((cv::TermCriteria::COUNT) + (cv::TermCriteria::EPS), 30, 0.01);
 
-    cv::calcOpticalFlowPyrLK(from.img, to.img, from_cvP2f, tracked_cvP2f,
-                             mask_tracked, err, cv::Size(20,20), 5, criteria);
+    cv::calcOpticalFlowPyrLK(from.img0, to.img0, from_cvP2f, tracked_cvP2f,
+                             mask_tracked, err, cv::Size(21,21), 6, criteria);
 
 
     cv::Ptr<cv::DescriptorExtractor> extractor = cv::ORB::create();
@@ -36,7 +36,7 @@ bool LKORBTracking::tracking(CameraFrame& from,
     cv::Mat descriptorsMat;
 
     cv::KeyPoint::convert(tracked_cvP2f,tracked_lm_cvKP);
-    extractor->compute(to.img, tracked_lm_cvKP, descriptorsMat);
+    extractor->compute(to.img0, tracked_lm_cvKP, descriptorsMat);
 
     for(size_t i=0; i<tracked_cvP2f.size(); i++)
     {
@@ -61,7 +61,7 @@ bool LKORBTracking::tracking(CameraFrame& from,
 
     for(size_t i=0; i<trackedLMDescriptors.size(); i++)
     {
-        if(norm(from.landmarks.at(i).lm_descriptor, trackedLMDescriptors.at(i), cv::NORM_HAMMING) <= 30)
+        if(norm(from.landmarks.at(i).lm_descriptor, trackedLMDescriptors.at(i), cv::NORM_HAMMING) <= 200)
         {
             //landmarks.at(i).lm_descriptor = trackedLMDescriptors.at(i);
             mask_matched.push_back(1);
@@ -76,13 +76,11 @@ bool LKORBTracking::tracking(CameraFrame& from,
     bool reuslt = false;
     for(int i=from.landmarks.size()-1; i>=0; i--)
     {
-        if(mask_tracked.at(i)!=1      ||
-                mask_hasorb.at(i)!=1  ||
+        if(mask_tracked.at(i)!=1     ||
+                mask_hasorb.at(i)!=1 ||
                 mask_matched.at(i)!=1)
         {//outliers
             outlier.push_back(from.landmarks.at(i).lm_2d);
-            //tracked_cvP2f.erase(tracked_cvP2f.begin()+i);
-            //from.landmarks.erase(from.landmarks.begin()+i);
         }else
         {//inliers
             lm2d_from.push_back(from.landmarks.at(i).lm_2d);

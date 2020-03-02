@@ -9,9 +9,9 @@
 
 #include <include/yamlRead.h>
 #include <include/correction_inf_msg.h>
-
 #include <include/keyframe_msg.h>
 #include <flvis/KeyFrame.h>
+#include <include/depth_camera.h>
 #include <geometry_msgs/Vector3.h>
 #include <include/poselmbag.h>
 
@@ -49,14 +49,11 @@ namespace flvis_ns
 std::deque<KeyFrameStruct> kfs;
 PoseLMBag* bag;
 
-
 enum LMOPTIMIZER_STATE{
-    UN_INITIALIZED = 1,
-    SLIDING_WINDOW = 2,
-    OPTIMIZING = 3,
-    FAIL = 4};
-
-
+    UN_INITIALIZED,
+    SLIDING_WINDOW,
+    OPTIMIZING,
+    FAIL};
 
 class LocalMapNodeletClass : public nodelet::Nodelet
 {
@@ -68,13 +65,10 @@ private:
     ros::Subscriber sub_kf;
     CorrectionInfMsg* pub_correction_inf;
 
-
-    int image_width,image_height;
-    Mat diplay_img;
+    enum TYPEOFCAMERA cam_type;
+    double fx,fy,cx,cy;
     int fix_window_optimizer_size;
 
-
-    double fx,fy,cx,cy;
     g2o::CameraParameters* cam_params;
     LMOPTIMIZER_STATE optimizer_state;
     g2o::SparseOptimizer optimizer;
@@ -347,24 +341,56 @@ private:
 
         string configFilePath;
         nh.getParam("/yamlconfigfile",   configFilePath);
-        image_width  = getIntVariableFromYaml(configFilePath,"image_width");
-        image_height = getIntVariableFromYaml(configFilePath,"image_height");
-        Mat cameraMatrix,distCoeffs;
-        cameraMatrix = cameraMatrixFromYamlIntrinsics(configFilePath);
-        distCoeffs = distCoeffsFromYaml(configFilePath);
-        fx = cameraMatrix.at<double>(0,0);
-        fy = cameraMatrix.at<double>(1,1);
-        cx = cameraMatrix.at<double>(0,2);
-        cy = cameraMatrix.at<double>(1,2);
-//        cout << "cameraMatrix:" << endl << cameraMatrix << endl
-//             << "distCoeffs:" << endl << distCoeffs << endl
-//             << "image_width: "  << image_width << " image_height: "  << image_height << endl
-//             << "fx: "  << fx << " fy: "  << fy <<  " cx: "  << cx <<  " cy: "  << cy << endl;
-        diplay_img.create(image_height+1,image_width*2+5,CV_8UC(3));
-        nh.getParam("/yamlconfigfile",   configFilePath);
+        int cam_type_from_yaml = getIntVariableFromYaml(configFilePath,"type_of_cam");
+        if(cam_type_from_yaml==0) cam_type=DEPTH_D435I;
+        if(cam_type_from_yaml==1) cam_type=STEREO_EuRoC_MAV;
+        if(cam_type==DEPTH_D435I)
+        {
+            cv::Mat K0 = cameraMatrixFromYamlIntrinsics(configFilePath,"cam0_intrinsics");
+            cv::Mat D0   = distCoeffsFromYaml(configFilePath,"cam0_distortion_coeffs");
+            fx = K0.at<double>(0,0);
+            fy = K0.at<double>(1,1);
+            cx = K0.at<double>(0,2);
+            cy = K0.at<double>(1,2);
+        }
+        if(cam_type==STEREO_EuRoC_MAV)
+        {
+            int w  = getIntVariableFromYaml(configFilePath,"image_width");
+            int h = getIntVariableFromYaml(configFilePath,"image_height");
+            cv::Mat K0 = cameraMatrixFromYamlIntrinsics(configFilePath,"cam0_intrinsics");
+            cv::Mat D0   = distCoeffsFromYaml(configFilePath,"cam0_distortion_coeffs");
+            Mat4x4  mat_mavimu_cam0  = Mat44FromYaml(configFilePath,"T_mavimu_cam0");
+            SE3 T_mavi_c0 = SE3(mat_mavimu_cam0.topLeftCorner(3,3),
+                                mat_mavimu_cam0.topRightCorner(3,1));
+            cv::Mat K1 = cameraMatrixFromYamlIntrinsics(configFilePath,"cam1_intrinsics");
+            cv::Mat D1   = distCoeffsFromYaml(configFilePath,"cam1_distortion_coeffs");
+            Mat4x4  mat_mavimu_cam1  = Mat44FromYaml(configFilePath,"T_mavimu_cam1");
+            SE3 T_mavi_c1 = SE3(mat_mavimu_cam1.topLeftCorner(3,3),
+                                mat_mavimu_cam1.topRightCorner(3,1));
+            SE3 T_c0_c1 = T_mavi_c0.inverse()*T_mavi_c1;
+            Mat4x4  mat_i_mavimu  = Mat44FromYaml(configFilePath,"T_imu_mavimu");
+            SE3 T_i_mavi = SE3(mat_i_mavimu.topLeftCorner(3,3),mat_i_mavimu.topRightCorner(3,1));
+            SE3 T_i_c0 = T_i_mavi*T_mavi_c0;
+            Mat3x3 R_=T_c0_c1.inverse().rotation_matrix();
+            Vec3   T_=T_c0_c1.inverse().translation();
+            cv::Mat R_01 = (cv::Mat1d(3, 3) << R_(0,0), R_(0,1), R_(0,2),
+                            R_(1,0), R_(1,1), R_(1,2),
+                            R_(2,0), R_(2,1), R_(2,2));
+            cv::Mat T_01 = (cv::Mat1d(3, 1) << T_(0), T_(1), T_(2));
+            cv::Mat R0,R1,P0,P1,Q;
+            cv::stereoRectify(K0,D0,K1,D1,cv::Size(w,h),R_01,T_01,
+                              R0,R1,P0,P1,Q,
+                              CALIB_ZERO_DISPARITY,0,cv::Size(w,h));
 
-        optimizer_state = UN_INITIALIZED;
-        fix_window_optimizer_size = 0;
+            fx = fy = 435.2616200843788;
+            cx = 367.4154319763184;
+            cy = 252.1711006164551;
+//            fx = P0.at<double>(0,0);
+//            fy = P0.at<double>(1,1);
+//            cx = P0.at<double>(0,2);
+//            cy = P0.at<double>(1,2);
+
+        }
         nh.getParam("window_size",   fix_window_optimizer_size);
         cout << "window_size: " << fix_window_optimizer_size << endl;
         if(fix_window_optimizer_size < 3 || fix_window_optimizer_size > 100)
@@ -373,6 +399,7 @@ private:
             cout << "invalide window_size use default :" << fix_window_optimizer_size << endl;
         }
         bag = new PoseLMBag(fix_window_optimizer_size);
+        optimizer_state = UN_INITIALIZED;
 
         pub_correction_inf = new CorrectionInfMsg(nh,"/vo_localmap_feedback");
 

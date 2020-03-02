@@ -144,9 +144,10 @@ void VIMOTION::viIMUPropagation(const IMUSTATE imu_read,
     p_dot = v_prev*dt;
     s_new.pos = p_prev+p_dot;
     //propagation for vel
-    v_dot = ((R_prev*acc)-gravity)*dt;
+    v_dot = ((R_prev*acc)+gravity)*dt;
     s_new.vel = v_prev+v_dot;
     s_new.vel = Vec3(0,0,0);
+    s_new.pos = Vec3(0,0,0);
     s_new.imu_data = imu_read;
 
     this->mtx_states_RW.lock();

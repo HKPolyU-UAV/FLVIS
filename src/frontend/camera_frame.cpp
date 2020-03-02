@@ -8,7 +8,8 @@ CameraFrame::CameraFrame()
 void CameraFrame::clear()
 {
     T_c_w = SE3(Quaterniond(1,0,0,0),Vec3(0,0,0));
-    img.release();
+    img0.release();
+    img1.release();
     d_img.release();
     landmarks.clear();
 }
@@ -90,6 +91,86 @@ void CameraFrame::calReprjInlierOutlier(double &mean_prjerr, vector<Vec2> &outli
 
 }
 
+void CameraFrame::recover3DPts_c_FromStereo(vector<Vec3> &pt3ds,
+                                            vector<bool> &maskHas3DInf)
+{
+    pt3ds.clear();
+    maskHas3DInf.clear();
+
+    vector<Vec2> pts2d_img0,pts2d_img1;
+    pts2d_img0 = this->get2dPtsVec();
+    vector<float>   err;
+    vector<unsigned char> status;
+    vector<cv::Point2f> pts0 = vVec2_2_vcvP2f(pts2d_img0);
+    vector<cv::Point2f> pts1;
+    cv::calcOpticalFlowPyrLK(this->img0, this->img1,
+                             pts0, pts1,
+                             status, err, cv::Size(21,21),20);
+    pts2d_img0.clear();
+    pts2d_img1.clear();
+    for(int i=0; i<status.size(); i++)
+    {
+        pts2d_img0.push_back(Vec2(pts0.at(i).x,pts0.at(i).y));
+        pts2d_img1.push_back(Vec2(pts1.at(i).x,pts1.at(i).y));
+    }
+    //    cv::Mat mat0(status.size(),2,CV_64F);
+    //    cv::Mat mat1(status.size(),2,CV_64F);
+    //    for(int i=0; i<status.size(); i++)
+    //    {
+    //        mat0.at<double>(i,0)=pts0[i].x;
+    //        mat0.at<double>(i,1)=pts0[i].y;
+    //        mat1.at<double>(i,0)=pts1[i].x;
+    //        mat1.at<double>(i,1)=pts1[i].y;
+    //    }
+    //    mat0=mat0.reshape(2);
+    //    mat1=mat1.reshape(2);
+    //    cv::Mat K0_r;
+    //    cv::Mat K1_r;
+    //    cv::undistortPoints(mat0,mat0,this->d_camera.K0,this->d_camera.D0,cv::Mat(),this->d_camera.K0);
+    //    cv::undistortPoints(mat1,mat1,this->d_camera.K1,this->d_camera.D1,cv::Mat(),this->d_camera.K1);
+    //    mat0=mat0.reshape(1);
+    //    mat1=mat1.reshape(1);
+    //    pts2d_img0.clear();
+    //    pts2d_img1.clear();
+    //    cout << this->d_camera.cam0_matrix << endl;
+    //    cout << this->d_camera.cam1_matrix << endl;
+    //    for(int i=0; i<status.size(); i++)
+    //    {
+    //        pts2d_img0.push_back(Vec2(mat0.at<double>(i,0),mat0.at<double>(i,1)));
+    //        pts2d_img1.push_back(Vec2(mat1.at<double>(i,0),mat1.at<double>(i,1)));
+    //    }
+    for(size_t i=0; i<status.size(); i++)
+    {
+        if(status.at(i)==1)
+        {
+            Vec3 pt3d_c;
+            if(Triangulation::trignaulationPtFromStereo(pts2d_img0.at(i),pts2d_img1.at(i),
+                                                        this->d_camera.cam0_matrix,
+                                                        this->d_camera.cam1_matrix,
+                                                        this->d_camera.T_cam1_cam0,
+                                                        pt3d_c))
+            {
+                pt3ds.push_back(pt3d_c);
+                maskHas3DInf.push_back(true);
+                continue;
+            }
+            else
+            {
+                pt3ds.push_back(Vec3(0,0,0));
+                maskHas3DInf.push_back(false);
+                continue;
+            }
+
+
+        }else
+        {
+            pt3ds.push_back(Vec3(0,0,0));
+            maskHas3DInf.push_back(false);
+            continue;
+        }
+    }
+}
+
 void CameraFrame::recover3DPts_c_FromDepthImg(vector<Vec3>& pt3ds,
                                               vector<bool>& maskHas3DInf)
 {
@@ -133,8 +214,7 @@ void CameraFrame::recover3DPts_c_FromTriangulation(vector<Vec3> &pt3ds, vector<b
     {
         SE3 T_c_w1=landmarks.at(i).lm_1st_obs_frame_pose;
         Vec3 baseline = T_c_w1.translation()-T_c_w.translation();
-        double baseline_dis = sqrt(pow(baseline[0],2)+pow(baseline[1],2)+pow(baseline[2],2));
-        if(baseline_dis>=0.2)
+        if(baseline.norm()>=0.2)
         {
             Vec3 pt3d_w = Triangulation::triangulationPt(landmarks.at(i).lm_1st_obs_2d,landmarks.at(i).lm_2d,
                                                          landmarks.at(i).lm_1st_obs_frame_pose,T_c_w,
@@ -163,35 +243,43 @@ void CameraFrame::recover3DPts_c_FromTriangulation(vector<Vec3> &pt3ds, vector<b
 }
 void CameraFrame::depthInnovation(void)
 {
-    vector<Vec3> pts3d_c_depth_measurement;
+    vector<Vec3> pts3d_c_cam_measure;
     vector<Vec3> pts3d_c_triangulation;
-    vector<bool> depth_measurement_mask;
+    vector<bool> cam_measure_mask;
     vector<bool> triangulation_mask;
     this->recover3DPts_c_FromTriangulation(pts3d_c_triangulation,triangulation_mask);
-    this->recover3DPts_c_FromDepthImg(pts3d_c_depth_measurement,depth_measurement_mask);
+    if(this->d_camera.cam_type==DEPTH_D435I)
+    {
+        this->recover3DPts_c_FromDepthImg(pts3d_c_cam_measure,cam_measure_mask);
+    }
+    if(this->d_camera.cam_type==STEREO_EuRoC_MAV)
+    {
+        this->recover3DPts_c_FromStereo(pts3d_c_cam_measure,cam_measure_mask);
+    }
     for(size_t i=0; i<landmarks.size(); i++)
     {
-        if(depth_measurement_mask.at(i)==false && triangulation_mask.at(i)==false) continue;
-        Vec3 lm_c_measure;
-        if(depth_measurement_mask.at(i)==true && triangulation_mask.at(i)==true)
-        {
-            lm_c_measure = 0.95*(pts3d_c_triangulation.at(i)+ 0.05*pts3d_c_depth_measurement.at(i));
-        }else if(depth_measurement_mask.at(i)==true && triangulation_mask.at(i)==false)
-        {
-            lm_c_measure = pts3d_c_depth_measurement.at(i);
-        }else if(depth_measurement_mask.at(i)==false && triangulation_mask.at(i)==true)
-        {
-            lm_c_measure = pts3d_c_triangulation.at(i);
-        }
+        //        if(cam_measure_mask.at(i)==false && triangulation_mask.at(i)==false) continue;
+        //        Vec3 lm_c_measure;
+        //        if(cam_measure_mask.at(i)==true && triangulation_mask.at(i)==true)
+        //        {
+        //            lm_c_measure = 0.95*(pts3d_c_triangulation.at(i)+ 0.05*pts3d_c_cam_measure.at(i));
+        //        }else if(cam_measure_mask.at(i)==true && triangulation_mask.at(i)==false)
+        //        {
+        //            lm_c_measure = pts3d_c_cam_measure.at(i);
+        //        }else if(cam_measure_mask.at(i)==false && triangulation_mask.at(i)==true)
+        //        {
+        //            lm_c_measure = pts3d_c_triangulation.at(i);
+        //        }
+
+        if (cam_measure_mask.at(i)==false) continue;
+        Vec3 lm_c_measure = pts3d_c_cam_measure.at(i);
 
         if(landmarks.at(i).hasDepthInf())
         {
             //transfor to Camera frame
             Vec3 lm_c = DepthCamera::world2cameraT_c_w(landmarks.at(i).lm_3d_w,this->T_c_w);
             //apply IIR Filter
-
-            Vec3 lm_c_update = lm_c*0.8+lm_c_measure*0.2;
-
+            Vec3 lm_c_update = lm_c*0.85+lm_c_measure*0.15;
             //update to world frame
             landmarks.at(i).lm_3d_c = lm_c_update;
             landmarks.at(i).lm_3d_w = DepthCamera::camera2worldT_c_w(lm_c_update,this->T_c_w);
@@ -200,6 +288,7 @@ void CameraFrame::depthInnovation(void)
         else//Do not have position
         {
             Vec3 pt3d_w = DepthCamera::camera2worldT_c_w(lm_c_measure,this->T_c_w);
+            landmarks.at(i).lm_3d_c = lm_c_measure;
             landmarks.at(i).lm_3d_w = pt3d_w;
             landmarks.at(i).lmState = LMSTATE_NORMAL;
             landmarks.at(i).lm_has_3d = true;

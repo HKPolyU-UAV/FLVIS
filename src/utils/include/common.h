@@ -104,6 +104,15 @@ inline vector<cv::Point2f> vVec2_2_vcvP2f(const vector<Vec2>& pt2ds)
     return ret;
 }
 
+inline vector<Vec2> vcvP2f_2_vVec2(const vector<cv::Point2f>& vc2f)
+{
+    vector<Vec2> ret;
+    ret.clear();
+    for(size_t i=0; i<vc2f.size(); i++)
+        ret.push_back(Vec2(vc2f.at(i).x,vc2f.at(i).y));
+    return ret;
+}
+
 inline cv::Mat Mat3x3_to_cvMat(const Mat3x3 R)
 {
     cv::Mat ret;
