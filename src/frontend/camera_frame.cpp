@@ -113,41 +113,15 @@ void CameraFrame::recover3DPts_c_FromStereo(vector<Vec3> &pt3ds,
         pts2d_img0.push_back(Vec2(pts0.at(i).x,pts0.at(i).y));
         pts2d_img1.push_back(Vec2(pts1.at(i).x,pts1.at(i).y));
     }
-    //    cv::Mat mat0(status.size(),2,CV_64F);
-    //    cv::Mat mat1(status.size(),2,CV_64F);
-    //    for(int i=0; i<status.size(); i++)
-    //    {
-    //        mat0.at<double>(i,0)=pts0[i].x;
-    //        mat0.at<double>(i,1)=pts0[i].y;
-    //        mat1.at<double>(i,0)=pts1[i].x;
-    //        mat1.at<double>(i,1)=pts1[i].y;
-    //    }
-    //    mat0=mat0.reshape(2);
-    //    mat1=mat1.reshape(2);
-    //    cv::Mat K0_r;
-    //    cv::Mat K1_r;
-    //    cv::undistortPoints(mat0,mat0,this->d_camera.K0,this->d_camera.D0,cv::Mat(),this->d_camera.K0);
-    //    cv::undistortPoints(mat1,mat1,this->d_camera.K1,this->d_camera.D1,cv::Mat(),this->d_camera.K1);
-    //    mat0=mat0.reshape(1);
-    //    mat1=mat1.reshape(1);
-    //    pts2d_img0.clear();
-    //    pts2d_img1.clear();
-    //    cout << this->d_camera.cam0_matrix << endl;
-    //    cout << this->d_camera.cam1_matrix << endl;
-    //    for(int i=0; i<status.size(); i++)
-    //    {
-    //        pts2d_img0.push_back(Vec2(mat0.at<double>(i,0),mat0.at<double>(i,1)));
-    //        pts2d_img1.push_back(Vec2(mat1.at<double>(i,0),mat1.at<double>(i,1)));
-    //    }
+
     for(size_t i=0; i<status.size(); i++)
     {
         if(status.at(i)==1)
         {
             Vec3 pt3d_c;
             if(Triangulation::trignaulationPtFromStereo(pts2d_img0.at(i),pts2d_img1.at(i),
-                                                        this->d_camera.cam0_matrix,
-                                                        this->d_camera.cam1_matrix,
-                                                        this->d_camera.T_cam1_cam0,
+                                                        this->d_camera.P0_,
+                                                        this->d_camera.P1_,
                                                         pt3d_c))
             {
                 pt3ds.push_back(pt3d_c);

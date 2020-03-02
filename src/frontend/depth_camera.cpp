@@ -9,19 +9,21 @@ void DepthCamera::setDepthCamInfo(double fx, double fy, double cx, double cy, do
     cam0_fy = fy;
     cam0_cx = cx;
     cam0_cy = cy;
-    cam0_matrix <<cam0_fx,0,cam0_cx,0,cam0_fy,cam0_cy,0,0,1;
+    K0_ <<cam0_fx,0,cam0_cx,0,cam0_fy,cam0_cy,0,0,1;
     cam_scale_factor = scale_factor;
     cam_type = DEPTH_D435I;
 }
 
-void DepthCamera::setSteroCamInfo(const cv::Mat cam0_camera_matrix_in, const cv::Mat cam0_distCoeffs_in,
-                                  const cv::Mat cam1_camera_matrix_in, const cv::Mat cam1_distCoeffs_in,
-                                  const SE3 T_cam0_cam1_in)
+void DepthCamera::setSteroCamInfo(const cv::Mat K0_in, const cv::Mat D0_in, const Mat3x4 P0_in,
+                                  const cv::Mat K1_in, const cv::Mat D1_in, const Mat3x4 P1_in,
+                                  const SE3 T_c0_c1_in)
 {
-    this->K0=cam0_camera_matrix_in;
-    this->K1=cam1_camera_matrix_in;
-    this->D0=cam0_distCoeffs_in;
-    this->D1=cam1_distCoeffs_in;
+    this->P0_ = P0_in;
+    this->P1_ = P1_in;
+    this->K0=K0_in;
+    this->K1=K1_in;
+    this->D0=D0_in;
+    this->D1=D1_in;
     cout << "-------------------" << endl;
     cout << K0 << endl;
     cout << K1 << endl;
@@ -37,9 +39,9 @@ void DepthCamera::setSteroCamInfo(const cv::Mat cam0_camera_matrix_in, const cv:
     cam1_fy = K1.at<double>(1,1);
     cam1_cx = K1.at<double>(0,2);
     cam1_cy = K1.at<double>(1,2);
-    cam0_matrix << cam0_fx,0,cam0_cx,0,cam0_fy,cam0_cy,0,0,1;
-    cam1_matrix << cam1_fx,0,cam1_cx,0,cam1_fy,cam1_cy,0,0,1;
-    T_cam0_cam1 = T_cam0_cam1_in;
+    K0_ << cam0_fx,0,cam0_cx,0,cam0_fy,cam0_cy,0,0,1;
+    K1_ << cam1_fx,0,cam1_cx,0,cam1_fy,cam1_cy,0,0,1;
+    T_cam0_cam1 = T_c0_c1_in;
     T_cam1_cam0 = T_cam0_cam1.inverse();
     cam_type = STEREO_EuRoC_MAV;
 }

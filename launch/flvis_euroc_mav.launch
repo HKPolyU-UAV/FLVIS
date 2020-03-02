@@ -1,8 +1,8 @@
 <launch>
 
     <param name="/yamlconfigfile" type="string" value="$(find flvis)/launch/EuRoC_MAV/euroc.yaml"/>
+    <!--<node pkg="rosbag" type="play" name="rosbag" args="$(find flvis)/bag/MH_02_easy.bag"/>-->
     <node pkg="rosbag" type="play" name="rosbag" args="$(find flvis)/bag/V1_01_easy.bag"/>
-
     <arg name="node_start_delay" default="0.0" />
     <param name="/voc"             type="string" value="$(find flvis)/voc/voc_orb.dbow3"/>
     <!-- Manager -->

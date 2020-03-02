@@ -39,6 +39,20 @@ Vec3 Triangulation::triangulationPt(Vec2 pt1, Vec2 pt2, Mat3x4 projection_matrix
 }
 
 bool Triangulation::trignaulationPtFromStereo(Vec2 pt0, Vec2 pt1,
+                                              Mat3x4 P0, Mat3x4 P1,
+                                              Vec3 &pt3d_c)
+{
+    pt3d_c = triangulationPt(pt0,pt1,P0,P1);
+    if(pt3d_c[2]<0 || pt3d_c[2]>6)
+    {
+        return false;
+    }else
+    {
+        return true;
+    }
+}
+
+bool Triangulation::trignaulationPtFromStereo(Vec2 pt0, Vec2 pt1,
                                               Mat3x3 c0Matrix, Mat3x3 c1Matrix,
                                               SE3 T_c1_c0,
                                               Vec3 &pt3d_c)
@@ -52,6 +66,8 @@ bool Triangulation::trignaulationPtFromStereo(Vec2 pt0, Vec2 pt1,
     Mat3x4 P0,P1;//Projection Matrix
     P0 = c0Matrix*T0;
     P1 = c1Matrix*T1;
+//    cout << "P0:" << endl << P0 << endl;
+//    cout << "P1:" << endl << P1 << endl;
     pt3d_c = triangulationPt(pt0,pt1,P0,P1);
     if(pt3d_c[2]<0 || pt3d_c[2]>8)
     {

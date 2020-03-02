@@ -73,8 +73,27 @@ void F2FTracking::init(const int w, const int h,
 
 
         DepthCamera dc;
-        dc.setSteroCamInfo(K0_rect, D0_rect,
-                           K1_rect, D1_rect,
+        Mat3x4 P0_,P1_;
+        P0_(0,0) = P0.at<double>(0,0);
+        P0_(1,1) = P0.at<double>(1,1);
+        P0_(0,2) = P0.at<double>(0,2);
+        P0_(1,2) = P0.at<double>(1,2);
+        P0_(2,2) = P0.at<double>(2,2);
+        P0_(0,3) = P0.at<double>(0,3);
+        P0_(1,3) = P0.at<double>(1,3);
+        P0_(2,3) = P0.at<double>(2,3);
+
+        P1_(0,0) = P1.at<double>(0,0);
+        P1_(1,1) = P1.at<double>(1,1);
+        P1_(0,2) = P1.at<double>(0,2);
+        P1_(1,2) = P1.at<double>(1,2);
+        P1_(2,2) = P1.at<double>(2,2);
+        P1_(0,3) = P1.at<double>(0,3);
+        P1_(1,3) = P1.at<double>(1,3);
+        P1_(2,3) = P1.at<double>(2,3);
+
+        dc.setSteroCamInfo(K0_rect, D0_rect, P0_,
+                           K1_rect, D1_rect, P1_,
                            T_c0_c1);
         curr_frame->d_camera = last_frame->d_camera = dc;
     }
@@ -193,13 +212,13 @@ void F2FTracking::image_feed(const double time,
     case STEREO_EuRoC_MAV:
         //        curr_frame->img0=img0_in;
         //        curr_frame->img1=img1_in;
-//        cv::undistort(img0_in,curr_frame->img0,K0,D0);
-//        cv::undistort(img1_in,curr_frame->img1,K0,D0);
+        //        cv::undistort(img0_in,curr_frame->img0,K0,D0);
+        //        cv::undistort(img1_in,curr_frame->img1,K0,D0);
 
         cv::remap(img0_in, curr_frame->img0, c0_RM[0], c0_RM[1],cv::INTER_LINEAR);
         cv::remap(img1_in, curr_frame->img1, c1_RM[0], c1_RM[1],cv::INTER_LINEAR);
-        //        cv::equalizeHist(curr_frame->img0,curr_frame->img0);
-        //        cv::equalizeHist(curr_frame->img1,curr_frame->img1);
+        cv::equalizeHist(curr_frame->img0,curr_frame->img0);
+        cv::equalizeHist(curr_frame->img1,curr_frame->img1);
     }
 
     switch(vo_tracking_state)
