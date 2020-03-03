@@ -69,10 +69,9 @@ private:
     double fx,fy,cx,cy;
     int fix_window_optimizer_size;
 
-    g2o::CameraParameters* cam_params;
     LMOPTIMIZER_STATE optimizer_state;
     g2o::SparseOptimizer optimizer;
-    vector<g2o::EdgeProjectXYZ2UV*> edges;
+    vector<g2o::EdgeSE3ProjectXYZ*> edges;
 
 
     void frame_callback(const flvis::KeyFrameConstPtr& msg)
@@ -178,7 +177,11 @@ private:
                         //cout << pose_vertex_idx << endl;
                         for(int lm_idx=0; lm_idx < kfs.at(f_idx).lm_count; lm_idx++)//add landmarks
                         {
-                            g2o::EdgeProjectXYZ2UV*  edge = new g2o::EdgeProjectXYZ2UV();
+                            g2o::EdgeSE3ProjectXYZ* edge = new g2o::EdgeSE3ProjectXYZ();
+                            edge->fx = fx;
+                            edge->fy = fy;
+                            edge->cx = cx;
+                            edge->cy = cy;
                             edge->setId(edge_id);
                             edge_id++;
                             int64_t lm_vertex_idx = kfs.at(f_idx).lm_id.at(lm_idx);
@@ -242,11 +245,15 @@ private:
                 edges.clear();
                 for (auto v_itm:v)
                 {
-                    edges.push_back(dynamic_cast<g2o::EdgeProjectXYZ2UV*>(v_itm));
+                    edges.push_back(dynamic_cast<g2o::EdgeSE3ProjectXYZ*>(v_itm));
                 }
                 for(int i=0; i < kfs.back().lm_count; i++)//add landmarks
                 {
-                    g2o::EdgeProjectXYZ2UV*  edge = new g2o::EdgeProjectXYZ2UV();
+                    g2o::EdgeSE3ProjectXYZ* edge = new g2o::EdgeSE3ProjectXYZ();
+                    edge->fx = fx;
+                    edge->fy = fy;
+                    edge->cx = cx;
+                    edge->cy = cy;
                     edge->setId(edge_id);
                     edge_id++;
                     int64_t lm_vertex_idx = kfs.back().lm_id.at(i);
@@ -284,7 +291,7 @@ private:
             int inliers_cnt = 0;
             for(int i=(edges.size()-1); i>=0; i--)
             {
-                g2o::EdgeProjectXYZ2UV* e = edges.at(i);
+                g2o::EdgeSE3ProjectXYZ* e = edges.at(i);
                 e->computeError();
                 if (e->chi2()>3.0){
                     int id=  e->vertex(0)->id();//outlier landmark id;
@@ -416,7 +423,4 @@ private:
 };//class LocalMapNodeletClass
 }//namespace flvis_ns
 
-
-
 PLUGINLIB_EXPORT_CLASS(flvis_ns::LocalMapNodeletClass, nodelet::Nodelet)
-

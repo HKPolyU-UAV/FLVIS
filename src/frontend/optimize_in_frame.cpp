@@ -22,17 +22,12 @@ void OptimizeInFrame::optimize(CameraFrame &frame)
         return;
     }
     else {
-        g2o::CameraParameters* cam_params;
         typedef g2o::BlockSolver< g2o::BlockSolverTraits<6,3> > Block;
         std::unique_ptr<Block::LinearSolverType> linearSolver ( new g2o::LinearSolverEigen<Block::PoseMatrixType>());
         std::unique_ptr<Block> solver_ptr ( new Block ( std::move(linearSolver)));
         g2o::OptimizationAlgorithmLevenberg* solver = new g2o::OptimizationAlgorithmLevenberg ( std::move(solver_ptr));
         g2o::SparseOptimizer optimizer;
         optimizer.setAlgorithm (solver);
-
-        g2o::CameraParameters* camera = new g2o::CameraParameters(((fx+fy)/2.0), Eigen::Vector2d(cx, cy), 0 );
-        camera->setId(0);
-        optimizer.addParameter(camera);
 
         //add pose vertex
         g2o::VertexSE3Expmap* v_pose = new g2o::VertexSE3Expmap();
@@ -41,17 +36,19 @@ void OptimizeInFrame::optimize(CameraFrame &frame)
                                          frame.T_c_w.translation()));
         optimizer.addVertex(v_pose);
 
-        vector<g2o::EdgeProjectXYZ2UV*> edges;
+        vector<g2o::EdgeSE3ProjectXYZ*> edges;
         for(auto lm : lms_in_frame)
         {
             g2o::VertexSBAPointXYZ* v_point = new g2o::VertexSBAPointXYZ();
             v_point->setId (lm.lm_id);
             v_point->setEstimate (lm.lm_3d_w);
             v_point->setFixed(true);
-            //v_point->setMarginalized (true);
-            //v_point->setFixed(true);
             optimizer.addVertex (v_point);
-            g2o::EdgeProjectXYZ2UV*  edge = new g2o::EdgeProjectXYZ2UV();
+            g2o::EdgeSE3ProjectXYZ* edge = new g2o::EdgeSE3ProjectXYZ();
+            edge->fx = fx;
+            edge->fy = fy;
+            edge->cx = cx;
+            edge->cy = cy;
             edge->setId(lm.lm_id);
             edge->setVertex( 0, dynamic_cast<g2o::VertexSBAPointXYZ*> (optimizer.vertex(lm.lm_id)));
             edge->setVertex( 1, dynamic_cast<g2o::VertexSE3Expmap*>   (optimizer.vertex(0)));
@@ -62,10 +59,9 @@ void OptimizeInFrame::optimize(CameraFrame &frame)
             optimizer.addEdge(edge);
             edges.push_back(edge);
         }
-//        cout<<"start optimization"<<endl;
         optimizer.setVerbose(false);
         optimizer.initializeOptimization();
-        optimizer.optimize(3);
+        optimizer.optimize(2);
         for (auto e:edges)
         {
             e->computeError();
@@ -75,7 +71,7 @@ void OptimizeInFrame::optimize(CameraFrame &frame)
             }
         }
         optimizer.initializeOptimization();
-        optimizer.optimize(3);
+        optimizer.optimize(2);
 //        optimizer.initializeOptimization();
 //        optimizer.optimize(2);
 //        cout<<"end"<<endl;
@@ -84,24 +80,6 @@ void OptimizeInFrame::optimize(CameraFrame &frame)
 
         //update frame pose
         frame.T_c_w =  SE3(pose.rotation(),pose.translation());
-        //update landmarks
-//        for(auto e:edges)
-//        {
-//            if(e->chi2()<2.0)
-//            {
-//                uint64_t id=e->id();
-//                for(int i=0; i<frame.landmarks.size(); i++)
-//                {
-//                    if(frame.landmarks.at(i).lm_id == id)
-//                    {
-//                        g2o::VertexSBAPointXYZ* v = dynamic_cast<g2o::VertexSBAPointXYZ*> (optimizer.vertex(frame.landmarks.at(i).lm_id));
-//                        Eigen::Vector3d pos = v->estimate();
-//                        frame.landmarks.at(i).lm_3d_w = pos;
-//                        frame.landmarks.at(i).lm_3d_c = DepthCamera::world2cameraT_c_w(pos,frame.T_c_w);
-//                        break;
-//                    }
-//                }
-//            }
-//        }
+
     }
 }
