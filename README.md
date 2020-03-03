@@ -5,9 +5,9 @@
 TBD
 ### 2-Relevent Publication:
 TBD
-### 3-Verify:
-User can varify the performance using a Intel RealSense D435i Camera.
-
+### 3-Support Hardware/Dataset:
+Intel RealSense D435i Camera <br />
+EuRoC MAV Dataset
 ### 4-Build The Project
 We have tested in the following environment: <br />
 Ubuntu 16.04 + ROS Kinetic <br />
@@ -16,52 +16,32 @@ Ubuntu 18.04 + ROS melodic <br />
 ````
 git clone https://github.com/Ttoto/FLVIS.git
 ````
-4.2 Compile and Install 3rd Part library <br />
-4.2.1 sparse library
+4.2 Compile and Install 3rd Part library
 ````
-sudo apt-get install libsuitesparse
-````
-4.2.2 yaml-cpp(0.6.2)
-````
-cd yaml-cpp-0.6.2
-mkdir build
-cd build
-cmake .. -DBUILD_SHARED_LIBS=ON
-make -j4
-sudo make install
-
-````
-4.2.3 g2o
-````
-cd g2o
-mkdir build
-cd build
-cmake ..
-make -j4
-sudo make install
-````
-4.2.4 Sophus
-````
-cd Sophus
-mkdir build
-cd build
-cmake ..
-make -j4
-sudo make install
-````
-4.2.5 DBow3
-````
-cd DBow3
-mkdir build
-cd build
-cmake ..
-make -j4
-sudo make install
+cd catkin_ws/src/FLVIS/3rdPartLib/
+./install3rdPartLib.sh
 ````
 4.3 Compile
 ````
 cd ~/catkin_ws
 catkin_make
+````
+### 5-Verification
+5.1 D435i Camera
+5.2 EuRoC MAV Dataset
+Download the dataset(say MH_05_difficult) into the bag folder:
+````
+roscd flvis/bag/
+wget http://robotics.ethz.ch/~asl-datasets/ijrr_euroc_mav_dataset/machine_hall/MH_05_difficult/MH_05_difficult.bag
+````
+Edit the corresponding bag name in flvis_euroc_mav.launch file:
+````
+<node pkg="rosbag" type="play" name="rosbag" args="$(find flvis)/bag/MH_05_difficult.bag"/>
+````
+run the following launch files:
+````
+roslaunch flvis rviz.launch
+roslaunch flvis flvis_euroc_mav.launch
 ````
 
 ### Maintainer:
