@@ -108,6 +108,7 @@ private:
         case UN_INITIALIZED:
             if(1){
                 cout << "LocalMap: optimizer uninitialized" << endl;
+                vector<LM_ITEM> lms_slide;
                 if(kfs.size()>=FIX_WINDOW_OPTIMIZER_SIZE)
                 {
                     std::unique_ptr<g2o::BlockSolver_6_3::LinearSolverType> linearSolver(new g2o::LinearSolverCholmod<g2o::BlockSolver_6_3::PoseMatrixType>());
@@ -118,6 +119,11 @@ private:
                     {
                         bag.addPose(kfs.at(f_idx).frame_id,
                                     kfs.at(f_idx).T_c_w);
+                        //bag.getAllLMs(lms_slide);
+
+                        //vector<Proj_LM_ITEM> lms_proj;
+                        //lms_proj = bag.projectLMsOnImage(lms_slide, kfs[f_idx].T_c_w, fx,fy,cx,cy, image_width, image_height);
+                        //bag.projAllLMs(lms_proj,kfs.at(f_idx).T_c_w);
                         //cout << "lm_cout " << kfs.at(f_idx).lm_count << " " << kfs.at(f_idx).lm_3d.size() << endl;
                         for(int lm_idx=0; lm_idx < kfs.at(f_idx).lm_count; lm_idx++)//add landmarks
                         {
@@ -265,12 +271,12 @@ private:
         }
         if(optimizer_state==OPTIMIZING)
         {
-            //cout << "LocalMap: optimizing" << endl;
+           // cout << "LocalMap: optimizing" << endl;
             CorrectionInfStruct correction_inf;
             optimizer.setVerbose(false);
             optimizer.initializeOptimization();
             optimizer.optimize(10);
-            //cout << "LocalMap: 10 loops" << endl;
+           // cout << "LocalMap: 10 loops" << endl;
             //remove outliers
             int outlier_cnt = 0;
             int inliers_cnt = 0;
@@ -278,7 +284,7 @@ private:
             {
                 g2o::EdgeProjectXYZ2UV* e = edges.at(i);
                 e->computeError();
-                if (e->chi2()>3.0){
+                if (e->chi2()>5.991){
                     int id=  e->vertex(0)->id();//outlier landmark id;
                     correction_inf.lm_outlier_id.push_back(id);
                     outlier_cnt++;
@@ -290,7 +296,7 @@ private:
             }
             correction_inf.lm_outlier_count=outlier_cnt;
             optimizer.initializeOptimization();
-            optimizer.optimize(5);
+            optimizer.optimize(10);
             //bcout << "LocalMap: 15 loops" << endl;
             //update pose of newest frame
             correction_inf.frame_id=kfs.back().frame_id;

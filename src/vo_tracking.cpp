@@ -259,7 +259,25 @@ private:
         curr_frame->clear();
         cv_bridge::CvImagePtr cvbridge_image  = cv_bridge::toCvCopy(imgPtr, imgPtr->encoding);
         curr_frame->img=cvbridge_image->image;
-        //equalizeHist(curr_frame->img, curr_frame->img);
+        //cout<<"sensor image type: "<<imgPtr->encoding;
+        bool mbRGB = 0;
+        if(curr_frame->img.channels()==3)
+        {
+            if(mbRGB)
+                cvtColor(curr_frame->img,curr_frame->img,CV_RGB2GRAY);
+            else
+                cvtColor(curr_frame->img,curr_frame->img,CV_BGR2GRAY);
+        }
+        else if(curr_frame->img.channels()==4)
+        {
+            if(mbRGB)
+                cvtColor(curr_frame->img,curr_frame->img,CV_RGBA2GRAY);
+            else
+                cvtColor(curr_frame->img,curr_frame->img,CV_BGRA2GRAY);
+        }
+        equalizeHist(curr_frame->img, curr_frame->img);
+//        cv::Ptr<cv::CLAHE> clahe = cv::createCLAHE(3.0, cv::Size(8, 8));
+//        clahe->apply(curr_frame->img, curr_frame->img);
         //Depth Img
         cv_bridge::CvImagePtr cvbridge_depth_image  = cv_bridge::toCvCopy(depthImgPtr, depthImgPtr->encoding);
         curr_frame->d_img=cvbridge_depth_image->image;
@@ -551,7 +569,7 @@ private:
             Vec3 r=T_diff_key_curr.so3().log();
             double t_norm = fabs(t[0]) + fabs(t[1]) + fabs(t[2]);
             double r_norm = fabs(r[0]) + fabs(r[1]) + fabs(r[2]);
-            if(t_norm>=0.15 || r_norm>=0.2)
+            if(t_norm>=0.3 || r_norm>=0.2)
             {
                 kf_pub->pub(*curr_frame,currStamp);
                 T_c_w_last_keyframe = curr_frame->T_c_w;

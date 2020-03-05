@@ -326,7 +326,7 @@ void FeatureDEM::detect(const cv::Mat& img, vector<Vec2>& pts, vector<cv::Mat>& 
     tmpPts.clear();
     for(int i=0; i<16; i++)
     {
-        //cout << regionKeyPts[i].size() << "in Region " << i << endl;
+        cout << regionKeyPts[i].size() << "in Region " << i << endl;
         for(size_t j=0; j<regionKeyPts[i].size(); j++)
         {
             tmpPts.push_back(regionKeyPts[i].at(j).first);

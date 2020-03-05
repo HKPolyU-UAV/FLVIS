@@ -5,6 +5,10 @@ Panels:
     Property Tree Widget:
       Expanded:
         - /Global Options1
+        - /Image1
+        - /Image2
+        - /Image3
+        - /Path2
       Splitter Ratio: 0.494117647
     Tree Height: 396
   - Class: rviz/Views
@@ -201,7 +205,7 @@ Visualization Manager:
       Radius: 0.0299999993
       Shaft Diameter: 0.100000001
       Shaft Length: 0.100000001
-      Topic: /vo_path_lc
+      Topic: /vo_path_lc_new
       Unreliable: false
       Value: true
   Enabled: true
@@ -229,7 +233,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/ThirdPersonFollower
-      Distance: 10.2652292
+      Distance: 5.80901051
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.0599999987
         Stereo Focal Distance: 1
@@ -244,10 +248,10 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.00999999978
-      Pitch: 1.18520272
+      Pitch: 0.245203465
       Target Frame: vo_local
       Value: ThirdPersonFollower (rviz)
-      Yaw: 0.482549965
+      Yaw: 0.487548113
     Saved: ~
 Window Geometry:
   Displays:

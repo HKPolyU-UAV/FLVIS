@@ -24,10 +24,46 @@ bool PoseLMBag::hasTheLM(int64_t id_in, int &idx)
     return false;
 }
 
+bool PoseLMBag::addLMObservationSlidingWindow(int64_t id_in, Vec3 p3d_w_in,vector<Proj_LM_ITEM> lms_proj, Vec2 lm_2d)
+{
+    int idx;
+    bool add_lm_to_optimizer=false;
+    bool proj = false;
+    int proj_num = 0;
+    for(size_t i=0; i<lms_proj.size();i++)
+    {
+      Vec2 dis = lms_proj[i].p2d_proj - lm_2d;
+      if(dis.norm() < 3)
+      {
+        proj = true;
+        idx = lms_proj[i].id;
+        proj_num++;
+      }
+    }
+   // cout<<"project num on image: "<<proj_num<<endl;
+
+    if(this->hasTheLM(id_in,idx)||proj)
+    {//update lm with average 3d inf
+        Vec3 p3d_w;
+        int cnt = this->lm_sub_bag.at(idx).count;
+        cnt++;
+        this->lm_sub_bag.at(idx).count = cnt;
+    }else{//
+        LM_ITEM lm_item;
+        lm_item.id = id_in;
+        lm_item.count = 1;
+        lm_item.p3d_w = p3d_w_in;
+        this->lm_sub_bag.push_back(lm_item);
+        add_lm_to_optimizer=true;
+    }
+    return add_lm_to_optimizer;
+}
 bool PoseLMBag::addLMObservationSlidingWindow(int64_t id_in, Vec3 p3d_w_in)
 {
     int idx;
     bool add_lm_to_optimizer=false;
+
+
     if(this->hasTheLM(id_in,idx))
     {//update lm with average 3d inf
         Vec3 p3d_w;
@@ -45,11 +81,49 @@ bool PoseLMBag::addLMObservationSlidingWindow(int64_t id_in, Vec3 p3d_w_in)
     return add_lm_to_optimizer;
 }
 
+bool PoseLMBag::addLMObservation(int64_t id_in, Vec3 p3d_w_in, vector<Proj_LM_ITEM> lms_proj, Vec2 lm_2d)
+{
+    int idx;
+    bool add_lm_to_optimizer=false;
+
+    bool proj = false;
+    for(size_t i=0; i<lms_proj.size();i++)
+    {
+      Vec2 dis = lms_proj[i].p2d_proj - lm_2d;
+      if(dis.norm() < 2)
+      {
+        proj = true;
+        idx = lms_proj[i].id;
+        break;
+      }
+    }
+
+    if(this->hasTheLM(id_in,idx) || proj)
+    {//update lm with average 3d inf
+        Vec3 p3d_w;
+        int cnt = this->lm_sub_bag.at(idx).count;
+        p3d_w = static_cast<double>(cnt) * this->lm_sub_bag.at(idx).p3d_w + p3d_w_in;
+        cnt++;
+        p3d_w = (1.0/static_cast<double>(cnt))*p3d_w;
+        this->lm_sub_bag.at(idx).count = cnt;
+        this->lm_sub_bag.at(idx).p3d_w = p3d_w;
+    }else{//
+        LM_ITEM lm_item;
+        lm_item.id = id_in;
+        lm_item.count = 1;
+        lm_item.p3d_w = p3d_w_in;
+        this->lm_sub_bag.push_back(lm_item);
+        add_lm_to_optimizer=true;
+    }
+    return add_lm_to_optimizer;
+}
 bool PoseLMBag::addLMObservation(int64_t id_in, Vec3 p3d_w_in)
 {
     int idx;
     bool add_lm_to_optimizer=false;
-    if(this->hasTheLM(id_in,idx))
+
+
+    if(this->hasTheLM(id_in,idx) )
     {//update lm with average 3d inf
         Vec3 p3d_w;
         int cnt = this->lm_sub_bag.at(idx).count;
@@ -118,6 +192,45 @@ void PoseLMBag::addPose(int64_t id_in, SE3 pose_in)
 void PoseLMBag::getAllLMs(vector<LM_ITEM> &lms_out)
 {
     lms_out = this->lm_sub_bag;
+}
+
+vector<Proj_LM_ITEM> PoseLMBag::projectLMsOnImage(vector<LM_ITEM> &lms, SE3 T_c_w, double fx,double fy,double cx,double cy,
+                                       int width, int height)
+{
+  vector<Proj_LM_ITEM> res_lm;
+  res_lm.clear();
+
+  for(size_t i=0;i<lms.size();i++)
+  {
+    if(lms.size() - i > 300)
+      break;
+    LM_ITEM lm = lms[i];
+    Vec3 lm_c = T_c_w*lm.p3d_w;
+    cout<<lm_c<<endl;
+    if(lm_c[2] < 0)
+      break;
+    else {
+      Vector2d res, res_;
+      res(0) = lm_c(0)/lm_c(2);
+      res(1) = lm_c(1)/lm_c(2);
+      res_(0) = res(0)*fx + cx;
+      res_(1) = res(1)*fy + cy;
+      cout<<"px: "<<res_(0)<<" py: "<<res_(1)<<endl;
+      if(res_(0) < 10 || res_(0)> width - 10 || res_(1) < 10 || res_(1) > height - 10)
+        break;
+      else {
+        Proj_LM_ITEM lm_;
+        lm_.id = lm.id;
+        lm_.p3d_w = lm.p3d_w;
+        lm_.count = lm.count;
+        lm_.p2d_proj = res_;
+        res_lm.push_back(lm_);
+      }
+
+    }
+  }
+  cout<<"in image boundry "<<res_lm.size()<<endl;
+  return res_lm;
 }
 
 void PoseLMBag::getMultiViewLMs(vector<LM_ITEM> &lms_out, int view_cnt)

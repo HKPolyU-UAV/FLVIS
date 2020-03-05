@@ -15,6 +15,13 @@ struct LM_ITEM {
   Vec3    p3d_w;
 };
 
+struct Proj_LM_ITEM {
+  int64_t id;
+  int     count;
+  Vec3    p3d_w;
+  Vec2    p2d_proj;
+};
+
 struct POSE_ITEM {
   int64_t relevent_frame_id;
   int64_t pose_id;
@@ -37,8 +44,10 @@ public:
     PoseLMBag();
 
     bool hasTheLM(int64_t id_in, int &idx);
+    bool addLMObservation(int64_t id_in, Vec3 p3d_w_in, vector<Proj_LM_ITEM> lms_porj, Vec2 lm_2d);
     bool addLMObservation(int64_t id_in, Vec3 p3d_w_in);
     bool addLMObservationSlidingWindow(int64_t id_in, Vec3 p3d_w_in);
+    bool addLMObservationSlidingWindow(int64_t id_in, Vec3 p3d_w_in,vector<Proj_LM_ITEM> lms_porj, Vec2 lm_2d);
     bool removeLMObservation(int64_t id_in);
 
     void addPose(int64_t id_in, SE3 pose_in);//This will cover the oldest pose
@@ -56,6 +65,9 @@ public:
 
     void debug_output(void);
 
+
+    vector<Proj_LM_ITEM> projectLMsOnImage(vector<LM_ITEM> &lms, SE3 T_c_w, double fx,double fy,double cx,double cy,
+                                           int width, int height);
 
 private:
 

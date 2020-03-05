@@ -64,17 +64,17 @@ void bundleAdjustment::BAInFrame(CameraFrame &frame)
 //        cout<<"start optimization"<<endl;
         optimizer.setVerbose(false);
         optimizer.initializeOptimization();
-        optimizer.optimize(2);
+        optimizer.optimize(3);
         for (auto e:edges)
         {
             e->computeError();
-            if (e->chi2()>2.0){
+            if (e->chi2()>5.991){
                 optimizer.removeEdge(e);
                 e->id();
             }
         }
         optimizer.initializeOptimization();
-        optimizer.optimize(2);
+        optimizer.optimize(3);
 //        optimizer.initializeOptimization();
 //        optimizer.optimize(2);
 //        cout<<"end"<<endl;

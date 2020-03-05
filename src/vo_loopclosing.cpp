@@ -88,13 +88,13 @@ struct sort_descriptor_by_queryIdx
 
 #define lcKFStart (25)
 #define lcKFDist (18)
-#define lcKFMaxDist (50)
+#define lcKFMaxDist (30)
 #define lcKFLast (20)
 #define lcNKFClosest (2)
 #define ratioMax (0.5)
 #define ratioRansac (0.5)
-#define minPts (20)
-#define minScore (0.12)
+#define minPts (25)
+#define minScore (0.10)
 struct KeyFrameLC
 {
   int64_t         frame_id;
@@ -693,7 +693,7 @@ private:
 
         kf.lm_descriptor = ORBDescriptors;
 
-       cout<<"descriptor numbers: "<<ORBDescriptors.size()<<endl;
+       //cout<<"descriptor numbers: "<<ORBDescriptors.size()<<endl;
        // cout<<"feature cost: ";feature_tt.toc();
 
 
@@ -753,9 +753,9 @@ private:
         //cout<<"bow find cost: ";
         bow_find_tt.toc();
 
-        if(kf_id < 50)
+        if(kf_id < 30)
         {
-          cout<<"KF number is less than 50. Return."<<endl;
+          cout<<"KF number is less than 30. Return."<<endl;
           return;
         }
 

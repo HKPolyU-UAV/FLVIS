@@ -277,7 +277,7 @@ void VIMOTION::viGetLatestImuState(SE3 &T_w_i, Vec3 &vel)
 
 bool VIMOTION::viVisionRPCompensation(const double time, SE3 &T_c_w, double proportion)
 {
-    cout << "In Camera_rp_compensation" << endl;
+    //cout << "In Camera_rp_compensation" << endl;
 
     Vec3 rpy_before, rpy_vimotion, ryp_after;//ryp_w_c
 
@@ -301,7 +301,7 @@ bool VIMOTION::viVisionRPCompensation(const double time, SE3 &T_c_w, double prop
         SE3 T_w_i_after = SE3(SO3(rpy2Q(ryp_after)),T_w_i_before.translation());
         SE3 T_c_w_after= (T_w_i_after*this->T_i_c).inverse();
         T_c_w = T_c_w_after;
-        cout << "Camera_rp_compensation" << endl;
+        //cout << "Camera_rp_compensation" << endl;
         return true;
     }else
     {

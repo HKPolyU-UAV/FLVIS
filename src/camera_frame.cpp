@@ -97,7 +97,7 @@ void CameraFrame::recover3DPts_c_FromDepthImg(vector<Vec3>& pt3ds,
         else
         {
             float z = (d_img.at<ushort>(pt))/d_camera.camera_scale_factor;
-            if(z>=0.3&&z<=8.0)
+            if(z>=0.2&&z<=6.0)
             {
                 pt3d[2] = z;
                 pt3d[0] = (pt.x - d_camera.camera_cx) * z / d_camera.camera_fx;
@@ -131,7 +131,7 @@ void CameraFrame::recover3DPts_c_FromTriangulation(vector<Vec3> &pt3ds, vector<b
                                                          d_camera.camera_cx,
                                                          d_camera.camera_cy);
             Vec3 pt3d_c = DepthCamera::world2cameraT_c_w(pt3d_w,T_c_w);
-            if(pt3d_c[2]>=0.5 && pt3d_c[2]<=15)
+            if(pt3d_c[2]>=0.5 && pt3d_c[2]<=10)
             {
                 pt3ds.push_back(pt3d_c);
                 maskHas3DInf.push_back(true);
@@ -163,7 +163,13 @@ void CameraFrame::depthInnovation(void)
         Vec3 lm_c_measure;
         if(depth_measurement_mask.at(i)==true && triangulation_mask.at(i)==true)
         {
-            lm_c_measure = 0.95*(pts3d_c_triangulation.at(i)+ 0.05*pts3d_c_depth_measurement.at(i));
+            double scale_z = pts3d_c_depth_measurement[i](2)/3.2;
+            double scale_depth = 1/(1+scale_z*scale_z);
+            double scale_triangulate = 1-scale_depth;
+
+            //cout<<"triangulation 3d: "<<pts3d_c_triangulation.at(i)<<" depth 3d: "<<pts3d_c_depth_measurement.at(i);
+            //lm_c_measure = 0.99*(pts3d_c_triangulation.at(i)+ 0.01*pts3d_c_depth_measurement.at(i));
+            lm_c_measure = scale_depth*pts3d_c_depth_measurement.at(i) + scale_triangulate*pts3d_c_triangulation.at(i);
         }else if(depth_measurement_mask.at(i)==true && triangulation_mask.at(i)==false)
         {
             lm_c_measure = pts3d_c_depth_measurement.at(i);
@@ -177,8 +183,15 @@ void CameraFrame::depthInnovation(void)
             //transfor to Camera frame
             Vec3 lm_c = DepthCamera::world2cameraT_c_w(landmarks.at(i).lm_3d_w,this->T_c_w);
             //apply IIR Filter
+//            double scale_z = lm_c_measure(2)/3.0;
+//            double scale_measure = 1/(1+scale_z*scale_z);
+//            double scale_project = 1-scale_measure;
+
+//            cout<<"measured 3d: "<<lm_c_measure<<" projected 3d: "<<lm_c;
+//            Vec3 lm_c_update = lm_c*scale_project + lm_c_measure*scale_measure;
 
             Vec3 lm_c_update = lm_c*0.8+lm_c_measure*0.2;
+
 
             //update to world frame
             landmarks.at(i).lm_3d_c = lm_c_update;
@@ -271,7 +284,7 @@ void CameraFrame::updateLMState(vector<uchar> status)
       }
   }
 
-  cout<<status.size()<<" compare "<<indexLM<<endl;
+  //cout<<status.size()<<" compare "<<indexLM<<endl;
 
 }
 void CameraFrame::getValidInliersPair(vector<LandMarkInFrame> &lms)
@@ -389,7 +402,7 @@ void CameraFrame::getKeyFrameInf(vector<int64_t> &lm_id, vector<Vec2> &lm_2d, ve
     for(size_t i=0; i<landmarks.size(); i++)
     {
         LandMarkInFrame lm=landmarks.at(i);
-        if(lm.hasDepthInf())
+        if(lm.hasDepthInf() && !lm.lm_tracking_state)
         {
             lm_3d.push_back(lm.lm_3d_w);
             lm_2d.push_back(lm.lm_2d);
