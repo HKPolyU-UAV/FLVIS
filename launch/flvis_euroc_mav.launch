@@ -1,8 +1,13 @@
 <launch>
 
     <param name="/yamlconfigfile" type="string" value="$(find flvis)/launch/EuRoC_MAV/euroc.yaml"/>
+
+
+    <!--<node pkg="rosbag" type="play" name="rosbag" args="$(find flvis)/bag/V1_01_easy.bag"/>-->
+    <!--<node pkg="rosbag" type="play" name="rosbag" args="$(find flvis)/bag/V1_02_medium.bag"/>-->
+    <!--<node pkg="rosbag" type="play" name="rosbag" args="$(find flvis)/bag/V1_03_difficult.bag"/>-->
     <!--<node pkg="rosbag" type="play" name="rosbag" args="$(find flvis)/bag/MH_02_easy.bag"/>-->
-    <node pkg="rosbag" type="play" name="rosbag" args="$(find flvis)/bag/V1_01_easy.bag"/>
+    <node pkg="rosbag" type="play" name="rosbag" args="$(find flvis)/bag/MH_05_difficult.bag"/>
     <arg name="node_start_delay" default="0.0" />
     <param name="/voc"             type="string" value="$(find flvis)/voc/voc_orb.dbow3"/>
     <!-- Manager -->
@@ -20,11 +25,11 @@
     </node>
     <!--Parameter: window_size: localmap size. 1 stand for 0.1 meters in real world. Default size: 10-->
     <!-- LocalMapNode -->
-    <node pkg="nodelet" type="nodelet" args="load flvis/LocalMapNodeletClass flvis_nodelet_manager"
+<!--    <node pkg="nodelet" type="nodelet" args="load flvis/LocalMapNodeletClass flvis_nodelet_manager"
         name="LocalMapNodeletClass_loader" output="screen"
         launch-prefix="bash -c 'sleep $(arg node_start_delay); $0 $@' ">
         <param name="/window_size" type="int" value="8" />
-    </node>
+    </node>-->
     <!-- LoopClosingNode -->
 <!--    <node pkg="nodelet" type="nodelet" args="load flvis/LoopClosingNodeletClass flvis_nodelet_manager"
         name="LoopClosingNodeletClass_loader" output="screen"

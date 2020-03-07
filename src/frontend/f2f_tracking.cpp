@@ -5,6 +5,7 @@
 void F2FTracking::init(const int w, const int h,
                        const Mat c0_cameraMatrix_in, const Mat c0_distCoeffs_in,
                        const SE3 T_i_c0_in,
+                       const Vec4 vi_para,
                        const TYPEOFCAMERA cam_type_in,
                        const double cam_scale_in,
                        const Mat c1_cameraMatrix_in, const Mat c1_distCoeffs_in,
@@ -48,11 +49,12 @@ void F2FTracking::init(const int w, const int h,
         cv::stereoRectify(K0,D0,K1,D1,cv::Size(w,h),R__,T__,
                           R0,R1,P0,P1,Q,
                           CALIB_ZERO_DISPARITY,0,cv::Size(w,h));
-        cout << R0 << endl;
-        cout << P0 << endl;
-        cout << R1 << endl;
-        cout << P1 << endl;
-        cout << "-----------------" << endl;
+//        cout << "-----------------" << endl;
+//        cout << R0 << endl;
+//        cout << P0 << endl;
+//        cout << R1 << endl;
+//        cout << P1 << endl;
+//        cout << "-----------------" << endl;
         D1_rect = D0_rect = (cv::Mat1d(4, 1) << 0,0,0,0);
         cv::initUndistortRectifyMap(K0,D0,R0,P0,cv::Size(w,h),CV_32F,
                                     c0_RM[0],c0_RM[1]);
@@ -195,7 +197,7 @@ void F2FTracking::image_feed(const double time,
     new_keyframe = false;
     reset_cmd = false;
     frameCount++;
-    if(frameCount<30) return;
+    if(frameCount<10) return;
 
     //if((frameCount%2)==0) return;
     last_frame.swap(curr_frame);
@@ -208,17 +210,18 @@ void F2FTracking::image_feed(const double time,
     case DEPTH_D435I:
         curr_frame->img0=img0_in;
         curr_frame->d_img=img1_in;
+        cv::equalizeHist(curr_frame->img0,curr_frame->img0);
         break;
     case STEREO_EuRoC_MAV:
         //        curr_frame->img0=img0_in;
         //        curr_frame->img1=img1_in;
         //        cv::undistort(img0_in,curr_frame->img0,K0,D0);
         //        cv::undistort(img1_in,curr_frame->img1,K0,D0);
-
         cv::remap(img0_in, curr_frame->img0, c0_RM[0], c0_RM[1],cv::INTER_LINEAR);
         cv::remap(img1_in, curr_frame->img1, c1_RM[0], c1_RM[1],cv::INTER_LINEAR);
         cv::equalizeHist(curr_frame->img0,curr_frame->img0);
         cv::equalizeHist(curr_frame->img1,curr_frame->img1);
+        break;
     }
 
     switch(vo_tracking_state)
@@ -348,9 +351,7 @@ void F2FTracking::image_feed(const double time,
         //(Option) ->IMU roll pitch compensation
         if(this->has_imu)
         {
-            vimotion->viVisionRPCompensation(curr_frame->frame_time,
-                                             curr_frame->T_c_w,
-                                             0.05);
+            vimotion->viVisionRPCompensation(curr_frame->frame_time, curr_frame->T_c_w);
         }
         //STEP4:
         OptimizeInFrame::optimize(*curr_frame);
@@ -364,7 +365,9 @@ void F2FTracking::image_feed(const double time,
         if(this->has_imu)
         {
             vimotion->viCorrectionFromVision(curr_frame->frame_time,
-                                             curr_frame->T_c_w,Vec3(0,0,0));
+                                             curr_frame->T_c_w,
+                                             last_frame->frame_time,
+                                             curr_frame->T_c_w);
         }
         //STEP5:
         vector<Vec2> newKeyPts;
@@ -398,7 +401,7 @@ void F2FTracking::image_feed(const double time,
         Vec3 r=T_diff_key_curr.so3().log();
         double t_norm = fabs(t[0]) + fabs(t[1]) + fabs(t[2]);
         double r_norm = fabs(r[0]) + fabs(r[1]) + fabs(r[2]);
-        if(t_norm>=0.1 || r_norm>=0.2)
+        if(t_norm>=0.05 || r_norm>=0.2)
         {
             new_keyframe = true;
             T_c_w_last_keyframe = curr_frame->T_c_w;

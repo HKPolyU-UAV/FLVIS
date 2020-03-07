@@ -25,6 +25,7 @@
 #include "g2o/types/icp/types_icp.h"
 #include "g2o/solvers/structure_only/structure_only_solver.h"
 #include "g2o/solvers/cholmod/linear_solver_cholmod.h"
+#include "g2o/core/optimization_algorithm_dogleg.h"
 
 
 #include <g2o/types/slam3d/vertex_pointxyz.h>
@@ -116,6 +117,7 @@ private:
                 {
                     std::unique_ptr<g2o::BlockSolver_6_3::LinearSolverType> linearSolver(new g2o::LinearSolverCholmod<g2o::BlockSolver_6_3::PoseMatrixType>());
                     std::unique_ptr<g2o::BlockSolver_6_3> solver_ptr(new g2o::BlockSolver_6_3(std::move(linearSolver)));
+                    //g2o::OptimizationAlgorithmDogleg* solver = new g2o::OptimizationAlgorithmDogleg ( std::move(solver_ptr));
                     g2o::OptimizationAlgorithmLevenberg *solver = new g2o::OptimizationAlgorithmLevenberg(std::move(solver_ptr));
                     optimizer.setAlgorithm (solver);
                     for(int f_idx = 0; f_idx<fix_window_optimizer_size; f_idx++)//add pose
@@ -284,7 +286,7 @@ private:
             CorrectionInfStruct correction_inf;
             optimizer.setVerbose(false);
             optimizer.initializeOptimization();
-            optimizer.optimize(10);
+            optimizer.optimize(12);
             //cout << "LocalMap: 10 loops" << endl;
             //remove outliers
             int outlier_cnt = 0;
@@ -305,7 +307,7 @@ private:
             }
             correction_inf.lm_outlier_count=outlier_cnt;
             optimizer.initializeOptimization();
-            optimizer.optimize(5);
+            optimizer.optimize(8);
             //bcout << "LocalMap: 15 loops" << endl;
             //update pose of newest frame
             correction_inf.frame_id=kfs.back().frame_id;
@@ -380,23 +382,24 @@ private:
             SE3 T_i_c0 = T_i_mavi*T_mavi_c0;
             Mat3x3 R_=T_c0_c1.inverse().rotation_matrix();
             Vec3   T_=T_c0_c1.inverse().translation();
-            cv::Mat R_01 = (cv::Mat1d(3, 3) << R_(0,0), R_(0,1), R_(0,2),
+            cv::Mat R__ = (cv::Mat1d(3, 3) << R_(0,0), R_(0,1), R_(0,2),
                             R_(1,0), R_(1,1), R_(1,2),
                             R_(2,0), R_(2,1), R_(2,2));
-            cv::Mat T_01 = (cv::Mat1d(3, 1) << T_(0), T_(1), T_(2));
+            cv::Mat T__ = (cv::Mat1d(3, 1) << T_(0), T_(1), T_(2));
             cv::Mat R0,R1,P0,P1,Q;
-            cv::stereoRectify(K0,D0,K1,D1,cv::Size(w,h),R_01,T_01,
+            cv::stereoRectify(K0,D0,K1,D1,cv::Size(w,h),R__,T__,
                               R0,R1,P0,P1,Q,
                               CALIB_ZERO_DISPARITY,0,cv::Size(w,h));
-
-            fx = fy = 435.2616200843788;
-            cx = 367.4154319763184;
-            cy = 252.1711006164551;
-//            fx = P0.at<double>(0,0);
-//            fy = P0.at<double>(1,1);
-//            cx = P0.at<double>(0,2);
-//            cy = P0.at<double>(1,2);
-
+            fx = P0.at<double>(0,0);
+            fy = P0.at<double>(1,1);
+            cx = P0.at<double>(0,2);
+            cy = P0.at<double>(1,2);
+            cout << "-----------------" << endl;
+            cout << R0 << endl;
+            cout << P0 << endl;
+            cout << R1 << endl;
+            cout << P1 << endl;
+            cout << "-----------------" << endl;
         }
         nh.getParam("window_size",   fix_window_optimizer_size);
         cout << "window_size: " << fix_window_optimizer_size << endl;

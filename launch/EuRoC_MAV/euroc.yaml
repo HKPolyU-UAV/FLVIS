@@ -32,11 +32,17 @@ T_mavimu_cam1:
  -0.0253898008918, 0.0179005838253, 0.999517347078, 0.00786212447038,
   0.0, 0.0, 0.0, 1.0]
 
+#Madgwick beta
+para_1: 0.1
+#proportion of vision feedforware(roll and pich)
+para_2: 0.05
+#acc-bias feedback parameter
+para_3: 0.01
+#gyro-bias feedback parameter
+para_4: 0.01
 
-
-
-
-# General sensor definitions.
+#Original File:
+#General sensor definitions.
 #sensor_type: camera
 #comment: VI-Sensor cam0 (MT9M034)
 # Sensor extrinsics wrt. the body-frame.

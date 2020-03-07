@@ -218,10 +218,10 @@ void CameraFrame::recover3DPts_c_FromTriangulation(vector<Vec3> &pt3ds, vector<b
 void CameraFrame::depthInnovation(void)
 {
     vector<Vec3> pts3d_c_cam_measure;
-    vector<Vec3> pts3d_c_triangulation;
     vector<bool> cam_measure_mask;
-    vector<bool> triangulation_mask;
-    this->recover3DPts_c_FromTriangulation(pts3d_c_triangulation,triangulation_mask);
+//    vector<Vec3> pts3d_c_triangulation;
+//    vector<bool> triangulation_mask;
+//    this->recover3DPts_c_FromTriangulation(pts3d_c_triangulation,triangulation_mask);
     if(this->d_camera.cam_type==DEPTH_D435I)
     {
         this->recover3DPts_c_FromDepthImg(pts3d_c_cam_measure,cam_measure_mask);
@@ -232,28 +232,26 @@ void CameraFrame::depthInnovation(void)
     }
     for(size_t i=0; i<landmarks.size(); i++)
     {
-        //        if(cam_measure_mask.at(i)==false && triangulation_mask.at(i)==false) continue;
-        //        Vec3 lm_c_measure;
-        //        if(cam_measure_mask.at(i)==true && triangulation_mask.at(i)==true)
-        //        {
-        //            lm_c_measure = 0.95*(pts3d_c_triangulation.at(i)+ 0.05*pts3d_c_cam_measure.at(i));
-        //        }else if(cam_measure_mask.at(i)==true && triangulation_mask.at(i)==false)
-        //        {
-        //            lm_c_measure = pts3d_c_cam_measure.at(i);
-        //        }else if(cam_measure_mask.at(i)==false && triangulation_mask.at(i)==true)
-        //        {
-        //            lm_c_measure = pts3d_c_triangulation.at(i);
-        //        }
-
+//        if(cam_measure_mask.at(i)==false && triangulation_mask.at(i)==false) continue;
+//        Vec3 lm_c_measure;
+//        if(cam_measure_mask.at(i)==true && triangulation_mask.at(i)==true)
+//        {
+//            lm_c_measure = 0.1*(pts3d_c_triangulation.at(i)+ 0.9*pts3d_c_cam_measure.at(i));
+//        }else if(cam_measure_mask.at(i)==true && triangulation_mask.at(i)==false)
+//        {
+//            lm_c_measure = pts3d_c_cam_measure.at(i);
+//        }else if(cam_measure_mask.at(i)==false && triangulation_mask.at(i)==true)
+//        {
+//            lm_c_measure = pts3d_c_triangulation.at(i);
+//        }
         if (cam_measure_mask.at(i)==false) continue;
         Vec3 lm_c_measure = pts3d_c_cam_measure.at(i);
-
         if(landmarks.at(i).hasDepthInf())
         {
             //transfor to Camera frame
             Vec3 lm_c = DepthCamera::world2cameraT_c_w(landmarks.at(i).lm_3d_w,this->T_c_w);
             //apply IIR Filter
-            Vec3 lm_c_update = lm_c*0.85+lm_c_measure*0.15;
+            Vec3 lm_c_update = lm_c*0.9+lm_c_measure*0.1;
             //update to world frame
             landmarks.at(i).lm_3d_c = lm_c_update;
             landmarks.at(i).lm_3d_w = DepthCamera::camera2worldT_c_w(lm_c_update,this->T_c_w);
@@ -267,7 +265,6 @@ void CameraFrame::depthInnovation(void)
             landmarks.at(i).lmState = LMSTATE_NORMAL;
             landmarks.at(i).lm_has_3d = true;
         }
-
     }
 }
 

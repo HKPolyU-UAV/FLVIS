@@ -13,6 +13,7 @@
 #include "g2o/solvers/csparse/linear_solver_csparse.h"
 #include "g2o/solvers/csparse/g2o_csparse_api.h"
 #include "g2o/solvers/eigen/linear_solver_eigen.h"
+#include "g2o/core/optimization_algorithm_dogleg.h"
 
 #include <g2o/types/slam3d/vertex_pointxyz.h>
 #include <g2o/types/slam3d/vertex_se3.h>

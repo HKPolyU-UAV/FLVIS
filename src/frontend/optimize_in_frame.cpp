@@ -25,6 +25,7 @@ void OptimizeInFrame::optimize(CameraFrame &frame)
         typedef g2o::BlockSolver< g2o::BlockSolverTraits<6,3> > Block;
         std::unique_ptr<Block::LinearSolverType> linearSolver ( new g2o::LinearSolverEigen<Block::PoseMatrixType>());
         std::unique_ptr<Block> solver_ptr ( new Block ( std::move(linearSolver)));
+        //g2o::OptimizationAlgorithmDogleg* solver = new g2o::OptimizationAlgorithmDogleg ( std::move(solver_ptr));
         g2o::OptimizationAlgorithmLevenberg* solver = new g2o::OptimizationAlgorithmLevenberg ( std::move(solver_ptr));
         g2o::SparseOptimizer optimizer;
         optimizer.setAlgorithm (solver);
@@ -72,9 +73,7 @@ void OptimizeInFrame::optimize(CameraFrame &frame)
         }
         optimizer.initializeOptimization();
         optimizer.optimize(2);
-//        optimizer.initializeOptimization();
-//        optimizer.optimize(2);
-//        cout<<"end"<<endl;
+
         g2o::VertexSE3Expmap* v = dynamic_cast<g2o::VertexSE3Expmap*>( optimizer.vertex(0) );
         Eigen::Isometry3d pose = v->estimate();
 

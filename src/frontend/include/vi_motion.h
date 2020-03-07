@@ -7,8 +7,6 @@
 #include <deque>
 #include <mutex>
 
-#define ACC_MEASUREMENT_FEEDBACK_P (0.1)
-#define MAGNITUDE_OF_GRAVITY       (9.81)
 #define STATES_QUEUE_SIZE          (400)
 
 struct MOTION_STATE{
@@ -23,7 +21,11 @@ class VIMOTION
 public:
     SE3  T_i_c;//transformation from camera frame to imu frame
     SE3  T_c_i;
-
+    double para_1;//Madgwick beta
+    double para_2;//proportion of vision feedforware(roll and pich)
+    double para_3;//acc-bias feedback parameter
+    double para_4;//gyro-bias feedback parameter
+    double magnitude_g;//magnitude of gravity
     Vec3 acc_bias;
     Vec3 gyro_bias;
     Vec3 gravity;
@@ -35,7 +37,12 @@ public:
 
     bool is_first_data;
 
-    VIMOTION(SE3 T_i_c_fromCalibration);
+    VIMOTION(SE3 T_i_c_fromCalibration,
+             double magnitude_g_in = 9.71,
+             double para_1_in = 0.1,   //Madgwick beta
+             double para_2_in = 0.05,  //proportion of vision feedforware(roll and pich)
+             double para_3_in = 0.01,  //acc-bias feedback parameter
+             double para_4_in = 0.01); //gyro-bias feedback parameter
 
     void viIMUinitialization(const IMUSTATE imu_read,
                              Quaterniond& q_w_i,
@@ -49,11 +56,12 @@ public:
     //this is the vimotion trigger, the module will be triggered when the first vision frame come
     //after that the pos vel and orientation will be integrate
     void viVisiontrigger(Quaterniond& init_orientation);
-    void viVisionRPCompensation(const double time, SE3& T_c_w, double proportion);
+    void viVisionRPCompensation(const double time, SE3& T_c_w);
     void viGetLatestImuState(SE3& T_w_i, Vec3& vel);//latest imu state in queue
     bool viGetCorrFrameState(const double time, SE3& T_c_w);//get correspond frame time
 
-    void viCorrectionFromVision(const double time, SE3 T_c_w_vision, Vec3 vec_vision);
+    void viCorrectionFromVision(const double t_curr, const SE3 Tcw_curr,
+                                const double t_last, const SE3 Tcw_last);
     bool viGetIMURollPitchAtTime(const double time, double& roll, double& pitch);
 
 private:

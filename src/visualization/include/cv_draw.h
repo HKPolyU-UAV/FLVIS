@@ -56,7 +56,7 @@ inline void drawFlow(cv::Mat& img, const vector<Vec2>& from, const vector<Vec2>&
     }
 }
 
-inline void drawFrame(cv::Mat& img, CameraFrame& frame)
+inline void drawFrame(cv::Mat& img, CameraFrame& frame, int min, int max)
 {
     drawRegion16(img);
     int fps=floor(1.0/frame.solving_time);
@@ -69,14 +69,15 @@ inline void drawFrame(cv::Mat& img, CameraFrame& frame)
     stream << std::fixed << std::setprecision(2) << frame.reprojection_error;
     cv::putText(img, "ERR:"+stream.str(),
             cv::Point(img.cols-150,20), cv::FONT_HERSHEY_SIMPLEX, 0.8, cv::Scalar(0,255,0), 2, cv::LINE_8);
+    int gap= floor(250/(max-min));
     for(auto lm:frame.landmarks)
     {
         if(lm.hasDepthInf())
         {
             float z=lm.lm_3d_c[2];
-            if(z>=6) z=6;
-            if(z<0)  z=0;
-            int b=floor(z*42);
+            if(z>=max) z=max;
+            if(z<min)  z=min;
+            int b=floor((z-min)*gap);
             int r=255-b;
             cv::Point pt(round(lm.lm_2d[0]),round(lm.lm_2d[1]));
             cv::circle(img, pt, 2, cv::Scalar( b, 0, r ), 2);
