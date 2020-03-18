@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(vo_nodelet)
+project(flvis)
 
 add_definitions(-std=c++11)
 #set(CMAKE_CXX_FLAGS "-std=c++11)
@@ -27,8 +27,6 @@ FIND_PACKAGE(octomap REQUIRED )
 #FIND_PACKAGE(octovis REQUIRED )
 INCLUDE_DIRECTORIES(${OCTOMAP_INCLUDE_DIRS})
 
-
-
 find_package(catkin REQUIRED COMPONENTS
     nodelet
     roscpp
@@ -44,17 +42,17 @@ find_package(catkin REQUIRED COMPONENTS
     )
 
 add_message_files(
-  FILES
-  KeyFrame.msg
-  CorrectionInf.msg
-)
+    FILES
+    KeyFrame.msg
+    CorrectionInf.msg
+    )
 
 generate_messages(
-  DEPENDENCIES
-  std_msgs
-  sensor_msgs
-  geometry_msgs
-)
+    DEPENDENCIES
+    std_msgs
+    sensor_msgs
+    geometry_msgs
+    )
 
 ## Declare a catkin package
 catkin_package(
@@ -72,42 +70,53 @@ include_directories(SYSTEM
     ${YAML_CPP_INCLUDE_DIR}
     ${DBoW3_INCLUDE_DIR}
     "${CMAKE_CURRENT_SOURCE_DIR}/src/"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/backend/"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/frontend/"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/octofeeder/"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/utils/"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/visualization/"
     )
 
 
 SET(G2O_LIBS cholmod cxsparse -lg2o_cli -lg2o_core
--lg2o_csparse_extension -lg2o_ext_freeglut_minimal -lg2o_incremental
--lg2o_interactive -lg2o_interface -lg2o_opengl_helper -lg2o_parser
--lg2o_simulator -lg2o_solver_cholmod -lg2o_solver_csparse
--lg2o_solver_dense -lg2o_solver_pcg -lg2o_solver_slam2d_linear
--lg2o_solver_structure_only -lg2o_stuff -lg2o_types_data -lg2o_types_icp
--lg2o_types_sba -lg2o_types_sclam2d -lg2o_types_sim3 -lg2o_types_slam2d
--lg2o_types_slam3d)
+    -lg2o_csparse_extension -lg2o_ext_freeglut_minimal -lg2o_incremental
+    -lg2o_interactive -lg2o_interface -lg2o_opengl_helper -lg2o_parser
+    -lg2o_simulator -lg2o_solver_cholmod -lg2o_solver_csparse
+    -lg2o_solver_dense -lg2o_solver_pcg -lg2o_solver_slam2d_linear
+    -lg2o_solver_structure_only -lg2o_stuff -lg2o_types_data -lg2o_types_icp
+    -lg2o_types_sba -lg2o_types_sclam2d -lg2o_types_sim3 -lg2o_types_slam2d
+    -lg2o_types_slam3d)
 
 ## Declare a C++ library
-add_library(vo_nodelet
-    src/vo_tracking.cpp
-    src/vo_localmap.cpp
-    src/vo_loopclosing.cpp
-    src/feature_dem.cpp
-    src/depth_camera.cpp
-    src/landmark.cpp
-    src/landmark_in_frame.cpp
-    src/camera_frame.cpp
-    src/rviz_frame.cpp
-    src/rviz_path.cpp
-    src/triangulation.cpp
-    src/keyframe_msg.cpp
-    src/poselmbag.cpp
-    src/bundle_adjustment.cpp
-    src/correction_inf_msg.cpp
-    src/octomap_feeder.cpp
-    src/f2f_tracking.cpp
-    src/imu_state.cpp
-    src/vi_motion.cpp
+add_library(flvis
+
+    src/frontend/vo_tracking.cpp
+    src/frontend/f2f_tracking.cpp
+    src/frontend/feature_dem.cpp
+    src/frontend/depth_camera.cpp
+    src/frontend/landmark.cpp
+    src/frontend/camera_frame.cpp
+    src/frontend/triangulation.cpp
+    src/frontend/lkorb_tracking.cpp
+    src/frontend/imu_state.cpp
+    src/frontend/vi_motion.cpp
+    src/frontend/optimize_in_frame.cpp
+
+    src/backend/vo_localmap.cpp
+    src/backend/vo_loopclosing.cpp
+    src/backend/poselmbag.cpp
+
+    src/visualization/rviz_frame.cpp
+    src/visualization/rviz_path.cpp
+    src/visualization/rviz_pose.cpp
+
+    src/utils/keyframe_msg.cpp
+    src/utils/correction_inf_msg.cpp
+
+    src/octofeeder/octomap_feeder.cpp
     )
 
-target_link_libraries(vo_nodelet
+target_link_libraries(flvis
     ${catkin_LIBRARIES}
     ${OpenCV_LIBRARIES}
     ${CSPARSE_LIBRARY}
@@ -120,52 +129,3 @@ target_link_libraries(vo_nodelet
     ${Boost_SYSTEM_LIBRARY}
     )
 
-#add_executable(testSophus
-#    src/test/test_SE3.cpp)
-
-#target_link_libraries(testSophus
-#    ${catkin_LIBRARIES}
-#    ${OpenCV_LIBRARIES}
-#    ${CSPARSE_LIBRARY}
-#    ${Sophus_LIBRARIES}
-#    g2o_core g2o_stuff g2o_types_sba g2o_csparse_extension
-#    )
-
-
-#add_executable(testVis
-#    src/test/rviz_Vis.cpp
-#    src/rvizFrame.cpp)
-
-#target_link_libraries(testVis
-#    ${catkin_LIBRARIES}
-#    ${OpenCV_LIBRARIES}
-#    ${CSPARSE_LIBRARY}
-#    ${Sophus_LIBRARIES}
-#    )
-
-#add_executable(test_YAML2Eigen
-#    src/test/test_yaml2eigen.cpp
-#)
-
-#target_link_libraries(test_YAML2Eigen
-#    ${catkin_LIBRARIES}
-#    ${YAML_CPP_LIBRARIES}
-#    )
-
-#add_executable(undistort
-#    src/test/undistort.cpp)
-
-#target_link_libraries(undistort
-#    ${catkin_LIBRARIES}
-#    ${OpenCV_LIBRARIES}
-#    )
-
-#add_executable(test_triangulation
-#    src/test/test_triangulation.cpp
-#    src/triangulation.cpp)
-
-#target_link_libraries(test_triangulation
-#    ${catkin_LIBRARIES}
-#    ${OpenCV_LIBRARIES}
-#    ${Sophus_LIBRARIES}
-#    )

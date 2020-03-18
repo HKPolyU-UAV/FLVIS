@@ -1,5 +1,6 @@
 Header header
 int64  frame_id
+int8   command
 sensor_msgs/Image img
 sensor_msgs/Image d_img
 int32 lm_count

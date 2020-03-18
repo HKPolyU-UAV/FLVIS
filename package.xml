@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <package format="2">
-  <name>vo_nodelet</name>
+  <name>flvis</name>
   <version>0.1.0</version>
   <description>vo</description>
 
@@ -34,7 +34,7 @@
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>
-    <nodelet plugin="${prefix}/vo_nodelet.xml" />
+    <nodelet plugin="${prefix}/flvis.xml" />
   </export>
 
 </package>
