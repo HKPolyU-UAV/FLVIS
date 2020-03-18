@@ -37,18 +37,18 @@ void VIMOTION::viIMUinitialization(const IMUSTATE imu_read,
     init_state.imu_data = imu_read;
     init_state.pos = pos_w_i;
     init_state.vel = vel_w_i;
-    Vec3 acc = imu_read.acc_raw;
-    Vec3 gyro = imu_read.gyro_raw;
+    Vec3 acc = imu_read.acc_raw-acc_bias;
+    Vec3 gyro = imu_read.gyro_raw-gyro_bias;
     if(this->is_first_data)
     {
         Vec3 rpy;
-        if((acc.norm()-magnitude_g)<0.5)//valid acc data
+        if((acc.norm()-magnitude_g)<0.3)//valid acc data
         {//feedback
             rpy[0] = atan2(-acc[1],-acc[2]);
             rpy[1] = atan2(acc[0],-acc[2]);
             rpy[2] = 0;
             this->init_state.q_w_i = rpy2Q(rpy);
-            cout << "init_imu: "
+            cout << "Fist IMU: "
                  << "roll:"   << rpy[0]*57.2958
                  << " pitch:" << rpy[1]*57.2958
                  << " yaw:"   << rpy[2]*57.2958 << endl;
@@ -87,18 +87,24 @@ void VIMOTION::viIMUinitialization(const IMUSTATE imu_read,
             s[3] = 2*qx*(ax - 2*qw*qy + 2*qx*qz) + 2*qy*(ay + 2*qw*qx + 2*qy*qz);
             s*=s.norm();
             // Apply feedback step
-            qdot.w() -= para_1 * s[0];
-            qdot.x() -= para_1 * s[1];
-            qdot.y() -= para_1 * s[2];
-            qdot.z() -= para_1 * s[3];
+            qdot.w() -= 10*para_1 * s[0];
+            qdot.x() -= 10*para_1 * s[1];
+            qdot.y() -= 10*para_1 * s[2];
+            qdot.z() -= 10*para_1 * s[3];
         }
         Quaterniond q_new = q_plus_q(q_prev,scalar_multi_q(dt,qdot));
         q_new.normalize();
         this->init_state.q_w_i = q_new;
         this->states.push_back(init_state);
+        Vec3 rpy =  Q2rpy(states.back().q_w_i);
         if(states.size()>=STATES_QUEUE_SIZE) {states.pop_front();}
-        if(states.size()>50)
+        if(states.size()>30)
         {
+            Vec3 rpy =  Q2rpy(states.back().q_w_i);
+            cout << "Initialized IMU: "
+                 << "roll:"   << rpy[0]*57.2958
+                 << " pitch:" << rpy[1]*57.2958
+                 << " yaw:"   << rpy[2]*57.2958 << endl;
             this->imu_initialized = true;
         }//end if IMU init
     }
@@ -112,13 +118,13 @@ void VIMOTION::viVisiontrigger(Quaterniond &init_orientation)
     state.vel = Vec3(0,0,0);
     //reset yaw angle to zero
     Vec3 rpy = Q2rpy(state.q_w_i);
+    rpy[2] = 0;
     Quaterniond q = rpy2Q(rpy);
     q.normalize();
     state.q_w_i = q;
     states.clear();
     states.push_back(state);
     this->mtx_states_RW.unlock();
-    rpy[2] = 0;
     cout << "Vision Trigger at: "
          << "roll:"   << rpy[0]*57.2958
          << " pitch:" << rpy[1]*57.2958
@@ -222,10 +228,10 @@ void VIMOTION::viCorrectionFromVision(const double t_curr, const SE3 Tcw_curr,
         Vec3 dv_vision_imu_if = (qwi_mid_v.inverse().toRotationMatrix())*dv_vision_imu_wf;////in imu frame
 
         //        cout << "dq_vision_imu" << endl << Q2rpy(dq_vision_imu) <<endl;
-//        cout << "vwi_mid_v: " << vwi_mid_v.transpose() << endl;
-//        cout << "vwi_mid_i: " << vwi_mid_i.transpose() << endl;
-//        cout << "dv_vision_imu_wf: " << dv_vision_imu_wf.transpose() << endl;
-//        cout << "dv_vision_imu_if: " << dv_vision_imu_if.transpose() << endl;
+        //        cout << "vwi_mid_v: " << vwi_mid_v.transpose() << endl;
+        //        cout << "vwi_mid_i: " << vwi_mid_i.transpose() << endl;
+        //        cout << "dv_vision_imu_wf: " << dv_vision_imu_wf.transpose() << endl;
+        //        cout << "dv_vision_imu_if: " << dv_vision_imu_if.transpose() << endl;
 
         acc_bias_est = -(1.0/dt)*dv_vision_imu_if;
         gyro_bias_est[0] = (1.0/dt)*dq_vision_imu.x();
@@ -251,15 +257,7 @@ void VIMOTION::viCorrectionFromVision(const double t_curr, const SE3 Tcw_curr,
     //correct
     acc_bias  += 0.1*acc_bias_est;
     gyro_bias += 0.1*gyro_bias_est;
-
-    //    for(size_t i=0; i<3; i++)//bias bound
-    //    {
-    //        if(acc_bias[i]>5.0) acc_bias[i]=5.0;
-    //        if(acc_bias[i]<-5.0) acc_bias[i]=-5.0;
-    //        if(gyro_bias[i]>5.0) gyro_bias[i]=5.0;
-    //        if(gyro_bias[i]<-5.0) gyro_bias[i]=-5.0;
-    //    }
-    cout << "acc_bias: " << acc_bias.transpose() << endl;
+    cout << "acc_bias : " << acc_bias.transpose() << endl;
     cout << "gyro_bias: " << gyro_bias.transpose() << endl;
 }
 
@@ -295,10 +293,10 @@ bool VIMOTION::viFindStateIdx(const double time, int& idx_in_q)
     else
     {
         cout << "[Critical Warning]: motion not in queue! please enlarge the buffer size" << endl;
-        cout << "queue size:" << states.size() << endl;
-        cout << "Frame time  :" << std::setprecision (15) << time << endl;
-        cout << "q begin time:" << this->states.front().imu_data.timestamp << endl;
-        cout << "q end time  :" << this->states.back().imu_data.timestamp << endl;
+        cout << " queue size:" << states.size()
+             << " querry time:" << std::setprecision (15) << time
+             << " q begin:" << this->states.front().imu_data.timestamp
+             << " q end  :" << this->states.back().imu_data.timestamp << endl;
         ret = false;
     }
     return ret;

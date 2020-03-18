@@ -38,7 +38,7 @@ public:
     bool is_first_data;
 
     VIMOTION(SE3 T_i_c_fromCalibration,
-             double magnitude_g_in = 9.71,
+             double magnitude_g_in = 9.81,
              double para_1_in = 0.1,   //Madgwick beta
              double para_2_in = 0.05,  //proportion of vision feedforware(roll and pich)
              double para_3_in = 0.01,  //acc-bias feedback parameter

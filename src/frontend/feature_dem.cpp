@@ -128,8 +128,8 @@ void FeatureDEM::redetect(const cv::Mat& img,
     vector<cv::Point2f> existedPts_cvP2f=vVec2_2_vcvP2f(existedPts);
     fillIntoRegion(img,existedPts_cvP2f);
 
-    //cv::Ptr<cv::FastFeatureDetector> detector= cv::FastFeatureDetector::create();
-    cv::Ptr<cv::FeatureDetector> detector = cv::ORB::create(3000);
+    cv::Ptr<cv::FastFeatureDetector> detector= cv::FastFeatureDetector::create();
+    //cv::Ptr<cv::FeatureDetector> detector = cv::ORB::create(3000);
     vector<cv::KeyPoint> features;
     vector<cv::Point2f>  kps;
     detector->detect(img, features);
@@ -202,8 +202,8 @@ void FeatureDEM::detect(const cv::Mat& img, vector<Vec2>& pts, vector<cv::Mat>& 
         regionKeyPts[i].clear();
     }
     //Detect FAST
-    //cv::Ptr<cv::FastFeatureDetector> detector= cv::FastFeatureDetector::create();
-    cv::Ptr<cv::FeatureDetector> detector = cv::ORB::create(3000);
+    cv::Ptr<cv::FastFeatureDetector> detector= cv::FastFeatureDetector::create();
+    //cv::Ptr<cv::FeatureDetector> detector = cv::ORB::create(3000);
     vector<cv::KeyPoint> tmpKPs;
     detector->detect(img, tmpKPs);
     //Fill into region

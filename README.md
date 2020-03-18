@@ -1,5 +1,5 @@
 #  FLVIS
-## Feedback Loop Based Visual Initial SLAM
+## Feedback Loop Based Visual Inertial SLAM
 
 ### 1-Demo Video
 TBD

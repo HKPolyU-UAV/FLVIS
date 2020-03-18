@@ -15,9 +15,9 @@ T_imu_cam0:
   0.0,  0.0,  0.0,  1.0]
 
 #Madgwick beta
-para_1: 0.05
+para_1: 0.1
 #proportion of vision feedforware(roll and pich)
-para_2: 0.05
+para_2: 0.1
 #acc-bias feedback parameter
 para_3: 0.01
 #gyro-bias feedback parameter

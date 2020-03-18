@@ -61,7 +61,7 @@ bool LKORBTracking::tracking(CameraFrame& from,
 
     for(size_t i=0; i<trackedLMDescriptors.size(); i++)
     {
-        if(norm(from.landmarks.at(i).lm_descriptor, trackedLMDescriptors.at(i), cv::NORM_HAMMING) <= 200)
+        if(norm(from.landmarks.at(i).lm_descriptor, trackedLMDescriptors.at(i), cv::NORM_HAMMING) <= 50)
         {
             //landmarks.at(i).lm_descriptor = trackedLMDescriptors.at(i);
             mask_matched.push_back(1);

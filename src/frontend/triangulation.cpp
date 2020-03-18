@@ -43,7 +43,7 @@ bool Triangulation::trignaulationPtFromStereo(Vec2 pt0, Vec2 pt1,
                                               Vec3 &pt3d_c)
 {
     pt3d_c = triangulationPt(pt0,pt1,P0,P1);
-    if(pt3d_c[2]<0 || pt3d_c[2]>11)
+    if(pt3d_c[2]< 0 || pt3d_c[2]>11)
     {
         return false;
     }else
@@ -69,7 +69,7 @@ bool Triangulation::trignaulationPtFromStereo(Vec2 pt0, Vec2 pt1,
 //    cout << "P0:" << endl << P0 << endl;
 //    cout << "P1:" << endl << P1 << endl;
     pt3d_c = triangulationPt(pt0,pt1,P0,P1);
-    if(pt3d_c[2]<0 || pt3d_c[2]>8)
+    if(pt3d_c[2]<0.7 || pt3d_c[2]>11)
     {
         return false;
     }else

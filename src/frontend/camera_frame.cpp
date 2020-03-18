@@ -105,7 +105,7 @@ void CameraFrame::recover3DPts_c_FromStereo(vector<Vec3> &pt3ds,
     vector<cv::Point2f> pts1;
     cv::calcOpticalFlowPyrLK(this->img0, this->img1,
                              pts0, pts1,
-                             status, err, cv::Size(21,21),20);
+                             status, err, cv::Size(21,21),3);
     pts2d_img0.clear();
     pts2d_img1.clear();
     for(int i=0; i<status.size(); i++)

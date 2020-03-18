@@ -57,7 +57,8 @@ private:
     ros::Publisher imu_pose_pub;
     ros::Publisher vision_pose_pub;
     RVIZFrame* frame_pub;
-    RVIZPath*  path_pub;
+    RVIZPath*  vision_path_pub;
+    RVIZPath*  imu_path_pub;
     RVIZPath*  path_lc_pub;
     RVIZPose*  pose_imu_pub;
     KeyFrameMsg* kf_pub;
@@ -70,16 +71,17 @@ private:
         //cv::startWindowThread(); //Bug report https://github.com/ros-perception/image_pipeline/issues/201
 
         //Publisher
-        path_pub     = new RVIZPath(nh,"/vo_path","map",1,3000);
-        path_lc_pub  = new RVIZPath(nh,"/vo_path_lc","map",1,3000);
-        frame_pub    = new RVIZFrame(nh,"/vo_camera_pose","map","/vo_curr_frame","map");
-        pose_imu_pub = new RVIZPose(nh,"/imu_pose","map");
-        kf_pub       = new KeyFrameMsg(nh,"/vo_kf");
+        vision_path_pub = new RVIZPath(nh,"/vision_path","map",1,3000);
+        path_lc_pub     = new RVIZPath(nh,"/vision_path_lc","map",1,3000);
+        imu_path_pub    = new RVIZPath(nh,"/imu_path","map",1,400);
+        frame_pub       = new RVIZFrame(nh,"/vo_camera_pose","map","/vo_curr_frame","map");
+        pose_imu_pub    = new RVIZPose(nh,"/imu_pose","map");
+        kf_pub          = new KeyFrameMsg(nh,"/vo_kf");
         //        octomap_pub  = new OctomapFeeder(nh,"/vo_octo_tracking","vo_local",1);
         //        octomap_pub->d_camera=curr_frame->d_camera;
         image_transport::ImageTransport it(nh);
-        img0_pub = it.advertise("/vo_img", 1);
-        img1_pub = it.advertise("/vo_dimg", 1);
+        img0_pub = it.advertise("/vo_img0", 1);
+        img1_pub = it.advertise("/vo_img1", 1);
 
         cam_tracker = new F2FTracking();
         //Load Parameter
@@ -155,7 +157,7 @@ private:
         exactSync_ = new message_filters::Synchronizer<MyExactSyncPolicy>(MyExactSyncPolicy(2), img0_sub, img1_sub);
         exactSync_->registerCallback(boost::bind(&TrackingNodeletClass::image_input_callback, this, _1, _2));
 
-        cout << "Tracking start!" << endl;
+        cout << "start tracking thread" << endl;
     }
 
     void imu_callback(const sensor_msgs::ImuConstPtr& msg)
@@ -191,9 +193,10 @@ private:
 //        gyro =  Vec3(0.001,0.002,0.003);
         Quaterniond q_w_i;
         Vec3        pos_w_i, vel_w_i;
-        this->cam_tracker->imu_feed(tstamp.toSec(),acc,gyro,
+        cam_tracker->imu_feed(tstamp.toSec(),acc,gyro,
                                     q_w_i,pos_w_i,vel_w_i);
-        this->pose_imu_pub->pubPose(q_w_i,pos_w_i,tstamp);
+        pose_imu_pub->pubPose(q_w_i,pos_w_i,tstamp);
+        imu_path_pub->pubPathT_w_c(SE3(q_w_i,pos_w_i),tstamp);
     }
 
     void correction_feedback_callback(const flvis::CorrectionInf::ConstPtr& msg)
@@ -230,7 +233,7 @@ private:
         frame_pub->pubFramePtsPoseT_c_w(this->cam_tracker->curr_frame->getValid3dPts(),
                                         this->cam_tracker->curr_frame->T_c_w,
                                         tstamp);
-        path_pub->pubPathT_c_w(this->cam_tracker->curr_frame->T_c_w,tstamp);
+        vision_path_pub->pubPathT_c_w(this->cam_tracker->curr_frame->T_c_w,tstamp);
         SE3 T_map_c =SE3();
         try{
             listenerOdomMap.lookupTransform("map","odom",ros::Time(0), tranOdomMap);

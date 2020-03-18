@@ -21,7 +21,6 @@ void F2FTracking::init(const int w, const int h,
     this->cam_type = cam_type_in;
     if(cam_type==DEPTH_D435I)
     {
-
         K0_rect = c0_cameraMatrix_in;
         D0_rect = c0_distCoeffs_in;
         DepthCamera dc;
@@ -49,12 +48,7 @@ void F2FTracking::init(const int w, const int h,
         cv::stereoRectify(K0,D0,K1,D1,cv::Size(w,h),R__,T__,
                           R0,R1,P0,P1,Q,
                           CALIB_ZERO_DISPARITY,0,cv::Size(w,h));
-//        cout << "-----------------" << endl;
-//        cout << R0 << endl;
-//        cout << P0 << endl;
-//        cout << R1 << endl;
-//        cout << P1 << endl;
-//        cout << "-----------------" << endl;
+
         D1_rect = D0_rect = (cv::Mat1d(4, 1) << 0,0,0,0);
         cv::initUndistortRectifyMap(K0,D0,R0,P0,cv::Size(w,h),CV_32F,
                                     c0_RM[0],c0_RM[1]);
@@ -62,17 +56,6 @@ void F2FTracking::init(const int w, const int h,
                                     c1_RM[0],c1_RM[1]);
         K0_rect = P0.rowRange(0,3).colRange(0,3);
         K1_rect = P1.rowRange(0,3).colRange(0,3);
-
-        //        R0 = (cv::Mat1d(3, 3) << 1,0,0,0,1,0,0,0,1);
-        //        R1 = (cv::Mat1d(3, 3) << 1,0,0,0,1,0,0,0,1);
-        //        cv::initUndistortRectifyMap(K0,D0,R0,K0,cv::Size(w,h),CV_32F,
-        //                                    c0_RM[0],c0_RM[1]);
-        //        cv::initUndistortRectifyMap(K1,D1,R1,K1,cv::Size(w,h),CV_32F,
-        //                                    c1_RM[0],c1_RM[1]);
-        //        D1_rect = D0_rect = (cv::Mat1d(4, 1) << 0,0,0,0);
-        //        K0_rect = K0;
-        //        K1_rect = K1;
-
 
         DepthCamera dc;
         Mat3x4 P0_,P1_;
@@ -197,9 +180,16 @@ void F2FTracking::image_feed(const double time,
     new_keyframe = false;
     reset_cmd = false;
     frameCount++;
-    if(frameCount<10) return;
 
-    //if((frameCount%2)==0) return;
+    if(frameCount==40)
+    {
+        vimotion->imu_initialized = false;
+        vimotion->is_first_data = true;
+        vo_tracking_state = UnInit;
+        reset_cmd = true;
+        return;
+    }
+
     last_frame.swap(curr_frame);
     curr_frame->clear();
     curr_frame->frame_id = frameCount;
@@ -213,10 +203,6 @@ void F2FTracking::image_feed(const double time,
         cv::equalizeHist(curr_frame->img0,curr_frame->img0);
         break;
     case STEREO_EuRoC_MAV:
-        //        curr_frame->img0=img0_in;
-        //        curr_frame->img1=img1_in;
-        //        cv::undistort(img0_in,curr_frame->img0,K0,D0);
-        //        cv::undistort(img1_in,curr_frame->img1,K0,D0);
         cv::remap(img0_in, curr_frame->img0, c0_RM[0], c0_RM[1],cv::INTER_LINEAR);
         cv::remap(img1_in, curr_frame->img1, c1_RM[0], c1_RM[1],cv::INTER_LINEAR);
         cv::equalizeHist(curr_frame->img0,curr_frame->img0);
@@ -243,11 +229,19 @@ void F2FTracking::image_feed(const double time,
                 Eigen::Quaterniond q_init_w_i;
                 vimotion->viVisiontrigger(q_init_w_i);
                 Vec3 rpy = Q2rpy(q_init_w_i);
-                cout << "use imu pose" << endl;
-                cout << "roll:"   << rpy[0]*57 << " pitch:" << rpy[1]*57.2958 << " yaw:"   << rpy[2]*57.2958 << endl;
+                cout << "use imu pose for init pose" << endl;
+                cout << "roll:"   << rpy[0]*57 << " pitch:" << rpy[1]*57 << " yaw:"   << rpy[2]*57 << endl;
                 Mat3x3 R_w_c = q_init_w_i.toRotationMatrix()*vimotion->T_i_c.rotation_matrix();
                 SE3    T_w_c(R_w_c,t_w_c);
+                rpy = Q2rpy(T_w_c.unit_quaternion());
+                cout << "camera in world: " << endl;
+                cout << "roll:"   << rpy[0]*57 << " pitch:" << rpy[1]*57 << " yaw:"   << rpy[2]*57 << endl;
                 curr_frame->T_c_w=T_w_c.inverse();//Tcw = (Twc)^-1
+
+                SE3 Twi = curr_frame->T_c_w.inverse()*vimotion->T_c_i;
+                rpy = Q2rpy(Twi.unit_quaternion());
+                cout << "imu in world: " << endl;
+                cout << "roll:"   << rpy[0]*57 << " pitch:" << rpy[1]*57 << " yaw:"   << rpy[2]*57 << endl;
             }else
             {
                 break;
@@ -337,7 +331,7 @@ void F2FTracking::image_feed(const double time,
         SE3_to_rvec_tvec(last_frame->T_c_w, r_ , t_ );
         cv::Mat inliers;
         solvePnPRansac(p3d,p2d,K0_rect,D0_rect,
-                       r_,t_,false,100,3.0,0.99,inliers,cv::SOLVEPNP_P3P);
+                       r_,t_,false,100,3.0,0.99,inliers,cv::SOLVEPNP_ITERATIVE);
         curr_frame->T_c_w = SE3_from_rvec_tvec(r_,t_);
         std::vector<uchar> status;
         for (int i = 0; i < (int)p2d.size(); i++)
@@ -401,7 +395,7 @@ void F2FTracking::image_feed(const double time,
         Vec3 r=T_diff_key_curr.so3().log();
         double t_norm = fabs(t[0]) + fabs(t[1]) + fabs(t[2]);
         double r_norm = fabs(r[0]) + fabs(r[1]) + fabs(r[2]);
-        if(t_norm>=0.05 || r_norm>=0.2)
+        if(t_norm>=0.03 || r_norm>=0.2)
         {
             new_keyframe = true;
             T_c_w_last_keyframe = curr_frame->T_c_w;
@@ -459,6 +453,7 @@ void F2FTracking::image_feed(const double time,
         break;
     }//end of state: TrackingFail
     }//end of state machine
+
     auto stop = high_resolution_clock::now();
     auto duration = duration_cast<milliseconds>(stop - start);
     curr_frame->solving_time = (duration.count()/1000.0);
