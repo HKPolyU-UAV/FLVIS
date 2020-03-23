@@ -181,14 +181,14 @@ void F2FTracking::image_feed(const double time,
     reset_cmd = false;
     frameCount++;
 
-    if(frameCount==40)
-    {
-        vimotion->imu_initialized = false;
-        vimotion->is_first_data = true;
-        vo_tracking_state = UnInit;
-        reset_cmd = true;
-        return;
-    }
+//    if(frameCount==40)
+//    {
+//        vimotion->imu_initialized = false;
+//        vimotion->is_first_data = true;
+//        vo_tracking_state = UnInit;
+//        reset_cmd = true;
+//        return;
+//    }
 
     last_frame.swap(curr_frame);
     curr_frame->clear();
