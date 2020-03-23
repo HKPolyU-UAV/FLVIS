@@ -255,10 +255,19 @@ void VIMOTION::viCorrectionFromVision(const double t_curr, const SE3 Tcw_curr,
     }
     this->mtx_states_RW.unlock();
     //correct
-    acc_bias  += 0.1*acc_bias_est;
-    gyro_bias += 0.1*gyro_bias_est;
-    cout << "acc_bias : " << acc_bias.transpose() << endl;
-    cout << "gyro_bias: " << gyro_bias.transpose() << endl;
+
+    acc_bias  = acc_bias*0.9 + 0.1*acc_bias_est;
+    gyro_bias = acc_bias*0.9 + 0.1*gyro_bias_est;
+    for (int i=0; i<3; i++)
+    {
+        if(acc_bias[i]>1.0) acc_bias[i] = 1.0;
+        if(acc_bias[i]<-1.0) acc_bias[i] = -1.0;
+        if(gyro_bias[i]>0.5) gyro_bias[i] = 0.5;
+        if(gyro_bias[i]<-0.5) gyro_bias[i] = -0.5;
+    }
+
+//    cout << "acc_bias : " << acc_bias.transpose() << endl;
+//    cout << "gyro_bias: " << gyro_bias.transpose() << endl;
 }
 
 
