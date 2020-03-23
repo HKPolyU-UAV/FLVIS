@@ -16,7 +16,7 @@
     "aux-param-depthclampmin": "0",
     "aux-param-disparityshift": "0",
     "controls-autoexposure-auto": "True",
-    "controls-autoexposure-manual": "6000",
+    "controls-autoexposure-manual": "8500",
     "controls-color-autoexposure-auto": "True",
     "controls-color-autoexposure-manual": "166",
     "controls-color-backlight-compensation": "0",
@@ -31,7 +31,7 @@
     "controls-color-white-balance-auto": "True",
     "controls-color-white-balance-manual": "4600",
     "controls-depth-gain": "16",
-    "controls-laserpower": "10",
+    "controls-laserpower": "150",
     "controls-laserstate": "off",
     "ignoreSAD": "0",
     "param-amplitude-factor": "0",
@@ -90,6 +90,6 @@
     "stream-depth-format": "Z16",
     "stream-fps": "30",
     "stream-height": "480",
-    "stream-ir-format": "R8L8",
+    "stream-ir-format": "Y8",
     "stream-width": "640"
 }
