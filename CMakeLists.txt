@@ -60,7 +60,6 @@ catkin_package(
     )
 
 
-
 include_directories(SYSTEM
     ${catkin_INCLUDE_DIRS}
     ${OpenCV_INCLUDE_DIRS}
@@ -89,7 +88,6 @@ SET(G2O_LIBS cholmod cxsparse -lg2o_cli -lg2o_core
 
 ## Declare a C++ library
 add_library(flvis
-
     src/frontend/vo_tracking.cpp
     src/frontend/f2f_tracking.cpp
     src/frontend/feature_dem.cpp
@@ -115,6 +113,8 @@ add_library(flvis
 
     src/octofeeder/octomap_feeder.cpp
     )
+
+add_dependencies(flvis ${catkin_EXPORTED_TARGETS})
 
 target_link_libraries(flvis
     ${catkin_LIBRARIES}
