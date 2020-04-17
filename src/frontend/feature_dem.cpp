@@ -257,3 +257,39 @@ void FeatureDEM::detect(const cv::Mat& img, vector<Vec2>& pts, vector<cv::Mat>& 
     }
     descriptors_to_vMat(tmpDescriptors,descriptors);
 }
+
+void FeatureDEM::detect_conventional(const cv::Mat& img, vector<Vec2>& pts, vector<cv::Mat>& descriptors)
+{
+    //Clear
+    pts.clear();
+    descriptors.clear();
+    for(int i=0; i<16; i++)
+    {
+        regionKeyPts[i].clear();
+    }
+    //Detect FAST
+    cv::Ptr<cv::FastFeatureDetector> detector= cv::FastFeatureDetector::create();
+    //cv::Ptr<cv::FeatureDetector> detector = cv::ORB::create(4000);
+    vector<cv::KeyPoint> tmpKPs;
+    detector->detect(img, tmpKPs);
+    //Fill into region
+    vector<cv::Point2f>  tmpPts;
+    cv::KeyPoint::convert(tmpKPs,tmpPts);
+    vector<cv::Point2f>  output;
+    output.clear();
+    int range=tmpPts.size();
+    for(int i=0; i<900; i++)
+    {
+        int idx = rand() % range;
+        output.push_back(tmpPts.at(idx));
+    }
+    cv::Mat tmpDescriptors;
+    cv::KeyPoint::convert(output,tmpKPs);
+    cv::Ptr<cv::DescriptorExtractor> extractor = cv::ORB::create();
+    extractor->compute(img, tmpKPs, tmpDescriptors);
+    for(size_t i=0; i<tmpKPs.size(); i++)
+    {
+        pts.push_back(Vec2(tmpKPs.at(i).pt.x,tmpKPs.at(i).pt.y));
+    }
+    descriptors_to_vMat(tmpDescriptors,descriptors);
+}

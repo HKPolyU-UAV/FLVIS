@@ -47,6 +47,10 @@ public:
               vector<Vec2>& pts,
               vector<cv::Mat>& descriptors);
 
+  void detect_conventional(const cv::Mat& img,
+              vector<Vec2>& pts,
+              vector<cv::Mat>& descriptors);
+
   void redetect(const cv::Mat& img,
                 const vector<Vec2>& existedPts,
                 vector<Vec2>& newPts,

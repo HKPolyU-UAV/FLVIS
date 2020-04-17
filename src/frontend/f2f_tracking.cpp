@@ -13,12 +13,14 @@ void F2FTracking::init(const int w, const int h,
 {
     this->feature_dem   = new FeatureDEM(w,h,5);
     this->lkorb_tracker = new LKORBTracking(w,h);
-    this->vimotion      = new VIMOTION(T_i_c0_in);
+    this->vimotion      = new VIMOTION(T_i_c0_in,  9.81,
+                                       vi_para[0], vi_para[1],  vi_para[2], vi_para[3]);
     curr_frame = std::make_shared<CameraFrame>();
     last_frame = std::make_shared<CameraFrame>();
     curr_frame->height = last_frame->height = h;
     curr_frame->width = last_frame->width = w;
     this->cam_type = cam_type_in;
+
     if(cam_type==DEPTH_D435I)
     {
         K0_rect = c0_cameraMatrix_in;
@@ -181,14 +183,14 @@ void F2FTracking::image_feed(const double time,
     reset_cmd = false;
     frameCount++;
 
-//    if(frameCount==40)
-//    {
-//        vimotion->imu_initialized = false;
-//        vimotion->is_first_data = true;
-//        vo_tracking_state = UnInit;
-//        reset_cmd = true;
-//        return;
-//    }
+    //    if(frameCount==40)
+    //    {
+    //        vimotion->imu_initialized = false;
+    //        vimotion->is_first_data = true;
+    //        vo_tracking_state = UnInit;
+    //        reset_cmd = true;
+    //        return;
+    //    }
 
     last_frame.swap(curr_frame);
     curr_frame->clear();
