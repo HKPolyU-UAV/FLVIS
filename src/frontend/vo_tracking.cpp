@@ -18,6 +18,8 @@
 #include <include/rviz_frame.h>
 #include <include/rviz_path.h>
 #include <include/rviz_pose.h>
+#include <include/rviz_odom.h>
+
 #include <include/yamlRead.h>
 #include <include/cv_draw.h>
 #include <flvis/KeyFrame.h>
@@ -60,6 +62,7 @@ private:
     RVIZPath*  vision_path_pub;
     RVIZPath*  imu_path_pub;
     RVIZPath*  path_lc_pub;
+    RVIZOdom*  odom_imu_pub;
     RVIZPose*  pose_imu_pub;
     KeyFrameMsg* kf_pub;
     tf::StampedTransform tranOdomMap;
@@ -76,6 +79,7 @@ private:
         imu_path_pub    = new RVIZPath(nh,"/imu_path","map",1,400);
         frame_pub       = new RVIZFrame(nh,"/vo_camera_pose","map","/vo_curr_frame","map");
         pose_imu_pub    = new RVIZPose(nh,"/imu_pose","map");
+        odom_imu_pub    = new RVIZOdom(nh,"/imu_odom","map");
         kf_pub          = new KeyFrameMsg(nh,"/vo_kf");
         //        octomap_pub  = new OctomapFeeder(nh,"/vo_octo_tracking","vo_local",1);
         //        octomap_pub->d_camera=curr_frame->d_camera;
@@ -171,7 +175,7 @@ private:
                        msg->linear_acceleration.x,
                        msg->linear_acceleration.y);
             gyro = Vec3(msg->angular_velocity.z,
-                        -msg->angular_velocity.x,
+                        -msg->angular_velocity.x+0.3,
                         -msg->angular_velocity.y);
         }
         if(cam_type==STEREO_EuRoC_MAV)
@@ -189,13 +193,14 @@ private:
         //        cout << "ax" << acc[0]  << " ay" << acc[1]  << " az" << acc[2]  << endl;
 
         //nur for test
-//        acc = Vec3(4.55,0.3,-7.88);
-//        gyro =  Vec3(0.001,0.002,0.003);
+        //acc = Vec3(4.55,0.3,-7.88);
+        //gyro =  Vec3(0.001,0.002,0.003);
         Quaterniond q_w_i;
         Vec3        pos_w_i, vel_w_i;
         cam_tracker->imu_feed(tstamp.toSec(),acc,gyro,
                                     q_w_i,pos_w_i,vel_w_i);
         pose_imu_pub->pubPose(q_w_i,pos_w_i,tstamp);
+        odom_imu_pub->pubOdom(q_w_i,pos_w_i,vel_w_i,tstamp);
         imu_path_pub->pubPathT_w_c(SE3(q_w_i,pos_w_i),tstamp);
     }
 

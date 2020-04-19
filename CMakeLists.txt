@@ -107,6 +107,8 @@ add_library(flvis
     src/visualization/rviz_frame.cpp
     src/visualization/rviz_path.cpp
     src/visualization/rviz_pose.cpp
+    src/visualization/rviz_odom.cpp
+
 
     src/utils/keyframe_msg.cpp
     src/utils/correction_inf_msg.cpp
