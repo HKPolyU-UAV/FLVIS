@@ -1,9 +1,11 @@
 <launch>
 
-    <param name="/yamlconfigfile" type="string" value="$(find flvis)/launch/d435i/d435i_sn912112073494.yaml"/>
+    <param name="/yamlconfigfile" type="string" value="$(find flvis)/launch/d435_pixhawk/px4_d435_sn841512070537.yaml"/>
 
-    <include file="$(find flvis)/launch/d435i/d435i.launch"/>
+    <include file="$(find flvis)/launch/d435_pixhawk/d435.launch"/>
+    <include file="$(find flvis)/launch/d435_pixhawk/px4.launch"/>
 
+    <!--<include file="$(find flvis)/launch/flvis.launch"/>-->
 
     <arg name="node_start_delay" default="5.0" />
     <param name="/voc"             type="string" value="$(find flvis)/voc/voc_orb.dbow3"/>
@@ -18,7 +20,7 @@
         <!-- D435i -->
         <remap from="/vo/depth_image"  to="/camera/aligned_depth_to_infra1/image_raw"/>
         <remap from="/vo/image"        to="/camera/infra1/image_rect_raw"/>
-        <remap from="/imu"             to="/camera/imu"/>
+        <remap from="/imu"             to="/mavros/imu/data"/>
     </node>
 
     <!--Parameter: window_size: localmap size. 1 stand for 0.1 meters in real world. Default size: 10-->
