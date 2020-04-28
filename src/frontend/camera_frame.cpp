@@ -250,7 +250,7 @@ void CameraFrame::depthInnovation(void)
     //    vector<Vec3> pts3d_c_triangulation;
     //    vector<bool> triangulation_mask;
     //    this->recover3DPts_c_FromTriangulation(pts3d_c_triangulation,triangulation_mask);
-    if(this->d_camera.cam_type==DEPTH_D435I)
+    if(this->d_camera.cam_type==DEPTH_D435)
     {
         this->recover3DPts_c_FromDepthImg(pts3d_c_cam_measure,cam_measure_mask);
     }

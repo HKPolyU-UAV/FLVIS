@@ -319,7 +319,7 @@ private:
             //landmark position
             vector<LM_ITEM> lms;
             bag->getMultiViewLMs(lms,4);
-            cout<<"multi view lm  number:  "<<lms.size()<<endl;
+            //cout<<"multi view lm  number:  "<<lms.size()<<endl;
             //bag.getAllLMs(lms);
             correction_inf.lm_count = lms.size();
             //cout << "correction_inf" << endl;
@@ -350,10 +350,11 @@ private:
 
         string configFilePath;
         nh.getParam("/yamlconfigfile",   configFilePath);
-        int cam_type_from_yaml = getIntVariableFromYaml(configFilePath,"type_of_cam");
-        if(cam_type_from_yaml==0) cam_type=DEPTH_D435I;
-        if(cam_type_from_yaml==1) cam_type=STEREO_EuRoC_MAV;
-        if(cam_type==DEPTH_D435I)
+        int vi_type_from_yaml = getIntVariableFromYaml(configFilePath,"type_of_vi");
+        if(vi_type_from_yaml==0) cam_type=DEPTH_D435;
+        if(vi_type_from_yaml==1) cam_type=STEREO_EuRoC_MAV;
+        if(vi_type_from_yaml==2) cam_type=DEPTH_D435;
+        if(cam_type==DEPTH_D435)
         {
             cv::Mat K0 = cameraMatrixFromYamlIntrinsics(configFilePath,"cam0_intrinsics");
             cv::Mat D0   = distCoeffsFromYaml(configFilePath,"cam0_distortion_coeffs");

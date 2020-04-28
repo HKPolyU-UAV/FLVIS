@@ -11,7 +11,7 @@ void DepthCamera::setDepthCamInfo(double fx, double fy, double cx, double cy, do
     cam0_cy = cy;
     K0_ <<cam0_fx,0,cam0_cx,0,cam0_fy,cam0_cy,0,0,1;
     cam_scale_factor = scale_factor;
-    cam_type = DEPTH_D435I;
+    cam_type = DEPTH_D435;
 }
 
 void DepthCamera::setSteroCamInfo(const cv::Mat K0_in, const cv::Mat D0_in, const Mat3x4 P0_in,

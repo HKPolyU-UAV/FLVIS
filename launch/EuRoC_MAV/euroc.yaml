@@ -1,8 +1,7 @@
-#type_of_cam:
+#type_of_vi:
 #0---d435i
 #1---euroc mav dataset
-#2---others
-
+#2---d435+pixhawk
 type_of_cam: 1
 
 image_width: 752

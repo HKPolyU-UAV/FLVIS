@@ -21,7 +21,7 @@ void F2FTracking::init(const int w, const int h,
     curr_frame->width = last_frame->width = w;
     this->cam_type = cam_type_in;
 
-    if(cam_type==DEPTH_D435I)
+    if(cam_type==DEPTH_D435)
     {
         K0_rect = c0_cameraMatrix_in;
         D0_rect = c0_distCoeffs_in;
@@ -117,7 +117,7 @@ void F2FTracking::correction_feed(const double time, const CorrectionInfStruct c
 bool F2FTracking::init_frame()
 {
     bool init_succeed=false;
-    if(cam_type==DEPTH_D435I)
+    if(cam_type==DEPTH_D435)
     {
         vector<Vec2> pts2d;
         vector<cv::Mat>  descriptors;
@@ -199,7 +199,7 @@ void F2FTracking::image_feed(const double time,
 
     switch(this->cam_type)
     {
-    case DEPTH_D435I:
+    case DEPTH_D435:
         curr_frame->img0=img0_in;
         curr_frame->d_img=img1_in;
         //cv::equalizeHist(curr_frame->img0,curr_frame->img0);

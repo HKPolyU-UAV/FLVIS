@@ -4,7 +4,7 @@
 #include "include/common.h"
 
 
-enum TYPEOFCAMERA{DEPTH_D435I,
+enum TYPEOFCAMERA{DEPTH_D435,
                   STEREO_EuRoC_MAV};
 //DepthCamera Class
 //Support Z16 Depth Format (RealSense d435, d435i)

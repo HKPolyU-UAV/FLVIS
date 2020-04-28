@@ -1,8 +1,8 @@
-#type_of_cam: 
+#type_of_vi:
 #0---d435i
 #1---euroc mav dataset
-#2---others
-type_of_cam: 0
+#2---d435+pixhawk
+type_of_vi: 2
 #depth image is aligned to left cam0
 image_width: 480
 image_height: 270
