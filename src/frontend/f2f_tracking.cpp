@@ -207,8 +207,8 @@ void F2FTracking::image_feed(const double time,
     case STEREO_EuRoC_MAV:
         cv::remap(img0_in, curr_frame->img0, c0_RM[0], c0_RM[1],cv::INTER_LINEAR);
         cv::remap(img1_in, curr_frame->img1, c1_RM[0], c1_RM[1],cv::INTER_LINEAR);
-        //cv::equalizeHist(curr_frame->img0,curr_frame->img0);
-        //cv::equalizeHist(curr_frame->img1,curr_frame->img1);
+        cv::equalizeHist(curr_frame->img0,curr_frame->img0);
+        cv::equalizeHist(curr_frame->img1,curr_frame->img1);
         break;
     }
 

@@ -2,7 +2,7 @@
 #0---d435i
 #1---euroc mav dataset
 #2---d435+pixhawk
-type_of_cam: 1
+type_of_vi: 1
 
 image_width: 752
 image_height: 480

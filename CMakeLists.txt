@@ -116,7 +116,9 @@ add_library(flvis
     src/octofeeder/octomap_feeder.cpp
     )
 
-add_dependencies(flvis ${catkin_EXPORTED_TARGETS})
+add_dependencies(flvis
+    my_package_generate_messages_cpp
+    ${catkin_EXPORTED_TARGETS})
 
 target_link_libraries(flvis
     ${catkin_LIBRARIES}
@@ -131,3 +133,15 @@ target_link_libraries(flvis
     ${Boost_SYSTEM_LIBRARY}
     )
 
+#independent modules
+#1 euroc_publisher publish path
+add_executable(vo_repub_rec
+    src/independ_modules/vo_repub_rec.cpp)
+target_link_libraries(vo_repub_rec
+    ${catkin_LIBRARIES})
+
+#2 output to files
+#add_executable(w2files
+#    src/independ_modules/w2files.cpp)
+#target_link_libraries(w2files
+#    ${catkin_LIBRARIES})

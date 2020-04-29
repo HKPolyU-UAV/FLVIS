@@ -36,6 +36,7 @@ namespace flvis_ns
 enum TYPEOFIMU{D435I,
                EuRoC_MAV,
                PIXHAWK};
+
 class TrackingNodeletClass : public nodelet::Nodelet
 {
 public:

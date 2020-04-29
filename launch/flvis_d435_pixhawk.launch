@@ -1,36 +1,42 @@
 <launch>
 
-    <param name="/yamlconfigfile" type="string" value="$(find flvis)/launch/d435_pixhawk/px4_d435_sn841512070537.yaml"/>
-
+<!--Input######################################################################################################-->
     <include file="$(find flvis)/launch/d435_pixhawk/d435.launch"/>
     <include file="$(find flvis)/launch/d435_pixhawk/px4.launch"/>
 
-    <!--<include file="$(find flvis)/launch/flvis.launch"/>-->
+<!--FLVIS######################################################################################################-->
+    <arg name="node_start_delay"  default="5.0" />
+    <param name="/yamlconfigfile" type="string" value="$(find flvis)/launch/d435_pixhawk/px4_d435_sn841512070537.yaml"/>
+    <param name="/voc"            type="string" value="$(find flvis)/voc/voc_orb.dbow3"/>
 
-    <arg name="node_start_delay" default="5.0" />
-    <param name="/voc"             type="string" value="$(find flvis)/voc/voc_orb.dbow3"/>
     <!-- Manager -->
-    <node pkg="nodelet" type="nodelet" name="flvis_nodelet_manager"  args="manager" output="screen"
-    launch-prefix="bash -c 'sleep $(arg node_start_delay); $0 $@' "/>
+    <node pkg="nodelet" type="nodelet"
+          name="flvis_nodelet_manager" args="manager" output="screen"
+          launch-prefix="bash -c 'sleep $(arg node_start_delay); $0 $@' " />
+
     <!-- TrackingNode -->
     <node pkg="nodelet" type="nodelet" args="load flvis/TrackingNodeletClass flvis_nodelet_manager"
-        name="TrackingNodeletClass_loader" output="screen"
-        launch-prefix="bash -c 'sleep $(arg node_start_delay); $0 $@' ">
-        <param name="num_worker_threads" type="int" value="3" />
-        <!-- D435i -->
+          name="TrackingNodeletClass_loader" output="screen"
+          launch-prefix="bash -c 'sleep $(arg node_start_delay); $0 $@' ">
+        <param name="num_worker_threads" type="int" value="2" />
+        <!-- remap D435 input -->
         <remap from="/vo/depth_image"  to="/camera/aligned_depth_to_infra1/image_raw"/>
         <remap from="/vo/image"        to="/camera/infra1/image_rect_raw"/>
+        <!-- remap PIXHAWK input -->
         <remap from="/imu"             to="/mavros/imu/data"/>
+        <!-- remap output -->
+        <remap from="imu_pose" to="/mavros/vision_pose/pose"/>
+        <!--<remap from="imu_odom" to="/flvis/imu_odom"/>-->
+        <!--<remap from="imu_path" to="/flvis/imu_path"/>-->
     </node>
 
-    <!--Parameter: window_size: localmap size. 1 stand for 0.1 meters in real world. Default size: 10-->
     <!-- LocalMapNode -->
     <node pkg="nodelet" type="nodelet" args="load flvis/LocalMapNodeletClass flvis_nodelet_manager"
-        name="LocalMapNodeletClass_loader" output="screen"
-        launch-prefix="bash -c 'sleep $(arg node_start_delay); $0 $@' ">
-        <param name="/window_size" type="int" value="12" />
+          name="LocalMapNodeletClass_loader" output="screen"
+          launch-prefix="bash -c 'sleep $(arg node_start_delay); $0 $@' ">
+        <param name="/window_size" type="int" value="8" />
+        <!--window_size: Num of keyframes in sliding window optimizer-->
     </node>
-
     <!-- LoopClosingNode -->
 <!--    <node pkg="nodelet" type="nodelet" args="load flvis/LoopClosingNodeletClass flvis_nodelet_manager"
         name="LoopClosingNodeletClass_loader" output="screen"
@@ -39,6 +45,3 @@
 
 
 </launch>
-
-
-
