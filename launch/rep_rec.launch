@@ -1,0 +1,51 @@
+<launch>
+    <node pkg="flvis" type="vo_repub_rec" name="vo2path" output="screen">
+        <!--Sub Support Type:-->
+        <!--"TransformStamped"-->
+        <!--"PointStamped"-->
+        <!--"PoseStamped"-->
+        <param name="sub_type" type="string" value="PoseStamped" />
+        <param name="sub_topic" type="string" value="/mavros/vision_pose/pose" />
+        <!--For EuRoC_MAV V* Dataset-->
+        <!--<param name="sub_type" type="string" value="TransformStamped" />
+        <param name="sub_topic" type="string" value="/vicon/firefly_sbx/firefly_sbx" />-->
+        <!--For EuRoC_MAV MH* Dataset-->
+        <!--<param name="sub_type" type="string" value="PointStamped" />
+        <param name="sub_topic" type="string" value="/leica/position" />-->
+
+        <!--Support Type:-->
+        <!--"0" disable the republish function -->
+        <!--"Path"-->
+        <!--"PoseStamped"-->
+        <param name="repub_type" type="string" value="Path" />
+        <param name="repub_topic" type="string" value="/flvis_path" />
+        <!--output_file_path = "0" disable the file output function-->
+        <param name="output_file_path" type="string" value="0" />
+    </node>
+
+    <node pkg="flvis" type="vo_repub_rec" name="vicon2path" output="screen">
+        <!--Sub Support Type:-->
+        <!--"TransformStamped"-->
+        <!--"PointStamped"-->
+        <!--"PoseStamped"-->
+        <param name="sub_type" type="string" value="TransformStamped" />
+        <param name="sub_topic" type="string" value="/vicon/flvis/flvis" />
+        <!--For EuRoC_MAV V* Dataset-->
+        <!--<param name="sub_type" type="string" value="TransformStamped" />
+        <param name="sub_topic" type="string" value="/vicon/firefly_sbx/firefly_sbx" />-->
+        <!--For EuRoC_MAV MH* Dataset-->
+        <!--<param name="sub_type" type="string" value="PointStamped" />
+        <param name="sub_topic" type="string" value="/leica/position" />-->
+
+        <!--Support Type:-->
+        <!--"0" disable the republish function -->
+        <!--"Path"-->
+        <!--"PoseStamped"-->
+        <param name="repub_type" type="string" value="Path" />
+        <param name="repub_topic" type="string" value="/vicon_path" />
+        <!--output_file_path = "0" disable the file output function-->
+        <param name="output_file_path" type="string" value="0" />
+    </node>
+
+
+</launch>
