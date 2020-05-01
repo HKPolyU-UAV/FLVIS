@@ -158,7 +158,6 @@ void CameraFrame::recover3DPts_c_FromStereo(vector<Vec3> &pt3ds,
             //use dummy depth writing technology
             Vec3 pt3d_c;
             float d_rand;
-//            d_rand = 0.5;
             d_rand = 0.3 + static_cast<float>(rand())/(static_cast<float>(RAND_MAX/(0.4)));
             pt3d_c = DepthCamera::pixel2camera(pts2d_img0.at(i),
                                                this->d_camera.cam0_fx,

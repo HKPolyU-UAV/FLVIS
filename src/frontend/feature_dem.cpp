@@ -128,7 +128,7 @@ void FeatureDEM::redetect(const cv::Mat& img,
     vector<cv::Point2f> existedPts_cvP2f=vVec2_2_vcvP2f(existedPts);
     fillIntoRegion(img,existedPts_cvP2f);
 
-    cv::Ptr<cv::FastFeatureDetector> detector= cv::FastFeatureDetector::create();
+    cv::Ptr<cv::FastFeatureDetector> detector= cv::FastFeatureDetector::create(5);
     //cv::Ptr<cv::FeatureDetector> detector = cv::ORB::create(3000);
     vector<cv::KeyPoint> features;
     vector<cv::Point2f>  kps;
@@ -139,7 +139,7 @@ void FeatureDEM::redetect(const cv::Mat& img,
     for(size_t i=0; i<kps.size(); i++)
     {
         cv::Point2f pt = kps.at(i);
-        if (pt.x>=10 && pt.x<(width-10) && pt.y>=10 && pt.y<(height-10))
+        if (pt.x>=3 && pt.x<(width-3) && pt.y>=3 && pt.y<(height-3))
         {
             float Harris_R;
             calHarrisR(img,pt,Harris_R);
@@ -202,7 +202,7 @@ void FeatureDEM::detect(const cv::Mat& img, vector<Vec2>& pts, vector<cv::Mat>& 
         regionKeyPts[i].clear();
     }
     //Detect FAST
-    cv::Ptr<cv::FastFeatureDetector> detector= cv::FastFeatureDetector::create();
+    cv::Ptr<cv::FastFeatureDetector> detector= cv::FastFeatureDetector::create(5);
     //cv::Ptr<cv::FeatureDetector> detector = cv::ORB::create(3000);
     vector<cv::KeyPoint> tmpKPs;
     detector->detect(img, tmpKPs);
