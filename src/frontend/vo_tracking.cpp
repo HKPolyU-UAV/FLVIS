@@ -43,7 +43,7 @@ public:
   TrackingNodeletClass()  {;}
   ~TrackingNodeletClass() {;}
 private:
-
+  bool is_lite_version;
   enum TYPEOFCAMERA cam_type;
   enum TYPEOFIMU imu_type;
   F2FTracking   *cam_tracker;
@@ -97,6 +97,11 @@ private:
     //Load Parameter
     string configFilePath;
     nh.getParam("/yamlconfigfile",   configFilePath);
+    string lite;
+    nh.getParam("/lite_version",   is_lite_version);
+    if(is_lite_version)
+      cout << "flvis run in lite version" << endl;
+
     cout << configFilePath << endl;
     int vi_type_from_yaml = getIntVariableFromYaml(configFilePath,"type_of_vi");
     int image_width  = getIntVariableFromYaml(configFilePath,"image_width");
@@ -278,22 +283,24 @@ private:
     {
       //cout<<"no transform between map and odom yet."<<endl;
     }
-    cvtColor(cam_tracker->curr_frame->img0,img0_vis,CV_GRAY2BGR);
-    if(cam_type==DEPTH_D435)
+    if(!is_lite_version)
     {
-      drawFrame(img0_vis,*this->cam_tracker->curr_frame,1,6);
-      visualizeDepthImg(img1_vis,*this->cam_tracker->curr_frame);
+      cvtColor(cam_tracker->curr_frame->img0,img0_vis,CV_GRAY2BGR);
+      if(cam_type==DEPTH_D435)
+      {
+        drawFrame(img0_vis,*this->cam_tracker->curr_frame,1,6);
+        visualizeDepthImg(img1_vis,*this->cam_tracker->curr_frame);
+      }
+      if(cam_type==STEREO_EuRoC_MAV)
+      {
+        drawFrame(img0_vis,*this->cam_tracker->curr_frame,1,11);
+        cvtColor(cam_tracker->curr_frame->img1,img1_vis,CV_GRAY2BGR);
+      }
+      sensor_msgs::ImagePtr img0_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", img0_vis).toImageMsg();
+      sensor_msgs::ImagePtr img1_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", img1_vis).toImageMsg();
+      img0_pub.publish(img0_msg);
+      img1_pub.publish(img1_msg);
     }
-    if(cam_type==STEREO_EuRoC_MAV)
-    {
-      drawFrame(img0_vis,*this->cam_tracker->curr_frame,1,11);
-      cvtColor(cam_tracker->curr_frame->img1,img1_vis,CV_GRAY2BGR);
-    }
-    sensor_msgs::ImagePtr img0_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", img0_vis).toImageMsg();
-    sensor_msgs::ImagePtr img1_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", img1_vis).toImageMsg();
-    img0_pub.publish(img0_msg);
-    img1_pub.publish(img1_msg);
-    //tt_cb.toc();
   }//image_input_callback(const sensor_msgs::ImageConstPtr & imgPtr, const sensor_msgs::ImageConstPtr & depthImgPtr)
 };//class TrackingNodeletClass
 }//namespace flvis_ns
