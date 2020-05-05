@@ -4,7 +4,7 @@
 #include "include/common.h"
 
 
-enum TYPEOFCAMERA{DEPTH_D435I,
+enum TYPEOFCAMERA{DEPTH_D435,
                   STEREO_EuRoC_MAV};
 //DepthCamera Class
 //Support Z16 Depth Format (RealSense d435, d435i)
@@ -28,8 +28,18 @@ public:
     void setDepthCamInfo(double fx, double fy, double cx, double cy, double scale_factor=1);
     static Vec3 world2cameraT_c_w( const Vec3& p_w, const SE3& T_c_w );
     static Vec3 camera2worldT_c_w( const Vec3& p_c, const SE3& T_c_w );
+    static Vec2 camera2pixel( const Vec3& p_c,
+                              const double fx, const double fy,
+                              const double cx, const double cy);
+    static Vec3 pixel2camera( const Vec2& p_p,
+                              const double fx, const double fy,
+                              const double cx, const double cy,
+                              double depth=1 );
+
     Vec2 camera2pixel( const Vec3& p_c );
-    Vec3 pixel2camera( const Vec2& p_p, double depth=1 );
+    Vec3 pixel2camera( const Vec2& p_p,
+                       double depth=1 );
+
     Vec3 pixel2worldT_c_w( const Vec2& p_p, const SE3& T_c_w, double depth=1 );
     Vec2 world2pixelT_c_w( const Vec3& p_w, const SE3& T_c_w );
 

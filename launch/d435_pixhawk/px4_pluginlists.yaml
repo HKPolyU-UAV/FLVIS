@@ -1,0 +1,30 @@
+plugin_blacklist:
+# common
+- safety_area
+# extras
+- image_pub
+- vibration
+- distance_sensor
+- rangefinder
+- wheel_odometry
+- 3dr_radio
+- actuator_control
+- adsb
+- debug_value
+- distance_sensor
+- fake_gps
+- ftp
+- gps_rtk
+- global_position
+- hil
+- home_position
+- landing_target
+- log_transfer
+- mocap_pose_estimate
+- obstacle_distance
+- px4flow
+- vfr_hud
+- wind_estimation
+
+plugin_whitelist: []
+#- 'sys_*'

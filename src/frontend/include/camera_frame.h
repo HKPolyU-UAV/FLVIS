@@ -6,7 +6,7 @@
 #include <include/depth_camera.h>
 #include <include/triangulation.h>
 #include <opencv2/opencv.hpp>
-
+#include <opencv2/video/tracking.hpp>
 
 class CameraFrame
 {

@@ -15,8 +15,8 @@
     "aux-param-depthclampmax": "65536",
     "aux-param-depthclampmin": "0",
     "aux-param-disparityshift": "0",
-    "controls-autoexposure-auto": "True",
-    "controls-autoexposure-manual": "8500",
+    "controls-autoexposure-auto": "False",
+    "controls-autoexposure-manual": "6000",
     "controls-color-autoexposure-auto": "True",
     "controls-color-autoexposure-manual": "166",
     "controls-color-backlight-compensation": "0",
@@ -88,8 +88,8 @@
     "param-usersm": "1",
     "param-zunits": "1000",
     "stream-depth-format": "Z16",
-    "stream-fps": "30",
-    "stream-height": "480",
+    "stream-fps": "15",
+    "stream-height": "270",
     "stream-ir-format": "Y8",
-    "stream-width": "640"
+    "stream-width": "480"
 }

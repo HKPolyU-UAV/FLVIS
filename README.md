@@ -16,7 +16,12 @@ Ubuntu 18.04 + ROS melodic <br />
 ````
 git clone https://github.com/Ttoto/FLVIS.git
 ````
-4.2 Compile and Install 3rd Part library
+4.2 Install 3rd Part library
+````
+sudo apt-get install libsuitesparse-dev 
+sudo apt-get install ros-melodic-octomap
+
+````
 ````
 cd catkin_ws/src/FLVIS/3rdPartLib/
 ./install3rdPartLib.sh

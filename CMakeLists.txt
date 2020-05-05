@@ -60,7 +60,6 @@ catkin_package(
     )
 
 
-
 include_directories(SYSTEM
     ${catkin_INCLUDE_DIRS}
     ${OpenCV_INCLUDE_DIRS}
@@ -89,7 +88,6 @@ SET(G2O_LIBS cholmod cxsparse -lg2o_cli -lg2o_core
 
 ## Declare a C++ library
 add_library(flvis
-
     src/frontend/vo_tracking.cpp
     src/frontend/f2f_tracking.cpp
     src/frontend/feature_dem.cpp
@@ -109,12 +107,18 @@ add_library(flvis
     src/visualization/rviz_frame.cpp
     src/visualization/rviz_path.cpp
     src/visualization/rviz_pose.cpp
+    src/visualization/rviz_odom.cpp
+
 
     src/utils/keyframe_msg.cpp
     src/utils/correction_inf_msg.cpp
 
     src/octofeeder/octomap_feeder.cpp
     )
+
+add_dependencies(flvis
+    my_package_generate_messages_cpp
+    ${catkin_EXPORTED_TARGETS})
 
 target_link_libraries(flvis
     ${catkin_LIBRARIES}
@@ -129,3 +133,15 @@ target_link_libraries(flvis
     ${Boost_SYSTEM_LIBRARY}
     )
 
+#independent modules
+#1 euroc_publisher publish path
+add_executable(vo_repub_rec
+    src/independ_modules/vo_repub_rec.cpp)
+target_link_libraries(vo_repub_rec
+    ${catkin_LIBRARIES})
+
+#2 output to files
+#add_executable(w2files
+#    src/independ_modules/w2files.cpp)
+#target_link_libraries(w2files
+#    ${catkin_LIBRARIES})
