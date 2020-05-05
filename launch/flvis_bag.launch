@@ -8,10 +8,10 @@
         <param name="sensor_model/max_range" value="2.0" />
         <remap from="cloud_in" to="/vo_octo_tracking" />
     </node>
-    <node pkg="rosbag" type="play" name="rosbag" args="$(find flvis)/bag/2019-12-03-11-21-55.bag -s3"/>
+    <node pkg="rosbag" type="play" name="rosbag" args="$(find flvis)/bag/2020-01-06-15-47-26.bag -s3"/>
 
     <arg name="node_start_delay" default="1.0" />
-    <param name="/voc"             type="string" value="$(find flvis)/voc/voc_orb.dbow3"/>
+    <param name="/voc"             type="string" value="$(find flvis)/voc/orbvoc.dbow3"/>
     <!-- Manager -->
     <node pkg="nodelet" type="nodelet" name="flvis_nodelet_manager"  args="manager" output="screen"
     launch-prefix="bash -c 'sleep $(arg node_start_delay); $0 $@' "/>
@@ -33,9 +33,9 @@
         <param name="/window_size" type="int" value="12" />
     </node>
     <!-- LoopClosingNode -->
-<!--    <node pkg="nodelet" type="nodelet" args="load flvis/LoopClosingNodeletClass flvis_nodelet_manager"
+    <node pkg="nodelet" type="nodelet" args="load flvis/LoopClosingNodeletClass flvis_nodelet_manager"
         name="LoopClosingNodeletClass_loader" output="screen"
         launch-prefix="bash -c 'sleep $(arg node_start_delay); $0 $@' ">
-    </node>-->
+    </node>
 
 </launch>

@@ -137,6 +137,7 @@ private:
     cv::Mat cameraMatrix,distCoeffs;
     cv::Mat diplay_img;
     double fx,fy,cx,cy;
+    enum TYPEOFCAMERA cam_type;
     //bool optimizer_initialized;
     
     ros::Time tt;
@@ -609,12 +610,12 @@ private:
           {
 
             T_prevmap_map = Tw1_w2;
-            cout<<"from w2 to w1: "<<Tw1_w2.so3()<<" "<<Tw1_w2.translation()<<endl;
+           // cout<<"from w2 to w1: "<<Tw1_w2.so3()<<" "<<Tw1_w2.translation()<<endl;
             T_odom_map = T_odom_map*Tw1_w2;
-            cout<<"from w2 to w0: "<<T_odom_map.so3()<<" "<<T_odom_map.translation()<<endl;
+           // cout<<"from w2 to w0: "<<T_odom_map.so3()<<" "<<T_odom_map.translation()<<endl;
             vmap_correct.push_back(Tw1_w2);
-            cout<<"did match initial ? "<<Tw2c.inverse().so3()<<" "<<Tw2c.inverse().translation()<<endl;
-            cout<<"did match initial ? "<<odom.so3()<<" "<<odom.translation()<<endl;
+          //  cout<<"did match initial ? "<<Tw2c.inverse().so3()<<" "<<Tw2c.inverse().translation()<<endl;
+           // cout<<"did match initial ? "<<odom.so3()<<" "<<odom.translation()<<endl;
           }
 
       }
@@ -647,6 +648,8 @@ private:
         
         KeyFrameMsg::unpack(msg,kf.frame_id,img_unpack,d_img_unpack,lm_count_unpack,
                             lm_id_unpack,lm_2d_unpack,lm_3d_unpack,lm_descriptor_unpack,kf.T_c_w_odom,kf.t);
+        if(kf.frame_id < 40)
+          return;
 
         kf.T_c_w = kf.T_c_w_odom*T_odom_map;
         kf.keyframe_id = kf_id++;
@@ -658,7 +661,7 @@ private:
         //cout<<"unpack cost: ";
         unpack_tt.toc();
 
-       // cout<<"send transform between map and odom: "<<endl;
+        cout<<"send transform between map and odom: "<<endl;
 
         SE3 T_map_odom = T_odom_map.inverse();
 
@@ -824,34 +827,38 @@ private:
         transform.setRotation(tf::Quaternion(q_tf.x(),q_tf.y(),q_tf.z(),q_tf.w()));
 
         br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "map", "odom"));
-
-
-
-
-
-
-
-
     }
 
     virtual void onInit()
     {
+
         ros::NodeHandle nh = getNodeHandle();
 
         string configFilePath;
         nh.getParam("/yamlconfigfile",   configFilePath);
+        int cam_type_from_yaml = getIntVariableFromYaml(configFilePath,"type_of_cam");
+        if(cam_type_from_yaml==0) cam_type=DEPTH_D435I;
+        if(cam_type==DEPTH_D435I)
+        {
+            cameraMatrix = cameraMatrixFromYamlIntrinsics(configFilePath,"cam0_intrinsics");
+            distCoeffs   = distCoeffsFromYaml(configFilePath,"cam0_distortion_coeffs");
+            fx = cameraMatrix.at<double>(0,0);
+            fy = cameraMatrix.at<double>(1,1);
+            cx = cameraMatrix.at<double>(0,2);
+            cy = cameraMatrix.at<double>(1,2);
+        }
         image_width  = getIntVariableFromYaml(configFilePath,"image_width");
         image_height = getIntVariableFromYaml(configFilePath,"image_height");
-        cameraMatrix = cameraMatrixFromYamlIntrinsics(configFilePath);
-        distCoeffs = distCoeffsFromYaml(configFilePath);
-        fx = cameraMatrix.at<double>(0,0);
-        fy = cameraMatrix.at<double>(1,1);
-        cx = cameraMatrix.at<double>(0,2);
-        cy = cameraMatrix.at<double>(1,2);
-//        cout << "cameraMatrix:" << endl << cameraMatrix << endl
-//             << "distCoeffs:" << endl << distCoeffs << endl
-//             << "image_width: "  << image_width << " image_height: "  << image_height << endl
-//             << "fx: "  << fx << " fy: "  << fy <<  " cx: "  << cx <<  " cy: "  << cy << endl;
+//        cameraMatrix = cameraMatrixFromYamlIntrinsics(configFilePath);
+//        distCoeffs = distCoeffsFromYaml(configFilePath);
+//        fx = cameraMatrix.at<double>(0,0);
+//        fy = cameraMatrix.at<double>(1,1);
+//        cx = cameraMatrix.at<double>(0,2);
+//        cy = cameraMatrix.at<double>(1,2);
+        cout << "cameraMatrix:" << endl << cameraMatrix << endl
+             << "distCoeffs:" << endl << distCoeffs << endl
+             << "image_width: "  << image_width << " image_height: "  << image_height << endl
+             << "fx: "  << fx << " fy: "  << fy <<  " cx: "  << cx <<  " cy: "  << cy << endl;
         string vocFile;
 
 
@@ -863,7 +870,7 @@ private:
         Database dbTmp(voc, true, 0);
         db = dbTmp;
 
-        path_lc_pub  = new RVIZPath(nh,"/vo_path_lc_new","map");
+        path_lc_pub  = new RVIZPath(nh,"/vision_path_lc_all","map");
 
         sub_kf = nh.subscribe<flvis::KeyFrame>(
                     "/vo_kf",

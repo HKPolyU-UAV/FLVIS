@@ -241,7 +241,7 @@ private:
             tf::Quaternion tf_q = tranOdomMap.getRotation();
             SE3 T_map_odom(Quaterniond(tf_q.w(),tf_q.x(),tf_q.y(),tf_q.z()),
                            Vec3(tf_t.x(),tf_t.y(),tf_t.z()));
-            T_map_c = T_map_odom.inverse()*this->cam_tracker->curr_frame->T_c_w.inverse();
+            T_map_c = T_map_odom*this->cam_tracker->curr_frame->T_c_w.inverse();
             path_lc_pub->pubPathT_w_c(T_map_c,tstamp);
         }
         catch (tf::TransformException ex)

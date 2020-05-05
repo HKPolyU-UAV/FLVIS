@@ -194,6 +194,36 @@ void F2FTracking::image_feed(const double time,
     curr_frame->clear();
     curr_frame->frame_id = frameCount;
     curr_frame->frame_time = time;
+    bool mbRGB = 0;
+    if(img0_in.channels()==3)
+    {
+        if(mbRGB)
+            cvtColor(img0_in,img0_in,CV_RGB2GRAY);
+        else
+            cvtColor(img0_in,img0_in,CV_BGR2GRAY);
+    }
+    else if(img0_in.channels()==4)
+    {
+        if(mbRGB)
+            cvtColor(img0_in,img0_in,CV_RGBA2GRAY);
+        else
+            cvtColor(img0_in,img0_in,CV_BGRA2GRAY);
+    }
+    if(img1_in.channels()==3)
+    {
+        if(mbRGB)
+            cvtColor(img1_in,img1_in,CV_RGB2GRAY);
+        else
+            cvtColor(img1_in,img1_in,CV_BGR2GRAY);
+    }
+    else if(img1_in.channels()==4)
+    {
+        if(mbRGB)
+            cvtColor(img1_in,img1_in,CV_RGBA2GRAY);
+        else
+            cvtColor(img1_in,img1_in,CV_BGRA2GRAY);
+    }
+
 
     switch(this->cam_type)
     {
