@@ -3,6 +3,7 @@
 #include "geometry_msgs/TransformStamped.h"
 #include "geometry_msgs/PointStamped.h"
 #include "geometry_msgs/PoseStamped.h"
+#include "nav_msgs/Odometry.h"
 #include "nav_msgs/Path.h"
 #include "stdio.h"
 #include <fstream>
@@ -111,7 +112,14 @@ void PoseStamped_callback(const geometry_msgs::PoseStampedConstPtr msg)
           msg->pose.orientation.w, msg->pose.orientation.x, msg->pose.orientation.y, msg->pose.orientation.z);
 }
 
+void Odometry_callback(const nav_msgs::OdometryConstPtr msg)
+{
 
+  process(msg->header.stamp,
+          msg->pose.pose.position.x, msg->pose.pose.position.y, msg->pose.pose.position.z,
+          msg->pose.pose.orientation.w, msg->pose.pose.orientation.x,
+          msg->pose.pose.orientation.y, msg->pose.pose.orientation.z);
+}
 
 
 int main(int argc, char **argv)
@@ -161,6 +169,10 @@ int main(int argc, char **argv)
   if(sub_type=="PoseStamped")
   {
     sub = nh.subscribe(sub_topic, 2, PoseStamped_callback);
+  }
+  if(sub_type=="Odometry")
+  {
+    sub = nh.subscribe(sub_topic, 2, Odometry_callback);
   }
 
   ros::spin();
