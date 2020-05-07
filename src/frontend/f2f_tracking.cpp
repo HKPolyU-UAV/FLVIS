@@ -374,6 +374,7 @@ void F2FTracking::image_feed(const double time,
             status[n] = 1;
         }
         curr_frame->updateLMState(status);
+        //curr_frame->eraseReprjOutlier();
         //(Option) ->IMU roll pitch compensation
         if(this->has_imu)
         {
@@ -438,7 +439,7 @@ void F2FTracking::image_feed(const double time,
     {
         static int cnt=0;
         cnt++;
-        if(cnt==15)
+        if((cnt%5)==0)
         {
             cout << "vision tracking fail, IMU motion only" << endl << "Tring to recover~" << endl;
             vector<Vec2> pts2d;
@@ -468,20 +469,25 @@ void F2FTracking::image_feed(const double time,
                     cout << "vo_tracking_state = Working" << endl;
                 }else
                 {
+                    last_frame.swap(curr_frame);
                     cout << "Re-initialization fail: no enough measurement" << endl;
                 }
             }
             else
             {
+                last_frame.swap(curr_frame);
                 cout << "Re-initialization fail: can not find the frame in motion module" << endl;
             }
             cnt=0;
-        }else
-        {
-            if((cnt%5)==0)
-                reset_cmd = true;
         }
-
+        else
+        {
+            last_frame.swap(curr_frame);
+            if((cnt%4)==0)
+            {
+                reset_cmd = true;
+            }
+        }
         break;
     }//end of state: TrackingFail
     }//end of state machine

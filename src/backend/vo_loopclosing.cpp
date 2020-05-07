@@ -837,8 +837,8 @@ private:
         string configFilePath;
         nh.getParam("/yamlconfigfile",   configFilePath);
         int cam_type_from_yaml = getIntVariableFromYaml(configFilePath,"type_of_cam");
-        if(cam_type_from_yaml==0) cam_type=DEPTH_D435I;
-        if(cam_type==DEPTH_D435I)
+        if(cam_type_from_yaml==0) cam_type=DEPTH_D435;
+        if(cam_type==DEPTH_D435)
         {
             cameraMatrix = cameraMatrixFromYamlIntrinsics(configFilePath,"cam0_intrinsics");
             distCoeffs   = distCoeffsFromYaml(configFilePath,"cam0_distortion_coeffs");
