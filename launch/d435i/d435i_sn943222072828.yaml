@@ -1,0 +1,24 @@
+#type_of_vi:
+#0---d435i
+#1---euroc mav dataset
+#2---d435+pixhawk
+type_of_vi: 0
+#depth image is aligned to left cam0
+image_width: 640
+image_height: 480
+cam0_intrinsics: [384.16455078125, 384.16455078125, 320.2144470214844, 238.94403076171875]#fx fy cx cy
+cam0_distortion_coeffs: [0.0, 0.0, 0.0, 0.0]#k1 k2 r1 r2
+T_imu_cam0:
+[ 0.0,  0.0,  1.0,  0.0,
+ -1.0,  0.0,  0.0,  0.0,
+  0.0, -1.0,  0.0,  0.0,
+  0.0,  0.0,  0.0,  1.0]
+
+#Madgwick beta
+para_1: 0.1
+#proportion of vision feedforware(roll and pich)
+para_2: 0.1
+#acc-bias feedback parameter
+para_3: 0.01
+#gyro-bias feedback parameter
+para_4: 0.01
