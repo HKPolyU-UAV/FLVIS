@@ -4,8 +4,6 @@
 #include "include/depth_camera.h"
 #include "include/common.h"
 
-#define LMSTATE_NO_DEPTH  (0)
-#define LMSTATE_NORMAL    (1)
 #define LM_TRACKING_INLIER  (0)
 #define LM_TRACKING_OUTLIER (1)
 
@@ -14,15 +12,9 @@ class LandMark
 public:
   int64_t lm_id;
   Vec3    lm_3d_w;
-  cv::Mat lm_descriptor;
-  Vec3    lm_ob_dir;
-  //No depth Information
-  //Normal
-  //Depth Converged
-  //Error
-  unsigned char lmState;
+
   LandMark();
-  LandMark(const cv::Mat descriptor_in,const Vec3 pt3d_w_in,Vec3 ob_dir_in = Vec3(0,0,0));
+  LandMark(const Vec3 pt3d_w_in);
 };
 
 class LandMarkInFrame : public LandMark
@@ -35,8 +27,7 @@ public:
     unsigned char lm_tracking_state;
     Vec2 lm_1st_obs_2d;
     SE3  lm_1st_obs_frame_pose;//camera pose of first observation(for triangulation only)
-    LandMarkInFrame(const cv::Mat descriptor,
-                    const Vec2 pt2d,
+    LandMarkInFrame(const Vec2 pt2d,
                     const Vec3 pt3d_c,
                     const bool has_3d_inf,
                     const SE3 T_c_w);

@@ -43,9 +43,8 @@ void KeyFrameMsg::pub(CameraFrame& frame, ros::Time stamp)
     vector<int64_t> lm_id;
     vector<Vec2> lm_2d;
     vector<Vec3> lm_3d;
-    vector<cv::Mat>  lm_descriptors;
 
-    frame.getKeyFrameInf(lm_id,lm_2d,lm_3d,lm_descriptors);
+    frame.getKeyFrameInf(lm_id,lm_2d,lm_3d);
     kf.lm_count =  static_cast<int32_t>(lm_id.size());
 
     //    for(size_t i=0; i<lm_id.size(); i++)

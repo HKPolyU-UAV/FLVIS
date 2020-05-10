@@ -282,14 +282,12 @@ void CameraFrame::depthInnovation(void)
             //update to world frame
             landmarks.at(i).lm_3d_c = lm_c_update;
             landmarks.at(i).lm_3d_w = DepthCamera::camera2worldT_c_w(lm_c_update,this->T_c_w);
-            landmarks.at(i).lmState = LMSTATE_NORMAL;
         }
         else//Do not have position
         {
             Vec3 pt3d_w = DepthCamera::camera2worldT_c_w(lm_c_measure,this->T_c_w);
             landmarks.at(i).lm_3d_c = lm_c_measure;
             landmarks.at(i).lm_3d_w = pt3d_w;
-            landmarks.at(i).lmState = LMSTATE_NORMAL;
             landmarks.at(i).lm_has_3d = true;
         }
     }
@@ -415,7 +413,7 @@ void CameraFrame::unpack(vector<Vec2> &pt2d,
     {
         pt2d.push_back(landmarks.at(i).lm_2d);
         pt3d.push_back(landmarks.at(i).lm_3d_w);
-        descriptors.push_back(landmarks.at(i).lm_descriptor);
+        //descriptors.push_back(landmarks.at(i).lm_descriptor);
         if(landmarks.at(i).hasDepthInf())
         {mask3d.push_back(1);}
         else
@@ -484,23 +482,12 @@ vector<Vec3> CameraFrame::get3dPtsVec(void)
     return ret;
 }
 
-vector<cv::Mat>  CameraFrame::getDescriptorVec(void)
-{
-    vector<cv::Mat> ret;
-    ret.clear();
-    for(size_t i=0; i<landmarks.size(); i++)
-    {
-        ret.push_back(landmarks.at(i).lm_descriptor);
-    }
-    return ret;
-}
 
-void CameraFrame::getKeyFrameInf(vector<int64_t> &lm_id, vector<Vec2> &lm_2d, vector<Vec3> &lm_3d, vector<cv::Mat> &lm_descriptors)
+void CameraFrame::getKeyFrameInf(vector<int64_t> &lm_id, vector<Vec2> &lm_2d, vector<Vec3> &lm_3d)
 {
     lm_id.clear();
     lm_2d.clear();
     lm_3d.clear();
-    lm_descriptors.clear();
     for(size_t i=0; i<landmarks.size(); i++)
     {
         LandMarkInFrame lm=landmarks.at(i);
@@ -509,7 +496,6 @@ void CameraFrame::getKeyFrameInf(vector<int64_t> &lm_id, vector<Vec2> &lm_2d, ve
             lm_3d.push_back(lm.lm_3d_w);
             lm_2d.push_back(lm.lm_2d);
             lm_id.push_back(lm.lm_id);
-            lm_descriptors.push_back(lm.lm_descriptor);
         }
     }
 

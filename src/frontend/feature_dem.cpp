@@ -110,12 +110,10 @@ void FeatureDEM::fillIntoRegion(const cv::Mat& img, const vector<cv::Point2f>& p
 void FeatureDEM::redetect(const cv::Mat& img,
                           const vector<Vec2>& existedPts,
                           vector<Vec2>& newPts,
-                          vector<cv::Mat>& newDescriptors,
                           int &newPtscount)
 {
     //Clear
     newPts.clear();
-    newDescriptors.clear();
     newPtscount=0;
     vector<cv::Point2f> new_features;
     new_features.clear();
@@ -167,21 +165,18 @@ void FeatureDEM::redetect(const cv::Mat& img,
     //output
     if(new_features.size()>0)
     {
-        cv::Mat zeroDescriptor(cv::Size(32, 1), CV_8U, cv::Scalar(0));
         //    trackedLMDescriptors.push_back(zeroDescriptor);
         for(size_t i=0; i<new_features.size(); i++)
         {
             newPts.push_back(Vec2(new_features.at(i).x,new_features.at(i).y));
-            newDescriptors.push_back(zeroDescriptor);
         }
     }
 }
 
-void FeatureDEM::detect(const cv::Mat& img, vector<Vec2>& newPts, vector<cv::Mat>& newDescriptors)
+void FeatureDEM::detect(const cv::Mat& img, vector<Vec2>& newPts)
 {
     //Clear
     newPts.clear();
-    newDescriptors.clear();
 
     vector<cv::Point2f>  features;
     cv::goodFeaturesToTrack(img,features,1000,0.01,10);
@@ -227,12 +222,10 @@ void FeatureDEM::detect(const cv::Mat& img, vector<Vec2>& newPts, vector<cv::Mat
             features.push_back(regionKeyPts[i].at(j).first);
         }
     }
-    cv::Mat zeroDescriptor(cv::Size(32, 1), CV_8U, cv::Scalar(0));
     //    trackedLMDescriptors.push_back(zeroDescriptor);
     for(size_t i=0; i<features.size(); i++)
     {
         newPts.push_back(Vec2(features.at(i).x,features.at(i).y));
-        newDescriptors.push_back(zeroDescriptor);
     }
 }
 
