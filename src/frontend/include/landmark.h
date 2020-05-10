@@ -4,8 +4,6 @@
 #include "include/depth_camera.h"
 #include "include/common.h"
 
-#define LM_TRACKING_INLIER  (0)
-#define LM_TRACKING_OUTLIER (1)
 
 class LandMark
 {
@@ -22,9 +20,9 @@ class LandMarkInFrame : public LandMark
 public:
     Vec2 lm_2d;
     Vec3 lm_3d_c;      //land mark 3d in camera frame
-    SE3  lm_frame_pose;//pose of the frame
-    bool lm_has_3d;
-    unsigned char lm_tracking_state;
+    bool has_3d;
+    bool is_belong_to_kf;
+    bool is_tracking_inlier;
     Vec2 lm_1st_obs_2d;
     SE3  lm_1st_obs_frame_pose;//camera pose of first observation(for triangulation only)
     LandMarkInFrame(const Vec2 pt2d,

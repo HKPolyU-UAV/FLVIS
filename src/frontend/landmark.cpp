@@ -19,19 +19,20 @@ LandMarkInFrame::LandMarkInFrame(const Vec2 pt2d, const Vec3 pt3d_c, const bool 
     :LandMark()
 {
     lm_1st_obs_2d = lm_2d = pt2d;
-    lm_frame_pose = lm_1st_obs_frame_pose =T_c_w;
-    lm_tracking_state = LM_TRACKING_INLIER;
+    lm_1st_obs_frame_pose =T_c_w;
+    is_tracking_inlier = true;
+    is_belong_to_kf = false;
 
     if(has_3d_inf){
         lm_3d_w = DepthCamera::camera2worldT_c_w(pt3d_c,T_c_w);
-        lm_has_3d = true;
+        has_3d = true;
     }else{
         lm_3d_w = Vec3(0,0,0);
-        lm_has_3d = false;
+        has_3d = false;
     }
 }
 
 bool LandMarkInFrame::hasDepthInf(void)
 {
-    return lm_has_3d;
+    return has_3d;
 }

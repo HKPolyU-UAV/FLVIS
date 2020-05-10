@@ -63,12 +63,12 @@ inline void drawFrame(cv::Mat& img, CameraFrame& frame, int min, int max)
     if(fps>0&&fps<500)
     {
         cv::putText(img, "FPS:"+std::to_string(fps),
-                cv::Point(0,20), cv::FONT_HERSHEY_SIMPLEX, 0.8, cv::Scalar(0,255,0), 2, cv::LINE_8);
+                    cv::Point(0,20), cv::FONT_HERSHEY_SIMPLEX, 0.8, cv::Scalar(0,255,0), 2, cv::LINE_8);
     }
     std::stringstream stream;
     stream << std::fixed << std::setprecision(2) << frame.reprojection_error;
     cv::putText(img, "ERR:"+stream.str(),
-            cv::Point(img.cols-150,20), cv::FONT_HERSHEY_SIMPLEX, 0.8, cv::Scalar(0,255,0), 2, cv::LINE_8);
+                cv::Point(img.cols-150,20), cv::FONT_HERSHEY_SIMPLEX, 0.8, cv::Scalar(0,255,0), 2, cv::LINE_8);
     int gap= floor(250/(max-min));
     for(auto lm:frame.landmarks)
     {
@@ -80,7 +80,14 @@ inline void drawFrame(cv::Mat& img, CameraFrame& frame, int min, int max)
             int b=floor((z-min)*gap);
             int r=255-b;
             cv::Point pt(round(lm.lm_2d[0]),round(lm.lm_2d[1]));
-            cv::circle(img, pt, 2, cv::Scalar( b, 0, r ), 2);
+            if(lm.is_belong_to_kf)
+            {
+                cv::circle(img, pt, 3, cv::Scalar( b, 0, r ), 3);
+            }
+            else
+            {
+                cv::circle(img, pt, 1, cv::Scalar( b, 0, r ), 1);
+            }
         }
     }
 }
