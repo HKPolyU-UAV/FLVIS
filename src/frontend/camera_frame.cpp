@@ -13,20 +13,14 @@ void CameraFrame::clear()
     d_img.release();
     landmarks.clear();
 }
-void CameraFrame::updateLMT_c_w()
-{
-    for (auto lm = landmarks.begin(); lm != landmarks.end(); ++lm)
-    {
-        lm->lm_frame_pose=T_c_w;
-    }
-}
+
 
 void CameraFrame::eraseReprjOutlier()
 {
     for(int i=this->landmarks.size()-1; i>=0; i--)
     {
         LandMarkInFrame lm=landmarks.at(i);
-        if(lm.lm_tracking_state==LM_TRACKING_OUTLIER)
+        if(lm.is_tracking_inlier==false)
         {
             landmarks.erase(landmarks.begin()+i);
         }
@@ -50,7 +44,7 @@ void CameraFrame::calReprjInlierOutlier(double &mean_prjerr, vector<Vec2> &outli
             double relativeDist = err.norm()/lm3d_c.norm();
             //double relativeDist = sqrt(pow(lm2d(0)-reProj(0),2)+pow(lm2d(1)-reProj(1),2));
             distances.push_back(relativeDist);
-            if(lm.lm_tracking_state==LM_TRACKING_INLIER){
+            if(lm.is_tracking_inlier==true){
                 valid_distances.push_back(relativeDist);
             }
         }
@@ -82,10 +76,10 @@ void CameraFrame::calReprjInlierOutlier(double &mean_prjerr, vector<Vec2> &outli
         if(distances.at(i)>sh)
         {
             outlier.push_back(this->landmarks.at(i).lm_2d);
-            this->landmarks.at(i).lm_tracking_state=LM_TRACKING_OUTLIER;
+            this->landmarks.at(i).is_tracking_inlier=false;
         }else
         {
-            this->landmarks.at(i).lm_tracking_state=LM_TRACKING_INLIER;
+            this->landmarks.at(i).is_tracking_inlier=true;
         }
     }
 
@@ -288,7 +282,7 @@ void CameraFrame::depthInnovation(void)
             Vec3 pt3d_w = DepthCamera::camera2worldT_c_w(lm_c_measure,this->T_c_w);
             landmarks.at(i).lm_3d_c = lm_c_measure;
             landmarks.at(i).lm_3d_w = pt3d_w;
-            landmarks.at(i).lm_has_3d = true;
+            landmarks.at(i).has_3d = true;
         }
     }
 }
@@ -333,7 +327,7 @@ void CameraFrame::forceMarkOutlier(const int &cnt, const vector<int64_t> &ids)
             if(landmarks.at(j).lm_id==correct_lm_id)
             {
                 //                cout <<"match!" << endl;
-                landmarks.at(j).lm_tracking_state=LM_TRACKING_OUTLIER;
+                landmarks.at(j).is_tracking_inlier=false;
             }
         }
     }
@@ -346,7 +340,7 @@ int CameraFrame::validLMCount()
     {
         for(size_t i=0; i<landmarks.size(); i++)
         {
-            if(landmarks.at(i).hasDepthInf()&&(landmarks.at(i).lm_tracking_state==LM_TRACKING_INLIER))
+            if(landmarks.at(i).hasDepthInf()&&(landmarks.at(i).is_tracking_inlier==true))
             {
                 ret++;
             }
@@ -362,7 +356,7 @@ void CameraFrame::getValid2d3dPair_cvPf(vector<cv::Point2f> &p2d, vector<cv::Poi
     for(size_t i=0; i<landmarks.size(); i++)
     {
         LandMarkInFrame lm=landmarks.at(i);
-        if(lm.hasDepthInf() && lm.lm_tracking_state==LM_TRACKING_INLIER)
+        if(lm.hasDepthInf() && lm.is_tracking_inlier==true)
         {
             p2d.push_back(cv::Point2f(lm.lm_2d[0],lm.lm_2d[1]));
             p3d.push_back(cv::Point3f(lm.lm_3d_w[0],lm.lm_3d_w[1],lm.lm_3d_w[2]));
@@ -376,10 +370,10 @@ void CameraFrame::updateLMState(vector<uchar> status)
     for(size_t i=0; i<landmarks.size(); i++)
     {
         LandMarkInFrame lm=landmarks.at(i);
-        if(lm.hasDepthInf() && lm.lm_tracking_state==LM_TRACKING_INLIER)
+        if(lm.hasDepthInf() && lm.is_tracking_inlier==true)
         {
             if(status[indexLM] == 0)
-                landmarks[i].lm_tracking_state = LM_TRACKING_OUTLIER;
+                landmarks[i].is_tracking_inlier = false;
             indexLM += 1;
         }
     }
@@ -393,7 +387,7 @@ void CameraFrame::getValidInliersPair(vector<LandMarkInFrame> &lms)
     for(size_t i=0; i<landmarks.size(); i++)
     {
         LandMarkInFrame lm=landmarks.at(i);
-        if(lm.hasDepthInf() && lm.lm_tracking_state==LM_TRACKING_INLIER)
+        if(lm.hasDepthInf() && lm.is_tracking_inlier==true)
         {
             lms.push_back(lm);
         }
