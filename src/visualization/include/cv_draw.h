@@ -80,14 +80,15 @@ inline void drawFrame(cv::Mat& img, CameraFrame& frame, int min, int max)
             int b=floor((z-min)*gap);
             int r=255-b;
             cv::Point pt(round(lm.lm_2d[0]),round(lm.lm_2d[1]));
-            if(lm.is_belong_to_kf)
-            {
-                cv::circle(img, pt, 3, cv::Scalar( b, 0, r ), 3);
-            }
-            else
-            {
-                cv::circle(img, pt, 1, cv::Scalar( b, 0, r ), 1);
-            }
+            cv::circle(img, pt, 2, cv::Scalar( b, 0, r ), 2);
+//            if(lm.is_belong_to_kf)
+//            {
+//                cv::circle(img, pt, 3, cv::Scalar( b, 0, r ), 4);
+//            }
+//            else
+//            {
+//                cv::circle(img, pt, 2, cv::Scalar( b, 0, r ), 2);
+//            }
         }
     }
 }
