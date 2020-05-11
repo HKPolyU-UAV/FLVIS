@@ -120,13 +120,11 @@ bool F2FTracking::init_frame()
     if(cam_type==DEPTH_D435)
     {
         vector<Vec2> pts2d;
-        vector<cv::Mat>  descriptors;
-        this->feature_dem->detect(curr_frame->img0,pts2d,descriptors);
+        this->feature_dem->detect(curr_frame->img0,pts2d);
         cout << "Detect " << pts2d.size() << " Features for init process"<< endl;
         for(size_t i=0; i<pts2d.size(); i++)
         {
-            curr_frame->landmarks.push_back(LandMarkInFrame(descriptors.at(i),
-                                                            pts2d.at(i),
+            curr_frame->landmarks.push_back(LandMarkInFrame(pts2d.at(i),
                                                             Vec3(0,0,0),
                                                             false,
                                                             curr_frame->T_c_w));
@@ -146,13 +144,11 @@ bool F2FTracking::init_frame()
     if(cam_type==STEREO_EuRoC_MAV){
 
         vector<Vec2> pts2d_img0,pts2d_img1;
-        vector<cv::Mat>  descriptors;
-        this->feature_dem->detect(curr_frame->img0,pts2d_img0,descriptors);
+        this->feature_dem->detect(curr_frame->img0,pts2d_img0);
         cout << "Detect " << pts2d_img0.size() << " Features for init process"<< endl;
         for(size_t i=0; i<pts2d_img0.size(); i++)
         {
-            curr_frame->landmarks.push_back(LandMarkInFrame(descriptors.at(i),
-                                                            pts2d_img0.at(i),
+            curr_frame->landmarks.push_back(LandMarkInFrame(pts2d_img0.at(i),
                                                             Vec3(0,0,0),
                                                             false,
                                                             curr_frame->T_c_w));
@@ -374,6 +370,7 @@ void F2FTracking::image_feed(const double time,
             status[n] = 1;
         }
         curr_frame->updateLMState(status);
+        //curr_frame->eraseReprjOutlier();
         //(Option) ->IMU roll pitch compensation
         if(this->has_imu)
         {
@@ -397,15 +394,13 @@ void F2FTracking::image_feed(const double time,
         }
         //STEP5:
         vector<Vec2> newKeyPts;
-        vector<cv::Mat>  newDescriptor;
         int newPtsCount;
         this->feature_dem->redetect(curr_frame->img0,
                                     curr_frame->get2dPtsVec(),
-                                    newKeyPts,newDescriptor,newPtsCount);
+                                    newKeyPts,newPtsCount);
         for(size_t i=0; i<newKeyPts.size(); i++)
         {
-            curr_frame->landmarks.push_back(LandMarkInFrame(newDescriptor.at(i),
-                                                            newKeyPts.at(i),
+            curr_frame->landmarks.push_back(LandMarkInFrame(newKeyPts.at(i),
                                                             Vec3(0,0,0),
                                                             false,
                                                             curr_frame->T_c_w));
@@ -438,19 +433,17 @@ void F2FTracking::image_feed(const double time,
     {
         static int cnt=0;
         cnt++;
-        if(cnt==15)
+        if((cnt%5)==0)
         {
             cout << "vision tracking fail, IMU motion only" << endl << "Tring to recover~" << endl;
             vector<Vec2> pts2d;
-            vector<cv::Mat>  descriptors;
-            this->feature_dem->detect(curr_frame->img0,pts2d,descriptors);
+            this->feature_dem->detect(curr_frame->img0,pts2d);
             cout << "Detect " << pts2d.size() << " Features"<< endl;
             if(this->vimotion->viGetCorrFrameState(curr_frame->frame_time,curr_frame->T_c_w))
             {
                 for(size_t i=0; i<pts2d.size(); i++)
                 {
-                    curr_frame->landmarks.push_back(LandMarkInFrame(descriptors.at(i),
-                                                                    pts2d.at(i),
+                    curr_frame->landmarks.push_back(LandMarkInFrame(pts2d.at(i),
                                                                     Vec3(0,0,0),
                                                                     false,
                                                                     curr_frame->T_c_w));
@@ -468,20 +461,25 @@ void F2FTracking::image_feed(const double time,
                     cout << "vo_tracking_state = Working" << endl;
                 }else
                 {
+                    last_frame.swap(curr_frame);
                     cout << "Re-initialization fail: no enough measurement" << endl;
                 }
             }
             else
             {
+                last_frame.swap(curr_frame);
                 cout << "Re-initialization fail: can not find the frame in motion module" << endl;
             }
             cnt=0;
-        }else
-        {
-            if((cnt%5)==0)
-                reset_cmd = true;
         }
-
+        else
+        {
+            last_frame.swap(curr_frame);
+            if((cnt%4)==0)
+            {
+                reset_cmd = true;
+            }
+        }
         break;
     }//end of state: TrackingFail
     }//end of state machine

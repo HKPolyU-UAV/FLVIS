@@ -4,8 +4,14 @@
         <!--"TransformStamped"-->
         <!--"PointStamped"-->
         <!--"PoseStamped"-->
-        <param name="sub_type" type="string" value="PoseStamped" />
-        <param name="sub_topic" type="string" value="/mavros/vision_pose/pose" />
+        <!--"Odometry"-->
+
+        <!--<param name="sub_type" type="string" value="PoseStamped" />
+        <param name="sub_topic" type="string" value="/mavros/vision_pose/pose" />-->
+
+        <!--For VINS-Fution -->
+        <param name="sub_type" type="string" value="Odometry" />
+        <param name="sub_topic" type="string" value="/vins_estimator/imu_propagate" />
         <!--For EuRoC_MAV V* Dataset-->
         <!--<param name="sub_type" type="string" value="TransformStamped" />
         <param name="sub_topic" type="string" value="/vicon/firefly_sbx/firefly_sbx" />-->
@@ -18,9 +24,9 @@
         <!--"Path"-->
         <!--"PoseStamped"-->
         <param name="repub_type" type="string" value="Path" />
-        <param name="repub_topic" type="string" value="/flvis_path" />
+        <param name="repub_topic" type="string" value="/vins_path" />
         <!--output_file_path = "0" disable the file output function-->
-        <param name="output_file_path" type="string" value="0" />
+        <param name="output_file_path" type="string" value="$(find flvis)/results/vins.txt" />
     </node>
 
     <node pkg="flvis" type="vo_repub_rec" name="vicon2path" output="screen">
@@ -28,14 +34,17 @@
         <!--"TransformStamped"-->
         <!--"PointStamped"-->
         <!--"PoseStamped"-->
-        <param name="sub_type" type="string" value="TransformStamped" />
-        <param name="sub_topic" type="string" value="/vicon/flvis/flvis" />
+        <!--"Odometry"-->
+
+        <!--For VICON -->
+        <!--<param name="sub_type" type="string" value="PoseStamped" />
+        <param name="sub_topic" type="string" value="/vicon/gt" />-->
         <!--For EuRoC_MAV V* Dataset-->
         <!--<param name="sub_type" type="string" value="TransformStamped" />
         <param name="sub_topic" type="string" value="/vicon/firefly_sbx/firefly_sbx" />-->
         <!--For EuRoC_MAV MH* Dataset-->
-        <!--<param name="sub_type" type="string" value="PointStamped" />
-        <param name="sub_topic" type="string" value="/leica/position" />-->
+        <param name="sub_type" type="string" value="PointStamped" />
+        <param name="sub_topic" type="string" value="/leica/position" />
 
         <!--Support Type:-->
         <!--"0" disable the republish function -->
@@ -44,7 +53,7 @@
         <param name="repub_type" type="string" value="Path" />
         <param name="repub_topic" type="string" value="/vicon_path" />
         <!--output_file_path = "0" disable the file output function-->
-        <param name="output_file_path" type="string" value="0" />
+        <param name="output_file_path" type="string" value="$(find flvis)/results/euroc_gt.txt" />
     </node>
 
 

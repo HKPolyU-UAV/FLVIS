@@ -139,7 +139,7 @@ private:
     double fx,fy,cx,cy;
     enum TYPEOFCAMERA cam_type;
     //bool optimizer_initialized;
-    
+
     ros::Time tt;
     tf::Transform transform;
     tf::TransformBroadcaster br;
@@ -619,9 +619,9 @@ private:
           }
 
       }
-      
 
-      
+
+
 
 
     }
@@ -629,9 +629,9 @@ private:
 
     void frame_callback(const flvis::KeyFrameConstPtr& msg)
     {
-      
 
-      
+
+
         tic_toc_ros unpack_tt;
         sim_vec.clear();
         KeyFrameLC kf;
@@ -644,8 +644,8 @@ private:
         vector<Vec2> lm_2d_unpack;
         vector<cv::Mat>     lm_descriptor_unpack;
         int lm_count_unpack;
-        
-        
+
+
         KeyFrameMsg::unpack(msg,kf.frame_id,img_unpack,d_img_unpack,lm_count_unpack,
                             lm_id_unpack,lm_2d_unpack,lm_3d_unpack,lm_descriptor_unpack,kf.T_c_w_odom,kf.t);
 
@@ -657,9 +657,9 @@ private:
 
 
         //cout<<"unpack cost: ";
-        unpack_tt.toc();
+        //unpack_tt.toc();
 
-        cout<<"send transform between map and odom: "<<endl;
+        //cout<<"send transform between map and odom: "<<endl;
 
         SE3 T_map_odom = T_odom_map.inverse();
 
@@ -726,7 +726,7 @@ private:
        // cout<<"bow transfer cost: ";bow_tt.toc();
 
         shared_ptr<KeyFrameLC> kf_lc_ptr =std::make_shared<KeyFrameLC>(kf);
-        kf_map_lc.push_back(kf_lc_ptr);     
+        kf_map_lc.push_back(kf_lc_ptr);
         kfbv_map.push_back(kf_bv);
         expandGraph();
 
@@ -752,7 +752,7 @@ private:
           }
         }
         //cout<<"bow find cost: ";
-        bow_find_tt.toc();
+        //bow_find_tt.toc();
 
         if(kf_id < 50)
         {
@@ -835,7 +835,6 @@ private:
         string configFilePath;
         nh.getParam("/yamlconfigfile",   configFilePath);
         int vi_type_from_yaml = getIntVariableFromYaml(configFilePath,"type_of_vi");
-        //int cam_type_from_yaml = getIntVariableFromYaml(configFilePath,"type_of_cam");
         if(vi_type_from_yaml==0) cam_type=DEPTH_D435;
 
 

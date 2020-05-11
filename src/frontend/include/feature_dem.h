@@ -44,17 +44,15 @@ public:
   ~FeatureDEM();
 
   void detect(const cv::Mat& img,
-              vector<Vec2>& pts,
-              vector<cv::Mat>& descriptors);
+              vector<Vec2>& newPts);
 
-  void detect_conventional(const cv::Mat& img,
-              vector<Vec2>& pts,
-              vector<cv::Mat>& descriptors);
+//  void detect_conventional(const cv::Mat& img,
+//              vector<Vec2>& pts,
+//              vector<cv::Mat>& descriptors);
 
   void redetect(const cv::Mat& img,
                 const vector<Vec2>& existedPts,
                 vector<Vec2>& newPts,
-                vector<cv::Mat>& newDescriptors,
                 int &newKeyPtscount);
 
 private:
@@ -63,16 +61,15 @@ private:
   int regionWidth;
   int regionHeight;
   int boundary_dis;
-  vector<pair<cv::Point2f,float> > regionKeyPts[16];
+  vector<pair<cv::Point2f,float>> regionKeyPts[16];
   cv::Mat detectorMask[16];
 
   void calHarrisR(const cv::Mat& img, cv::Point2f& Pt, float &R);
 
-  void filterAndFillIntoRegion(const cv::Mat& img,
-                               const vector<cv::Point2f>& pts);
-
   void fillIntoRegion(const cv::Mat& img,
-                      const vector<cv::Point2f>& pts);
+                      const vector<cv::Point2f>& pts,
+                      vector<pair<cv::Point2f,float>> (&region)[16],
+                      bool  existed_features);
 
 
 

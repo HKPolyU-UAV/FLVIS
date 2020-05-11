@@ -62,14 +62,13 @@ public:
                 vector<cv::Mat> & descriptors,
                 vector<Vec3>& pt3d,
                 vector<unsigned char>& mask3d);
-    void getKeyFrameInf(vector<int64_t>& lm_id, vector<Vec2>& lm_2d, vector<Vec3>& lm_3d, vector<cv::Mat> &lm_descriptors);
+    void getKeyFrameInf(vector<int64_t>& lm_id, vector<Vec2>& lm_2d, vector<Vec3>& lm_3d);
 
 
     vector<cv::Point2f> get2dPtsVec_cvP2f(void);
     vector<cv::Point3f> get3dPtsVec_cvP3f(void);
     vector<Vec2> get2dPtsVec(void);
     vector<Vec3> get3dPtsVec(void);
-    vector<cv::Mat>  getDescriptorVec(void);
     vector<Vec3> getValid3dPts(void);
 
 private:
