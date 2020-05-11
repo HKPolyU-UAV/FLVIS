@@ -176,7 +176,7 @@ private:
 
     bool isLoopCandidate( uint64_t &kf_prev_idx)
     {
-      cout<<"start to find loop candidate."<<endl;
+      //cout<<"start to find loop candidate."<<endl;
       bool is_lc_candidate = false;
       size_t g_size = kf_map_lc.size();
       //cout<<"kf size: "<<g_size<<endl;
@@ -205,7 +205,7 @@ private:
       }
 
       lc_min_score = min(lc_min_score, 0.4);
-      cout<<"max sim score is: "<< max_sim_mat[0](1)<<endl;
+      //cout<<"max sim score is: "<< max_sim_mat[0](1)<<endl;
       if( max_sim_mat[0](1) < max(minScore, lc_min_score)) return is_lc_candidate;
 
       int idx_max = int(max_sim_mat[0](0));
@@ -256,8 +256,8 @@ private:
           // 12 and 21 matches
           vMat_to_descriptors(pdesc_l1,kf0->lm_descriptor);
           vMat_to_descriptors(pdesc_l2,kf1->lm_descriptor);
-          cout<<"size: "<<pdesc_l1.size().height<<" "<<pdesc_l1.size().width<<endl;
-          cout<<"size: "<<pdesc_l2.size().height<<" "<<pdesc_l2.size().width<<endl;
+         // cout<<"size: "<<pdesc_l1.size().height<<" "<<pdesc_l1.size().width<<endl;
+         // cout<<"size: "<<pdesc_l2.size().height<<" "<<pdesc_l2.size().width<<endl;
           bfm->knnMatch(pdesc_l1, pdesc_l2, pmatches_12, 2);
           bfm->knnMatch(pdesc_l2, pdesc_l1, pmatches_21, 2);
 
@@ -305,17 +305,17 @@ private:
           SE3_to_rvec_tvec(kf0->T_c_w, r_ , t_ );
           if(p3d.size() < 5) return is_lc;
           solvePnPRansac(p3d,p2d,cameraMatrix,distCoeffs,r_,t_,false,100,3.0,0.99,inliers,cv::SOLVEPNP_P3P);
-          cout<<"selected points size: "<<p3d.size()<<" inliers size: "<<inliers.rows<<" unseletced size: "<<pmatches_12.size()<<endl;
-          cout<<"ratio test: "<<inliers.rows*1.0/p3d.size()<<" "<<"number test "<<inliers.rows<<endl;
+         // cout<<"selected points size: "<<p3d.size()<<" inliers size: "<<inliers.rows<<" unseletced size: "<<pmatches_12.size()<<endl;
+         // cout<<"ratio test: "<<inliers.rows*1.0/p3d.size()<<" "<<"number test "<<inliers.rows<<endl;
 
           if(inliers.rows*1.0/p3d.size() < ratioRansac || inliers.rows < minPts ) //return is_lc;
           {
-            cout<<"dont believe: "<<endl;
-            cout<<"ratio test: "<<static_cast<double>(inliers.rows)/static_cast<double>(p3d.size())<<" "<<"number test "<<inliers.rows<<endl;
+           // cout<<"dont believe: "<<endl;
+           // cout<<"ratio test: "<<static_cast<double>(inliers.rows)/static_cast<double>(p3d.size())<<" "<<"number test "<<inliers.rows<<endl;
             return is_lc;
           }
 
-          cout<<"after ransac test: "<<endl;
+         // cout<<"after ransac test: "<<endl;
 
           SE3 se_iw = kf0->T_c_w;
           SE3 se_jw = SE3_from_rvec_tvec(r_,t_);
@@ -335,11 +335,11 @@ private:
       //kf0 previous kf, kf1 current kf,
       bool is_lc = false;
       int common_pt = 0;
-      cout<<"kf1 des size: "<<kf1->lm_descriptor.size()<<"kf 0 des size: "<<kf0->lm_descriptor.size()<<endl;
+    //  cout<<"kf1 des size: "<<kf1->lm_descriptor.size()<<"kf 0 des size: "<<kf0->lm_descriptor.size()<<endl;
 
       if (!(kf1->lm_descriptor.size() == 0) && !(kf0->lm_descriptor.size() == 0))
       {
-        cout<<"feature ,matching:"<<endl;
+      //  cout<<"feature ,matching:"<<endl;
 
           cv::BFMatcher *bfm = new cv::BFMatcher(cv::NORM_HAMMING, false); // cross-check
 //          Mat pdesc_l1= Mat::zeros(Size(32,kf0->lm_descriptor.size()),CV_8U);
@@ -350,8 +350,8 @@ private:
           // 12 and 21 matches
           vMat_to_descriptors(pdesc_l1,kf0->lm_descriptor);
           vMat_to_descriptors(pdesc_l2,kf1->lm_descriptor);
-          cout<<"size: "<<pdesc_l1.size().height<<" "<<pdesc_l1.size().width<<endl;
-          cout<<"size: "<<pdesc_l2.size().height<<" "<<pdesc_l2.size().width<<endl;
+         // cout<<"size: "<<pdesc_l1.size().height<<" "<<pdesc_l1.size().width<<endl;
+         // cout<<"size: "<<pdesc_l2.size().height<<" "<<pdesc_l2.size().width<<endl;
           bfm->knnMatch(pdesc_l1, pdesc_l2, pmatches_12, 2);
           bfm->knnMatch(pdesc_l2, pdesc_l1, pmatches_21, 2);
 
@@ -412,8 +412,8 @@ private:
 
           if(inliers.rows*1.0/p3d.size() < ratioRansac || inliers.rows < minPts ) //return is_lc;
           {
-            cout<<"reject loop after geometry check "<<endl;
-            cout<<"ratio test: "<<static_cast<double>(inliers.rows)/static_cast<double>(p3d.size())<<" "<<"number test "<<inliers.rows<<endl;
+            //cout<<"reject loop after geometry check "<<endl;
+           // cout<<"ratio test: "<<static_cast<double>(inliers.rows)/static_cast<double>(p3d.size())<<" "<<"number test "<<inliers.rows<<endl;
             return is_lc;
           }
           //SE3 se_ij
@@ -459,7 +459,7 @@ private:
         if(loop_ids[i](1) > static_cast<int>(kf_curr_idx))
           kf_curr_idx = static_cast<uint64_t>(loop_ids[i](1));
       }
-      cout<<"first and last id in the loop: "<<kf_prev_idx<<" "<<kf_curr_idx<<endl;
+     // cout<<"first and last id in the loop: "<<kf_prev_idx<<" "<<kf_curr_idx<<endl;
 
 
       g2o::SparseOptimizer optimizer;
@@ -480,7 +480,7 @@ private:
 
       // grab the KFs included in the optimization
 
-      cout<<"start to insert vertices "<<endl;
+     // cout<<"start to insert vertices "<<endl;
       vector<int> kf_list;
       for (size_t i = kf_prev_idx; i <= kf_curr_idx; i++)
       {
@@ -533,7 +533,7 @@ private:
               optimizer.addVertex(v_se3);
           }
       }
-      cout<<"start to insert adjacent edge "<<endl;
+      //cout<<"start to insert adjacent edge "<<endl;
 
 
       // introduce edges
@@ -563,7 +563,7 @@ private:
               }
           }
       }
-      cout<<"start to insert loop edge "<<endl;
+      //cout<<"start to insert loop edge "<<endl;
 
       // introduce loop closure edges
       uint64_t id = 0;
@@ -602,7 +602,7 @@ private:
           SE3 Tw1_w2 = Tw2_w1.inverse();
 
           kf_map_lc[static_cast<size_t>(*kf_it)]->T_c_w = Tw2c.inverse();
-          path_lc_pub->pubPathT_w_c(Tw2c,ros::Time::now());
+          path_lc_pub->pubPathT_w_c(Tw2c,kf_map_lc[static_cast<size_t>(*kf_it)]->t);
           //cout<<"after g2o pgo: ";
           //cout<<Tcw_corr<<endl;
           SE3 odom = kf_map_lc[static_cast<size_t>(*kf_it)]->T_c_w_odom;
@@ -648,8 +648,6 @@ private:
         
         KeyFrameMsg::unpack(msg,kf.frame_id,img_unpack,d_img_unpack,lm_count_unpack,
                             lm_id_unpack,lm_2d_unpack,lm_3d_unpack,lm_descriptor_unpack,kf.T_c_w_odom,kf.t);
-        if(kf.frame_id < 40)
-          return;
 
         kf.T_c_w = kf.T_c_w_odom*T_odom_map;
         kf.keyframe_id = kf_id++;
@@ -770,12 +768,12 @@ private:
 
         if(!is_lc_candidate)
         {
-          cout<<"no loop candidate."<<endl;
+          //cout<<"no loop candidate."<<endl;
           return;
         }
         else
         {
-          cout<<"has loop candidate."<<endl;
+          //cout<<"has loop candidate."<<endl;
         }
 
 
@@ -787,12 +785,12 @@ private:
         is_lc = isLoopClosureKF(kf_map_lc[kf_prev_idx], kf_map_lc[kf_curr_idx], loop_pose);
         if(!is_lc)
         {
-          cout<<"Geometry test fails."<<endl;
+          //cout<<"Geometry test fails."<<endl;
           return;
 
         }
         else {
-          cout<<"Pass geometry test."<<endl;
+          //cout<<"Pass geometry test."<<endl;
         }
         if(is_lc)
         {
@@ -811,8 +809,8 @@ private:
             tic_toc_ros pgo;
             loopClosureOnCovGraphG2ONew();
             last_pgo_id = static_cast<int>(kf_curr_idx);
-            cout<<"pose graph takes: "<<endl;
-            pgo.toc();
+            //cout<<"pose graph takes: "<<endl;
+            //pgo.toc();
           }
         }
 
@@ -836,9 +834,12 @@ private:
 
         string configFilePath;
         nh.getParam("/yamlconfigfile",   configFilePath);
-        int cam_type_from_yaml = getIntVariableFromYaml(configFilePath,"type_of_cam");
-        if(cam_type_from_yaml==0) cam_type=DEPTH_D435I;
-        if(cam_type==DEPTH_D435I)
+        int vi_type_from_yaml = getIntVariableFromYaml(configFilePath,"type_of_vi");
+        //int cam_type_from_yaml = getIntVariableFromYaml(configFilePath,"type_of_cam");
+        if(vi_type_from_yaml==0) cam_type=DEPTH_D435;
+
+
+        if(cam_type==DEPTH_D435)
         {
             cameraMatrix = cameraMatrixFromYamlIntrinsics(configFilePath,"cam0_intrinsics");
             distCoeffs   = distCoeffsFromYaml(configFilePath,"cam0_distortion_coeffs");
