@@ -141,6 +141,10 @@ void VIMOTION::viIMUPropagation(const IMUSTATE imu_read,
     Vec3 acc, gyro;
     acc =  imu_read.acc_raw  - acc_bias;
     gyro = imu_read.gyro_raw - gyro_bias;
+
+
+    this->mtx_states_RW.lock();
+
     s_prev = states.back();
     double dt = imu_read.timestamp - s_prev.imu_data.timestamp;
     Quaterniond q_prev = s_prev.q_w_i;
@@ -191,7 +195,7 @@ void VIMOTION::viIMUPropagation(const IMUSTATE imu_read,
     s_new.vel = v_prev+v_dot;
     s_new.imu_data = imu_read;
 
-    this->mtx_states_RW.lock();
+
     states.push_back(s_new);
     if(states.size()>=STATES_QUEUE_SIZE) {states.pop_front();}
     this->mtx_states_RW.unlock();
@@ -202,72 +206,117 @@ void VIMOTION::viIMUPropagation(const IMUSTATE imu_read,
 //this->mtx_states_RW.lock();
 //this->mtx_states_RW.unlock();
 void VIMOTION::viCorrectionFromVision(const double t_curr, const SE3 Tcw_curr,
-                                      const double t_last, const SE3 Tcw_last)
+                                      const double t_last, const SE3 Tcw_last,
+                                      const double err)
 {
+    Eigen::IOFormat CleanFmt(3, 0, ", ", "\n", "[", "]");
     Vec3 acc_bias_est=Vec3(0,0,0);
     Vec3 gyro_bias_est=Vec3(0,0,0);
-    double dt = t_curr-t_last;
-    SE3 Twi_curr =  (Tcw_curr.inverse())*T_c_i;
-    SE3 Twi_last =  (Tcw_last.inverse())*T_c_i;
-    //calculate mid-point velocity and rotation
-    Vec3 vwi_mid_v = (Twi_curr.translation()-Twi_last.translation())/(dt);
-    Quaterniond qwi_curr = Twi_curr.unit_quaternion();
-    Quaterniond qwi_last = Twi_last.unit_quaternion();
-    Quaterniond qwi_mid_v = qwi_last.slerp(0.5,qwi_curr);
 
     this->mtx_states_RW.lock();
-    int idx_mid,idx_curr;
-    double t_mid=0.5*dt+t_last;
-    if(viFindStateIdx(t_mid, idx_mid)&&viFindStateIdx(t_curr, idx_curr))
+    //TIME A--------------------B(VISION)            B--------------------C
+    //     a ------- m -------  b(IMU)            b->B ------- m -------  c
+    //     A and a are aligned
+    double dt = t_curr-t_last;
+    int  idx_curr,idx_last,idx_mid;
+    if(     //Linearization in short period of time
+            viFindStateIdx(t_last, idx_last)
+            &&viFindStateIdx(t_curr, idx_curr))
     {
-        Quaterniond qwi_mid_i = states.at(idx_mid).q_w_i;
-        Vec3 vwi_mid_i = states.at(idx_mid).vel;
+        double dt = t_curr-t_last;
+        idx_mid = idx_last+floor((idx_curr-idx_last)/2);
 
-        Quaterniond dq_vision_imu = qwi_mid_v.inverse() * qwi_mid_i;
-        Vec3 dv_vision_imu_wf = vwi_mid_v - vwi_mid_i;//in world frame
-        Vec3 dv_vision_imu_if = (qwi_mid_v.inverse().toRotationMatrix())*dv_vision_imu_wf;////in imu frame
+        //vision
+        SE3          T_w_iA =  (Tcw_last.inverse())*T_c_i;
+        SE3          T_w_iB =  (Tcw_curr.inverse())*T_c_i;
+        //IMU
+        SE3          T_w_ia = SE3(states.at(idx_last).q_w_i,states.at(idx_last).pos);
+        SE3          T_w_ib = SE3(states.at(idx_curr).q_w_i,states.at(idx_curr).pos);
+        SE3          T_w_im = SE3(states.at(idx_mid).q_w_i,states.at(idx_mid).pos);
+        //Diff
+        SE3          T_iB_iA = (T_w_iB.inverse()) * T_w_iA;
+        SE3          T_ib_ia = (T_w_ib.inverse()) * T_w_ia;
 
-        //        cout << "dq_vision_imu" << endl << Q2rpy(dq_vision_imu) <<endl;
-        //        cout << "vwi_mid_v: " << vwi_mid_v.transpose() << endl;
-        //        cout << "vwi_mid_i: " << vwi_mid_i.transpose() << endl;
-        //        cout << "dv_vision_imu_wf: " << dv_vision_imu_wf.transpose() << endl;
-        //        cout << "dv_vision_imu_if: " << dv_vision_imu_if.transpose() << endl;
+        //gyro bias
+        Quaterniond  Q_B_A = T_iB_iA.unit_quaternion();
+        Quaterniond  Q_b_a = T_ib_ia.unit_quaternion();
+        Quaterniond  Q_B_b = Q_B_A*(Q_b_a.inverse());
+        gyro_bias_est[0] = Q_B_b.x()/dt;
+        gyro_bias_est[1] = Q_B_b.y()/dt;
+        gyro_bias_est[2] = Q_B_b.z()/dt;
 
-        acc_bias_est = -(1.0/dt)*dv_vision_imu_if;
-        gyro_bias_est[0] = (1.0/dt)*dq_vision_imu.x();
-        gyro_bias_est[1] = (1.0/dt)*dq_vision_imu.y();
-        gyro_bias_est[2] = (1.0/dt)*dq_vision_imu.z();
-        for(int i=idx_mid; i<states.size(); i++)
+        //acc bias
+        //        Vec3         p_b_B = T_w_iB.translation()-T_w_ib.translation();
+        //        Vec3         p_b_B_local = (T_w_im.unit_quaternion().inverse().toRotationMatrix())*p_b_B;////in imu frame
+        //        acc_bias_est = -p_b_B_local/(0.5*dt*dt);
+
+        //acc bias(inter-frame)
+        int cnt = idx_curr-idx_last+1;
+        Vec3         vel_imu(0,0,0);
+        for(int i=idx_last; i<=idx_curr ; i++)
         {
-            states.at(i).vel+=dv_vision_imu_wf;
+            vel_imu+=states.at(i).vel;
         }
-        SE3 T_diff = Twi_curr*SE3(states.at(idx_curr).q_w_i,states.at(idx_curr).pos).inverse();
+        vel_imu *= (1.0/cnt);
+        Vec3         vel_vision_world = (T_w_iB.translation()-T_w_iA.translation())/dt;
+        Vec3         diff_vel_world=vel_vision_world-vel_imu;
+        Vec3         diff_vel_local = (T_w_im.unit_quaternion().inverse().toRotationMatrix())*diff_vel_world;
+        acc_bias_est = (diff_vel_local)/dt;
+
+        SE3 T_diff = T_w_iB*(T_w_ib.inverse());
         for(int i=idx_curr; i<states.size(); i++)
         {
             SE3 newT = T_diff*SE3(states.at(i).q_w_i,states.at(i).pos);
             states.at(i).q_w_i = newT.unit_quaternion();
-            states.at(i).pos = newT.translation();
+            states.at(i).pos   = newT.translation();
+            states.at(i).vel += diff_vel_world;
         }
+        //        cout << "V_pre_R: " << (57*Q2rpy(qwi_last_v)).transpose().format(CleanFmt) << endl;
+        //        cout << "V_cur_R: " << (57*Q2rpy(qwi_curr_v)).transpose().format(CleanFmt) << endl;
+        //        cout << "I_cur_R: " << (57*Q2rpy(qwi_curr_i)).transpose().format(CleanFmt) << endl;
+        //        cout << "DR(V-I): " << (57*(Q2rpy(qwi_curr_v)-Q2rpy(qwi_curr_i))).transpose().format(CleanFmt) << endl;
+        //        cout << "DR(V-I): " << (57*Q2rpy(dq_vision_imu)).transpose().format(CleanFmt) << endl;
+        //        cout << "V_mid_v: " << vwi_mid_v.transpose().format(CleanFmt) << endl;
+        //        cout << "I_mid_v: " << vwi_mid_i.transpose().format(CleanFmt) << endl;
+        //        cout << "Dv(V-I)_w: " << dv_vision_imu_wf.transpose().format(CleanFmt) << "with norm"  << dv_vision_imu_wf.norm() <<endl;
+        //        cout << "Dv(V-I)_i: " << dv_vision_imu_if.transpose().format(CleanFmt) << "with norm"  << dv_vision_imu_if.norm() <<endl;
+        //        cout << "V_mid_R: " << (57*Q2rpy(qwi_mid_v)).transpose().format(CleanFmt) << endl;
+        //        cout << "I_mid_R: " << (57*Q2rpy(qwi_mid_i)).transpose().format(CleanFmt) << endl;
+        //        cout << "Ba_est : " << acc_bias_est.transpose().format(CleanFmt) << endl;
+        //        cout << "Bg_est : " << gyro_bias_est.transpose().format(CleanFmt) << endl;
+
+        for (int i=0; i<3; i++)
+        {
+                        if(acc_bias_est[i]>1.0) acc_bias_est[i] = 1.0;
+                        if(acc_bias_est[i]<-1.0) acc_bias_est[i] = -1.0;
+                        if(gyro_bias_est[i]>0.1) gyro_bias_est[i] = 0.1;
+                        if(gyro_bias_est[i]<-0.1) gyro_bias_est[i] = -0.1;
+        }
+
+        if(dt<0.1 && err<2.0)
+        {
+            acc_bias  +=  (this->para_3)*acc_bias_est;
+            gyro_bias +=  (this->para_4)*gyro_bias_est;
+            for (int i=0; i<3; i++)
+            {
+                if(acc_bias[i]>1.0) acc_bias[i] = 1.0;
+                if(acc_bias[i]<-1.0) acc_bias[i] = -1.0;
+                if(gyro_bias[i]>0.1) gyro_bias[i] = 0.1;
+                if(gyro_bias[i]<-0.1) gyro_bias[i] = -0.1;
+            }
+        }
+        //correct
+//        cout << "acc_bias : " << acc_bias.transpose().format(CleanFmt) << endl;
+//        cout << "gyro_bias: " << gyro_bias.transpose().format(CleanFmt) << endl;
     }
     else
     {
         cout << "No Correction" << endl;
     }
+
     this->mtx_states_RW.unlock();
-    //correct
 
-    acc_bias  = acc_bias*(1-this->para_3) + (this->para_3)*acc_bias_est;
-    gyro_bias = acc_bias*(1-this->para_4) + (this->para_4)*gyro_bias_est;
-    for (int i=0; i<3; i++)
-    {
-        if(acc_bias[i]>1.0) acc_bias[i] = 1.0;
-        if(acc_bias[i]<-1.0) acc_bias[i] = -1.0;
-        if(gyro_bias[i]>0.1) gyro_bias[i] = 0.1;
-        if(gyro_bias[i]<-0.1) gyro_bias[i] = -0.1;
-    }
 
-//    cout << "acc_bias : " << acc_bias.transpose() << endl;
-//    cout << "gyro_bias: " << gyro_bias.transpose() << endl;
 }
 
 

@@ -61,7 +61,8 @@ public:
     bool viGetCorrFrameState(const double time, SE3& T_c_w);//get correspond frame time
 
     void viCorrectionFromVision(const double t_curr, const SE3 Tcw_curr,
-                                const double t_last, const SE3 Tcw_last);
+                                const double t_last, const SE3 Tcw_last,
+                                const double err);
     bool viGetIMURollPitchAtTime(const double time, double& roll, double& pitch);
 
 private:
