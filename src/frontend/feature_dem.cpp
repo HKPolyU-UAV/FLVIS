@@ -126,9 +126,24 @@ void FeatureDEM::redetect(const cv::Mat& img,
     }
     fillIntoRegion(img,existedPts_cvP2f,regionKeyPts,true);
 
-    //extract features and fill into region
+    //
+    cv::Mat mask = cv::Mat(height, width, CV_8UC1, cv::Scalar(255));
+    //over exposure mask
+    int over_exp_block_cnt=0;
+    for(int xx=10; xx < img.cols-10; xx+=10)
+    {
+        for(int yy=10; yy < img.rows-10; yy+=10)
+        {
+            if(img.at<unsigned char>(yy,xx)==255)
+            {
+                over_exp_block_cnt++;
+                cv::circle(mask, cv::Point2f(xx,yy), 15, 0, -1);
+            }
+        }
+    }
+
     vector<cv::Point2f>  features;
-    cv::goodFeaturesToTrack(img, features, 500, 0.01, 10, cv::noArray());
+    cv::goodFeaturesToTrack(img, features, 500, 0.01, 10, mask);
     vector<pair<cv::Point2f,float>> regionKeyPts_prepare[16];
     for(int i=0; i<16; i++)
     {
@@ -160,6 +175,20 @@ void FeatureDEM::redetect(const cv::Mat& img,
                 if(regionKeyPts[i].size() >= MAX_REGION_FREATURES_NUM) break;
             }
         }
+        //        if(regionKeyPts[i].size()<MIN_REGION_FREATURES_NUM)
+        //        {
+        //            int cnt = MIN_REGION_FREATURES_NUM-regionKeyPts[i].size();
+        //            int x_begin = regionWidth*(i%4);
+        //            int y_begin = regionHeight*(i/4);
+        //            for(int i=0; i<cnt; i++)
+        //            {
+        //                int x=rand() % (regionWidth-10) + 5;
+        //                int y=rand() % (regionHeight-10) + 5;
+        //                cv::Point pt(x+x_begin,y+y_begin);
+
+        //                new_features.push_back(pt);
+        //            }
+        //        }
     }
 
     //output

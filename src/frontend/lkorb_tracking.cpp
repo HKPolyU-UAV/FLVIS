@@ -26,7 +26,7 @@ bool LKORBTracking::tracking(CameraFrame& from,
     cv::TermCriteria criteria = cv::TermCriteria((cv::TermCriteria::COUNT) + (cv::TermCriteria::EPS), 30, 0.01);
 
     cv::calcOpticalFlowPyrLK(from.img0, to.img0, from_cvP2f, tracked_cvP2f,
-                             mask_tracked, err, cv::Size(31,31), 20, criteria);
+                             mask_tracked, err, cv::Size(21,21), 3, criteria);
 
     cv::findFundamentalMat(from_cvP2f, tracked_cvP2f, cv::FM_RANSAC, 3, 0.99, mask_F_consistant);
     //copy to new frame

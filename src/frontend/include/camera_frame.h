@@ -51,6 +51,7 @@ public:
     void recover3DPts_c_FromTriangulation(vector<Vec3>& pt3ds,
                                           vector<bool>& maskHas3DInf);
     void depthInnovation(void);
+    void eraseNoDepthPoint(void);
     void correctLMP3DWByLMP3DCandT(void);//correct lm_3d_w by lm_3d_w and T_c_w
     void forceCorrectLM3DW(const int& cnt, const vector<int64_t>& ids, const vector<Vec3>& lms_3d);
     void forceMarkOutlier( const int& cnt, const vector<int64_t>& ids);
