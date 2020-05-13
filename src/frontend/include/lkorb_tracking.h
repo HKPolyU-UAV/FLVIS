@@ -12,9 +12,9 @@ public:
     LKORBTracking(int width_in,int height_in);
     bool tracking(CameraFrame &from,
                   CameraFrame &to,
-                  vector<Vec2>& lm2d_from,
-                  vector<Vec2>& lm2d_to,
-                  vector<Vec2>& outlier);
+                  vector<cv::Point2f>& lm2d_from,
+                  vector<cv::Point2f>& lm2d_to,
+                  vector<cv::Point2f>& outlier);
 };
 
 #endif // F2FTRACKING_H

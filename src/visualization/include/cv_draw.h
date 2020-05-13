@@ -42,16 +42,14 @@ inline void drawOutlier(cv::Mat& img, const vector<Vec2>& outlier)
     }
 }
 
-inline void drawFlow(cv::Mat& img, const vector<Vec2>& from, const vector<Vec2>& to)
+inline void drawFlow(cv::Mat& img, const vector<cv::Point2f>& from, const vector<cv::Point2f>& to)
 {
     if(from.size()==to.size())
     {
         for(size_t i=0; i<from.size(); i++)
         {
-            cv::Point pt_from(floor(from.at(i)[0]),floor(from.at(i)[1]));
-            cv::Point pt_to(floor(to.at(i)[0]),floor(to.at(i)[1]));
-            //circle(img, pt_from, 2, Scalar( 0, 255, 0 ));
-            cv::arrowedLine(img, pt_from, pt_to, cv::Scalar( 0,204,204),1);
+            cv::circle(img, from.at(i), 1, cv::Scalar( 0, 255, 0 ), 1);
+            cv::line  (img, from.at(i), to.at(i), cv::Scalar( 0,204,204),1);
         }
     }
 }

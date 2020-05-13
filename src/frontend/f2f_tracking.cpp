@@ -329,12 +329,17 @@ void F2FTracking::image_feed(const double time,
             has_localmap_feedback = false;
         }
         //STEP2:
-        vector<Vec2> lm2d_from,lm2d_to,outlier_tracking;
         this->lkorb_tracker->tracking(*last_frame,
                                       *curr_frame,
-                                      lm2d_from,
-                                      lm2d_to,
-                                      outlier_tracking);
+                                      curr_frame->flow_last,
+                                      curr_frame->flow_curr,
+                                      curr_frame->tracking_outlier);
+        int over = curr_frame->flow_last.size()-600;
+        if(over>0)
+        {
+            curr_frame->flow_last.erase (curr_frame->flow_last.begin(),curr_frame->flow_last.begin()+over);
+            curr_frame->flow_curr.erase (curr_frame->flow_curr.begin(),curr_frame->flow_curr.begin()+over);
+        }
         //STEP3:
         vector<cv::Point2f> p2d;
         vector<cv::Point3f> p3d;
@@ -390,7 +395,8 @@ void F2FTracking::image_feed(const double time,
             vimotion->viCorrectionFromVision(curr_frame->frame_time,
                                              curr_frame->T_c_w,
                                              last_frame->frame_time,
-                                             curr_frame->T_c_w);
+                                             curr_frame->T_c_w,
+                                             mean_reprojection_error);
         }
         //STEP5:
         vector<Vec2> newKeyPts;

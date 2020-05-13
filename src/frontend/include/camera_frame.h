@@ -32,6 +32,10 @@ public:
     double solving_time;
     double reprojection_error;
 
+    vector<cv::Point2f> flow_0,flow_1;
+    vector<cv::Point2f> depth_inno_outlier;
+    vector<cv::Point2f> flow_last,flow_curr;
+    vector<cv::Point2f> tracking_outlier;
 
 
     CameraFrame();
