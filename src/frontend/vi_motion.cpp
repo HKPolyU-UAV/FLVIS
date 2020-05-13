@@ -261,7 +261,7 @@ void VIMOTION::viCorrectionFromVision(const double t_curr, const SE3 Tcw_curr,
         Vec3         vel_vision_world = (T_w_iB.translation()-T_w_iA.translation())/dt;
         Vec3         diff_vel_world=vel_vision_world-vel_imu;
         Vec3         diff_vel_local = (T_w_im.unit_quaternion().inverse().toRotationMatrix())*diff_vel_world;
-        acc_bias_est = (diff_vel_local)/dt;
+        acc_bias_est = -(diff_vel_local)/dt;
 
         SE3 T_diff = T_w_iB*(T_w_ib.inverse());
         for(int i=idx_curr; i<states.size(); i++)
@@ -285,13 +285,24 @@ void VIMOTION::viCorrectionFromVision(const double t_curr, const SE3 Tcw_curr,
         //        cout << "Ba_est : " << acc_bias_est.transpose().format(CleanFmt) << endl;
         //        cout << "Bg_est : " << gyro_bias_est.transpose().format(CleanFmt) << endl;
 
-        for (int i=0; i<3; i++)
+        double ba_est_norm = acc_bias_est.norm();
+        if(ba_est_norm>1.0)
         {
-                        if(acc_bias_est[i]>1.0) acc_bias_est[i] = 1.0;
-                        if(acc_bias_est[i]<-1.0) acc_bias_est[i] = -1.0;
-                        if(gyro_bias_est[i]>0.1) gyro_bias_est[i] = 0.1;
-                        if(gyro_bias_est[i]<-0.1) gyro_bias_est[i] = -0.1;
+            acc_bias_est*=(1.0/ba_est_norm);
         }
+        double bw_est_norm = gyro_bias_est.norm();
+        if(ba_est_norm>0.1)
+        {
+            gyro_bias_est*=(0.1/bw_est_norm);
+        }
+
+//        for (int i=0; i<3; i++)
+//        {
+//            if(acc_bias_est[i]>1.0) acc_bias_est[i] = 1.0;
+//            if(acc_bias_est[i]<-1.0) acc_bias_est[i] = -1.0;
+//            if(gyro_bias_est[i]>0.1) gyro_bias_est[i] = 0.1;
+//            if(gyro_bias_est[i]<-0.1) gyro_bias_est[i] = -0.1;
+//        }
 
         if(dt<0.1 && err<2.0)
         {
@@ -306,8 +317,8 @@ void VIMOTION::viCorrectionFromVision(const double t_curr, const SE3 Tcw_curr,
             }
         }
         //correct
-//        cout << "acc_bias : " << acc_bias.transpose().format(CleanFmt) << endl;
-//        cout << "gyro_bias: " << gyro_bias.transpose().format(CleanFmt) << endl;
+        cout << "acc_bias : " << acc_bias.transpose().format(CleanFmt) << endl;
+        cout << "gyro_bias: " << gyro_bias.transpose().format(CleanFmt) << endl;
     }
     else
     {
