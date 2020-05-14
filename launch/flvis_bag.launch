@@ -1,11 +1,11 @@
 <launch>
 
 <!--Input######################################################################################################-->
-    <node pkg="rosbag" type="play" name="rosbag" args="$(find flvis)/bag/2020-01-06-15-47-26.bag -s3"/>
+    <node pkg="rosbag" type="play" name="rosbag" args="$(find flvis)/bag/melab_sn943222072828.bag -s3"/>
 
 <!--FLVIS######################################################################################################-->
     <arg name="node_start_delay"  default="1.0" />
-    <param name="/yamlconfigfile" type="string" value="$(find flvis)/launch/d435i/d435i_sn912112073494.yaml"/>
+    <param name="/yamlconfigfile" type="string" value="$(find flvis)/launch/d435i/d435i_sn943222072828.yaml"/>
     <param name="/voc"            type="string" value="$(find flvis)/voc/voc_orb.dbow3"/>
     <param name="/lite_version"   type="bool"   value="false" />
     <!--In lite version, the visualization will be simplified -->
@@ -41,5 +41,6 @@
         name="LoopClosingNodeletClass_loader" output="screen"
         launch-prefix="bash -c 'sleep $(arg node_start_delay); $0 $@' ">
     </node>
+
 
 </launch>

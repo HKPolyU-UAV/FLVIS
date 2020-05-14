@@ -182,7 +182,12 @@ private:
       //cout<<"kf size: "<<g_size<<endl;
       vector<Vector2d> max_sim_mat;
       if(g_size < 40) return is_lc_candidate;
-      for (uint64_t i = 0; i < static_cast<uint64_t>(g_size - lcKFDist); i++)
+      uint64_t sort_index;
+      if((g_size - lcKFDist) > 1000)
+        sort_index = g_size - lcKFDist -1000;
+      else
+        sort_index = 0;
+      for (uint64_t i = sort_index; i < static_cast<uint64_t>(g_size - lcKFDist); i++)
       {
           if (kf_map_lc[i] != nullptr)
           {
@@ -735,6 +740,7 @@ private:
 
         tic_toc_ros bow_find_tt;
 
+
         for (uint64_t i = 0; i < kf_map_lc.size(); i++)
         {
           if(kf_map_lc[i] != nullptr)
@@ -751,6 +757,21 @@ private:
 
           }
         }
+        if(kf_map_lc.size()%10 == 0)
+        {
+          ofstream sim_txt("/home/lsgi/out/sim_mat.txt");
+          sim_txt.precision(5);
+          for(uint64_t i = 0; i < kf_map_lc.size(); i++)
+          {
+            for(uint64_t j = 0; j < kf_map_lc.size(); j++)
+            {
+              sim_txt<<sim_matrix[i][j]<<" ";
+            }
+            sim_txt<<endl;
+          }
+          sim_txt.close();
+        }
+
         //cout<<"bow find cost: ";
         //bow_find_tt.toc();
 
