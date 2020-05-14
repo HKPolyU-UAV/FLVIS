@@ -32,6 +32,10 @@ public:
     double solving_time;
     double reprojection_error;
 
+    vector<cv::Point2f> flow_0,flow_1;
+    vector<cv::Point2f> depth_inno_outlier;
+    vector<cv::Point2f> flow_last,flow_curr;
+    vector<cv::Point2f> tracking_outlier;
 
 
     CameraFrame();
@@ -47,6 +51,7 @@ public:
     void recover3DPts_c_FromTriangulation(vector<Vec3>& pt3ds,
                                           vector<bool>& maskHas3DInf);
     void depthInnovation(void);
+    void eraseNoDepthPoint(void);
     void correctLMP3DWByLMP3DCandT(void);//correct lm_3d_w by lm_3d_w and T_c_w
     void forceCorrectLM3DW(const int& cnt, const vector<int64_t>& ids, const vector<Vec3>& lms_3d);
     void forceMarkOutlier( const int& cnt, const vector<int64_t>& ids);

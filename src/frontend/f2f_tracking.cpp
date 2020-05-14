@@ -329,12 +329,19 @@ void F2FTracking::image_feed(const double time,
             has_localmap_feedback = false;
         }
         //STEP2:
-        vector<Vec2> lm2d_from,lm2d_to,outlier_tracking;
+        curr_frame->flow_last.clear();
+        curr_frame->flow_curr.clear();
         this->lkorb_tracker->tracking(*last_frame,
                                       *curr_frame,
-                                      lm2d_from,
-                                      lm2d_to,
-                                      outlier_tracking);
+                                      curr_frame->flow_last,
+                                      curr_frame->flow_curr,
+                                      curr_frame->tracking_outlier);
+        //        int over = curr_frame->flow_last.size()-1000;
+        //        if(over>0)
+        //        {
+        //            curr_frame->flow_last.erase (curr_frame->flow_last.begin(),curr_frame->flow_last.begin()+over);
+        //            curr_frame->flow_curr.erase (curr_frame->flow_curr.begin(),curr_frame->flow_curr.begin()+over);
+        //        }
         //STEP3:
         vector<cv::Point2f> p2d;
         vector<cv::Point3f> p3d;
@@ -390,23 +397,58 @@ void F2FTracking::image_feed(const double time,
             vimotion->viCorrectionFromVision(curr_frame->frame_time,
                                              curr_frame->T_c_w,
                                              last_frame->frame_time,
-                                             curr_frame->T_c_w);
+                                             curr_frame->T_c_w,
+                                             mean_reprojection_error);
         }
         //STEP5:
         vector<Vec2> newKeyPts;
         int newPtsCount;
+        int orig_size = curr_frame->landmarks.size();
         this->feature_dem->redetect(curr_frame->img0,
                                     curr_frame->get2dPtsVec(),
                                     newKeyPts,newPtsCount);
-        for(size_t i=0; i<newKeyPts.size(); i++)
+        if(orig_size>60)
         {
-            curr_frame->landmarks.push_back(LandMarkInFrame(newKeyPts.at(i),
-                                                            Vec3(0,0,0),
-                                                            false,
-                                                            curr_frame->T_c_w));
+            for(size_t i=0; i<newKeyPts.size(); i++)
+            {
+                curr_frame->landmarks.push_back(LandMarkInFrame(newKeyPts.at(i),
+                                                                Vec3(0,0,0),
+                                                                false,
+                                                                curr_frame->T_c_w,
+                                                                false));
+            }
+        }else
+        {
+            for(size_t i=0; i<newKeyPts.size(); i++)
+            {
+                curr_frame->landmarks.push_back(LandMarkInFrame(newKeyPts.at(i),
+                                                                Vec3(0,0,0),
+                                                                false,
+                                                                curr_frame->T_c_w,
+                                                                true));
+            }
         }
+
         //STEP6:
         curr_frame->depthInnovation();
+        curr_frame->eraseNoDepthPoint();
+
+
+        //Statistic
+        //        cout << curr_frame->landmarks.size();
+        //        int sum_inlier,sum_hasdepth;
+        //        sum_hasdepth = 0;
+        //        sum_inlier = 0;
+        //        for(int i=0; i<curr_frame->landmarks.size(); i++)
+        //        {
+        //            if(curr_frame->landmarks.at(i).has_3d==true)
+        //            sum_hasdepth++;
+        //            if(curr_frame->landmarks.at(i).is_tracking_inlier==true)
+        //                sum_inlier++;
+        //        }
+        //        cout << "inliers_cnt" << sum_inlier << endl;
+        //        cout << "has3d_cnt" << sum_hasdepth << endl;
+
         //STEP7:
         ID_POSE tmp;
         tmp.frame_id = curr_frame->frame_id;
@@ -422,6 +464,11 @@ void F2FTracking::image_feed(const double time,
         Vec3 r=T_diff_key_curr.so3().log();
         double t_norm = fabs(t[0]) + fabs(t[1]) + fabs(t[2]);
         double r_norm = fabs(r[0]) + fabs(r[1]) + fabs(r[2]);
+        if(frameCount<40 && (frameCount%3)==0)
+        {
+            new_keyframe = true;
+            T_c_w_last_keyframe = curr_frame->T_c_w;
+        }
         if(t_norm>=0.03 || r_norm>=0.2)
         {
             new_keyframe = true;

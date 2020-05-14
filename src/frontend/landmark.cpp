@@ -15,12 +15,12 @@ LandMark::LandMark(const Vec3 pt3d_w_in)
     lm_3d_w = pt3d_w_in;
 }
 
-LandMarkInFrame::LandMarkInFrame(const Vec2 pt2d, const Vec3 pt3d_c, const bool has_3d_inf, const SE3 T_c_w)
+LandMarkInFrame::LandMarkInFrame(const Vec2 pt2d, const Vec3 pt3d_c, const bool has_3d_inf, const SE3 T_c_w, const bool is_inlier)
     :LandMark()
 {
     lm_1st_obs_2d = lm_2d = pt2d;
     lm_1st_obs_frame_pose =T_c_w;
-    is_tracking_inlier = true;
+    is_tracking_inlier = is_inlier;
     is_belong_to_kf = false;
 
     if(has_3d_inf){
