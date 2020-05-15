@@ -414,7 +414,6 @@ bool VIMOTION::viGetCorrFrameState(const double time, SE3 &T_c_w)
         SE3 T_w_i = SE3(state.q_w_i,state.pos);
         SE3 T_w_c = T_w_i * this->T_i_c;
         T_c_w = T_w_c.inverse();
-        cout << T_w_i.translation() << endl;
         ret = true;
     }else
     {
