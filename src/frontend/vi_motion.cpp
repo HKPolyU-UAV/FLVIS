@@ -304,7 +304,7 @@ void VIMOTION::viCorrectionFromVision(const double t_curr, const SE3 Tcw_curr,
 //            if(gyro_bias_est[i]<-0.1) gyro_bias_est[i] = -0.1;
 //        }
 
-        if(dt<0.1 && err<2.0)
+        if(dt<0.1)
         {
             acc_bias  +=  (this->para_3)*acc_bias_est;
             gyro_bias +=  (this->para_4)*gyro_bias_est;
