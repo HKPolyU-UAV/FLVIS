@@ -201,7 +201,7 @@ private:
                        msg->linear_acceleration.x,
                        msg->linear_acceleration.y);
             gyro = Vec3(msg->angular_velocity.z,
-                        -msg->angular_velocity.x+0.3,
+                        -msg->angular_velocity.x,
                         -msg->angular_velocity.y);
         }
         if(imu_type==EuRoC_MAV)
