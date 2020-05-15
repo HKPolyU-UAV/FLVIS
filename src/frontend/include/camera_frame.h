@@ -50,7 +50,7 @@ public:
                                    vector<bool>& maskHas3DInf);
     void recover3DPts_c_FromTriangulation(vector<Vec3>& pt3ds,
                                           vector<bool>& maskHas3DInf);
-    void depthInnovation(void);
+    void depthInnovation(const bool apply_iir=true);
     void eraseNoDepthPoint(void);
     void correctLMP3DWByLMP3DCandT(void);//correct lm_3d_w by lm_3d_w and T_c_w
     void forceCorrectLM3DW(const int& cnt, const vector<int64_t>& ids, const vector<Vec3>& lms_3d);
@@ -61,7 +61,8 @@ public:
 
     //IO
     int  validLMCount(void);
-    void getValid2d3dPair_cvPf(vector<cv::Point2f>& p2d,vector<cv::Point3f>& p3d);
+    void get2d3dPair_cvPf(vector<cv::Point2f>& p2d,vector<cv::Point3f>& p3d);
+    void get2d3dInlierPair_cvPf(vector<cv::Point2f>& p2d,vector<cv::Point3f>& p3d);
     void getValidInliersPair(vector<LandMarkInFrame> &lms);
     void unpack(vector<Vec2>& pt2d,
                 vector<cv::Mat> & descriptors,

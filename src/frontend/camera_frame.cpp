@@ -243,66 +243,58 @@ void CameraFrame::recover3DPts_c_FromTriangulation(vector<Vec3> &pt3ds, vector<b
         }
     }
 }
-void CameraFrame::depthInnovation(void)
+void CameraFrame::depthInnovation(const bool apply_iir)
 {
     vector<Vec3> pts3d_c_cam_measure;
     vector<bool> cam_measure_mask;
-    //    vector<Vec3> pts3d_c_triangulation;
-    //    vector<bool> triangulation_mask;
-    //    this->recover3DPts_c_FromTriangulation(pts3d_c_triangulation,triangulation_mask);
-    if(this->d_camera.cam_type==DEPTH_D435)
-    {
+    vector<Vec3> pts3d_c_triangulation;
+    vector<bool> triangulation_mask;
+    this->recover3DPts_c_FromTriangulation(pts3d_c_triangulation,triangulation_mask);
+
+    if(this->d_camera.cam_type==DEPTH_D435){
         this->recover3DPts_c_FromDepthImg(pts3d_c_cam_measure,cam_measure_mask);
-    }
-    if(this->d_camera.cam_type==STEREO_EuRoC_MAV)
-    {
+    }else if(this->d_camera.cam_type==STEREO_EuRoC_MAV){
         this->recover3DPts_c_FromStereo(pts3d_c_cam_measure,cam_measure_mask);
     }
-    for(size_t i=0; i<landmarks.size(); i++)
-    {
-        Vec3 lm_c_measure = pts3d_c_cam_measure.at(i);
-        //        if(cam_measure_mask.at(i)==false && triangulation_mask.at(i)==false) continue;
-        //        Vec3 lm_c_measure;
-        //        if(cam_measure_mask.at(i)==true && triangulation_mask.at(i)==true)
-        //        {
-        //            lm_c_measure = 0.1*(pts3d_c_triangulation.at(i)+ 0.9*pts3d_c_cam_measure.at(i));
-        //        }else if(cam_measure_mask.at(i)==true && triangulation_mask.at(i)==false)
-        //        {
-        //            lm_c_measure = pts3d_c_cam_measure.at(i);
-        //        }else if(cam_measure_mask.at(i)==false && triangulation_mask.at(i)==true)
-        //        {
-        //            lm_c_measure = pts3d_c_triangulation.at(i);
-        //        }
-        if (cam_measure_mask.at(i)==true)
+
+    for(size_t i=0; i<landmarks.size(); i++){
+        Vec3 lm_c_measure;
+        if(cam_measure_mask.at(i)==false && triangulation_mask.at(i)==false)
         {
-            if(landmarks.at(i).hasDepthInf())
+            if(this->d_camera.cam_type==STEREO_EuRoC_MAV)
             {
-                //transfor to Camera frame
-                Vec3 lm_c = DepthCamera::world2cameraT_c_w(landmarks.at(i).lm_3d_w,this->T_c_w);
-                //apply IIR Filter
-                Vec3 lm_c_update = lm_c*0.9+lm_c_measure*0.1;
-                //update to world frame
-                landmarks.at(i).lm_3d_c = lm_c_update;
-                landmarks.at(i).lm_3d_w = DepthCamera::camera2worldT_c_w(lm_c_update,this->T_c_w);
-            }
-            else//Do not have position
-            {
-                Vec3 pt3d_w = DepthCamera::camera2worldT_c_w(lm_c_measure,this->T_c_w);
-                landmarks.at(i).lm_3d_c = lm_c_measure;
-                landmarks.at(i).lm_3d_w = pt3d_w;
-                landmarks.at(i).has_3d = true;
+                if(!landmarks.at(i).hasDepthInf())
+                {
+                    lm_c_measure = pts3d_c_cam_measure.at(i);
+                    Vec3 pt3d_w = DepthCamera::camera2worldT_c_w(lm_c_measure,this->T_c_w);
+                    landmarks.at(i).lm_3d_c = lm_c_measure;
+                    landmarks.at(i).lm_3d_w = pt3d_w;
+                    landmarks.at(i).has_3d = true;
+                }
+                continue;
             }
         }
+        if(cam_measure_mask.at(i)==true)
+            lm_c_measure = pts3d_c_cam_measure.at(i);
         else
+            lm_c_measure = pts3d_c_triangulation.at(i);
+
+        if(apply_iir && landmarks.at(i).hasDepthInf())
         {
-            if(!landmarks.at(i).hasDepthInf())
-            {
-                Vec3 pt3d_w = DepthCamera::camera2worldT_c_w(lm_c_measure,this->T_c_w);
-                landmarks.at(i).lm_3d_c = lm_c_measure;
-                landmarks.at(i).lm_3d_w = pt3d_w;
-                landmarks.at(i).has_3d = true;
-            }
-            continue;
+            //transfor to Camera frame
+            Vec3 lm_c = DepthCamera::world2cameraT_c_w(landmarks.at(i).lm_3d_w,this->T_c_w);
+            //apply IIR Filter
+            Vec3 lm_c_update = lm_c*0.9+lm_c_measure*0.1;
+            //update to world frame
+            landmarks.at(i).lm_3d_c = lm_c_update;
+            landmarks.at(i).lm_3d_w = DepthCamera::camera2worldT_c_w(lm_c_update,this->T_c_w);
+        }
+        else//Do not have position
+        {
+            Vec3 pt3d_w = DepthCamera::camera2worldT_c_w(lm_c_measure,this->T_c_w);
+            landmarks.at(i).lm_3d_c = lm_c_measure;
+            landmarks.at(i).lm_3d_w = pt3d_w;
+            landmarks.at(i).has_3d = true;
         }
     }
 }
@@ -369,14 +361,27 @@ int CameraFrame::validLMCount()
     return ret;
 }
 
-void CameraFrame::getValid2d3dPair_cvPf(vector<cv::Point2f> &p2d, vector<cv::Point3f> &p3d)
+void CameraFrame::get2d3dInlierPair_cvPf(vector<cv::Point2f> &p2d, vector<cv::Point3f> &p3d)
 {
     p2d.clear();
     p3d.clear();
-    for(size_t i=0; i<landmarks.size(); i++)
+    for(LandMarkInFrame &lm : landmarks)
     {
-        LandMarkInFrame lm=landmarks.at(i);
         if(lm.hasDepthInf() && lm.is_tracking_inlier==true)
+        {
+            p2d.push_back(cv::Point2f(lm.lm_2d[0],lm.lm_2d[1]));
+            p3d.push_back(cv::Point3f(lm.lm_3d_w[0],lm.lm_3d_w[1],lm.lm_3d_w[2]));
+        }
+    }
+}
+
+void CameraFrame::get2d3dPair_cvPf(vector<cv::Point2f> &p2d, vector<cv::Point3f> &p3d)
+{
+    p2d.clear();
+    p3d.clear();
+    for(LandMarkInFrame &lm : landmarks)
+    {
+        if(lm.hasDepthInf())
         {
             p2d.push_back(cv::Point2f(lm.lm_2d[0],lm.lm_2d[1]));
             p3d.push_back(cv::Point3f(lm.lm_3d_w[0],lm.lm_3d_w[1],lm.lm_3d_w[2]));
@@ -406,9 +411,8 @@ void CameraFrame::updateLMState(vector<uchar> status)
 void CameraFrame::getValidInliersPair(vector<LandMarkInFrame> &lms)
 {
     lms.clear();
-    for(size_t i=0; i<landmarks.size(); i++)
+    for(LandMarkInFrame &lm : landmarks)
     {
-        LandMarkInFrame lm=landmarks.at(i);
         if(lm.hasDepthInf() && lm.is_tracking_inlier==true)
         {
             lms.push_back(lm);
