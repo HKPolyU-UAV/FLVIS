@@ -345,6 +345,27 @@ void CameraFrame::forceMarkOutlier(const int &cnt, const vector<int64_t> &ids)
     }
 }
 
+void CameraFrame::markAsKF(void)
+{
+    for(LandMarkInFrame &lm : landmarks)
+    {
+        lm.is_belong_to_kf = true;
+    }
+}
+
+int CameraFrame::coVisKFCnt(void)
+{
+    int cnt=0;
+    for(LandMarkInFrame &lm : landmarks)
+    {
+        if(lm.is_belong_to_kf == true)
+        {
+            cnt++;
+        }
+    }
+    return cnt;
+}
+
 int CameraFrame::validLMCount()
 {
     int ret=0;

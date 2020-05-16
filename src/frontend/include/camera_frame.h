@@ -55,6 +55,8 @@ public:
     void correctLMP3DWByLMP3DCandT(void);//correct lm_3d_w by lm_3d_w and T_c_w
     void forceCorrectLM3DW(const int& cnt, const vector<int64_t>& ids, const vector<Vec3>& lms_3d);
     void forceMarkOutlier( const int& cnt, const vector<int64_t>& ids);
+    void markAsKF(void);
+    int  coVisKFCnt(void);
 
     //outlier from ransac pnp
     void updateLMState(vector<uchar> status);
