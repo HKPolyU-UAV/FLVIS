@@ -130,6 +130,7 @@ bool F2FTracking::init_frame()
                                                             curr_frame->T_c_w));
         }
         curr_frame->depthInnovation();
+        curr_frame->eraseNoDepthPoint();
         if(curr_frame->validLMCount()>30)
         {
             ID_POSE tmp;
@@ -154,6 +155,7 @@ bool F2FTracking::init_frame()
                                                             curr_frame->T_c_w));
         }
         curr_frame->depthInnovation();
+        curr_frame->eraseNoDepthPoint();
         if(curr_frame->validLMCount()>30)
         {
             ID_POSE tmp;
@@ -329,26 +331,26 @@ void F2FTracking::image_feed(const double time,
             has_localmap_feedback = false;
         }
         //STEP2:
+        SE3  imu_guess;
+        bool has_imu_guess=false;
+        if(this->has_imu)
+            has_imu_guess = this->vimotion->viGetCorrFrameState(time,imu_guess);
+
         curr_frame->flow_last.clear();
         curr_frame->flow_curr.clear();
-        this->lkorb_tracker->tracking(*last_frame,
-                                      *curr_frame,
-                                      curr_frame->flow_last,
-                                      curr_frame->flow_curr,
-                                      curr_frame->tracking_outlier);
-        //        int over = curr_frame->flow_last.size()-1000;
-        //        if(over>0)
-        //        {
-        //            curr_frame->flow_last.erase (curr_frame->flow_last.begin(),curr_frame->flow_last.begin()+over);
-        //            curr_frame->flow_curr.erase (curr_frame->flow_curr.begin(),curr_frame->flow_curr.begin()+over);
-        //        }
-        //STEP3:
-        vector<cv::Point2f> p2d;
-        vector<cv::Point3f> p3d;
-        curr_frame->getValid2d3dPair_cvPf(p2d,p3d);
-        static int continus_tracking_fail_cnt = 0;//anti flashlight/autoexposure vibration
-        if(p2d.size()<=10)
-        {
+        bool tracking_success;
+        tracking_success = lkorb_tracker->tracking(*last_frame,
+                                                   *curr_frame,
+                                                   imu_guess,
+                                                   has_imu_guess,
+                                                   K0_rect,
+                                                   D0_rect,
+                                                   curr_frame->flow_last,
+                                                   curr_frame->flow_curr,
+                                                   curr_frame->tracking_outlier);
+        static int continus_tracking_fail_cnt = 0;
+        if(!tracking_success)
+        {//cv tracking failed
             continus_tracking_fail_cnt++;
             cout << "[Critical Warning] Tracking Fail-no enough lm pairs" << endl;
             last_frame.swap(curr_frame);//dummy swap, escape this frame
@@ -361,23 +363,7 @@ void F2FTracking::image_feed(const double time,
             break;
         }
         continus_tracking_fail_cnt = 0;
-        cv::Mat r_ = cv::Mat::zeros(3, 1, CV_64FC1);
-        cv::Mat t_ = cv::Mat::zeros(3, 1, CV_64FC1);
-        SE3_to_rvec_tvec(last_frame->T_c_w, r_ , t_ );
-        cv::Mat inliers;
-        solvePnPRansac(p3d,p2d,K0_rect,D0_rect,
-                       r_,t_,false,100,3.0,0.99,inliers,cv::SOLVEPNP_ITERATIVE);
-        curr_frame->T_c_w = SE3_from_rvec_tvec(r_,t_);
-        std::vector<uchar> status;
-        for (int i = 0; i < (int)p2d.size(); i++)
-            status.push_back(0);
-        for( int i = 0; i < inliers.rows; i++)
-        {
-            int n = inliers.at<int>(i);
-            status[n] = 1;
-        }
-        curr_frame->updateLMState(status);
-        //curr_frame->eraseReprjOutlier();
+
         //(Option) ->IMU roll pitch compensation
         if(this->has_imu)
         {
@@ -390,7 +376,7 @@ void F2FTracking::image_feed(const double time,
         curr_frame->calReprjInlierOutlier(mean_reprojection_error,outlier_reproject,1.5);
         curr_frame->reprojection_error=mean_reprojection_error;
         curr_frame->eraseReprjOutlier();
-
+        cout << "avg reproj err: " << mean_reprojection_error << endl;
         //(Option) ->Vision Feedback and bias estimation
         if(this->has_imu)
         {
@@ -404,9 +390,11 @@ void F2FTracking::image_feed(const double time,
         vector<Vec2> newKeyPts;
         int newPtsCount;
         int orig_size = curr_frame->landmarks.size();
+
         this->feature_dem->redetect(curr_frame->img0,
                                     curr_frame->get2dPtsVec(),
                                     newKeyPts,newPtsCount);
+
         if(orig_size>60)
         {
             for(size_t i=0; i<newKeyPts.size(); i++)
@@ -430,24 +418,18 @@ void F2FTracking::image_feed(const double time,
         }
 
         //STEP6:
-        curr_frame->depthInnovation();
+        if(mean_reprojection_error<1.0)
+        {
+            curr_frame->depthInnovation();
+        }else
+        {
+            curr_frame->depthInnovation(false);
+        }
+
         curr_frame->eraseNoDepthPoint();
-
-
-        //Statistic
-        //        cout << curr_frame->landmarks.size();
-        //        int sum_inlier,sum_hasdepth;
-        //        sum_hasdepth = 0;
-        //        sum_inlier = 0;
-        //        for(int i=0; i<curr_frame->landmarks.size(); i++)
-        //        {
-        //            if(curr_frame->landmarks.at(i).has_3d==true)
-        //            sum_hasdepth++;
-        //            if(curr_frame->landmarks.at(i).is_tracking_inlier==true)
-        //                sum_inlier++;
-        //        }
-        //        cout << "inliers_cnt" << sum_inlier << endl;
-        //        cout << "has3d_cnt" << sum_hasdepth << endl;
+//        cout << "After BA Inliers: " << orig_size
+//             << "  New features: " << newKeyPts.size()
+//             << "  Next Frame: " << curr_frame->validLMCount() << " | " << curr_frame->landmarks.size() << endl;
 
         //STEP7:
         ID_POSE tmp;
@@ -464,6 +446,11 @@ void F2FTracking::image_feed(const double time,
         Vec3 r=T_diff_key_curr.so3().log();
         double t_norm = fabs(t[0]) + fabs(t[1]) + fabs(t[2]);
         double r_norm = fabs(r[0]) + fabs(r[1]) + fabs(r[2]);
+        //        if(1)
+        //        {
+        //            new_keyframe = true;
+        //            T_c_w_last_keyframe = curr_frame->T_c_w;
+        //        }
         if(frameCount<40 && (frameCount%3)==0)
         {
             new_keyframe = true;
@@ -496,6 +483,7 @@ void F2FTracking::image_feed(const double time,
                                                                     curr_frame->T_c_w));
                 }
                 curr_frame->depthInnovation();
+                curr_frame->eraseNoDepthPoint();
                 if(curr_frame->validLMCount()>30)
                 {
                     ID_POSE tmp;
