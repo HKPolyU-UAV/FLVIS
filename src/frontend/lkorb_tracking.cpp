@@ -80,7 +80,7 @@ bool LKORBTracking::tracking(CameraFrame& from,
             tracked_cvP2f.erase(tracked_cvP2f.begin()+i);
         }
     }
-    cout << "of_inlier_cnt: " << of_inlier_cnt << endl;
+    //cout << "of_inlier_cnt: " << of_inlier_cnt << endl;
     if(of_inlier_cnt < 10)
     {
         ret = false;
@@ -118,7 +118,7 @@ bool LKORBTracking::tracking(CameraFrame& from,
         ret=false;
         return ret;
     }
-    cout << "F_inlier_cnt: " <<F_inlier_cnt << endl;
+    //cout << "F_inlier_cnt: " <<F_inlier_cnt << endl;
     //STEP 3
     vector<unsigned char> mask_pnp_ransac;
     cv::Mat r_ = cv::Mat::zeros(3, 1, CV_64FC1);
@@ -147,7 +147,8 @@ bool LKORBTracking::tracking(CameraFrame& from,
     }
     to.updateLMState(mask_pnp_ransac);
     to.T_c_w = SE3_from_rvec_tvec(r_,t_);
-    cout << "pnp_inlier_cnt: " << pnp_inlier_cnt << endl;
+    //cout << "pnp_inlier_cnt: " << pnp_inlier_cnt << endl;
+    cout << "tracking: " << pnp_inlier_cnt << "|" << F_inlier_cnt << "|" << of_inlier_cnt << endl;
     if(inliers.rows<10)
     {
         ret = false;
@@ -157,4 +158,5 @@ bool LKORBTracking::tracking(CameraFrame& from,
         ret = true;
         return ret;
     }
+
 }
