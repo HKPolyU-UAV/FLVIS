@@ -69,6 +69,7 @@ public:
               const Mat c0_cameraMatrix_in,
               const Mat c0_distCoeffs_in,
               const SE3 T_i_c0_in,
+              const Vec6 feature_para,
               const Vec4 vi_para=Vec4(0,0,0,0),
               const TYPEOFCAMERA cam_type_in=DEPTH_D435,
               const double cam_scale_in=1000.0,

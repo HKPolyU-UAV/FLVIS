@@ -47,12 +47,12 @@ feature_para1: 30
 #min features in a grid
 feature_para2: 20
 #distance of features
-feature_para3: 7
+feature_para3: 5
 #goodFeaturesToTrack detector maxCorners
 feature_para4: 500
 #goodFeaturesToTrack detector qualityLevel
-feature_para5: 0.001
+feature_para5: 0.01
 #goodFeaturesToTrack detector minDistance
-feature_para6: 5
+feature_para6: 10
 
 

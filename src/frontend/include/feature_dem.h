@@ -23,13 +23,6 @@
  *  //For every region, select features by Harris index and boundary size
  * */
 
-#define MAX_REGION_FREATURES_NUM (30)
-#define MIN_REGION_FREATURES_NUM (20)
-
-
-#define BOUNDARYBOXSIZE          (5)
-
-
 using namespace std;
 
 
@@ -40,7 +33,7 @@ public:
 
   FeatureDEM(const int image_width,
              const int image_height,
-             int boundaryBoxSize=BOUNDARYBOXSIZE);
+             const Vec6 f_para);
   ~FeatureDEM();
 
   void detect(const cv::Mat& img,
@@ -61,6 +54,11 @@ private:
   int regionWidth;
   int regionHeight;
   int boundary_dis;
+  int max_region_feature_num;
+  int min_region_feature_num;
+  int gftt_num;
+  double gftt_ql;
+  int gftt_dis;
   vector<pair<cv::Point2f,float>> regionKeyPts[16];
   cv::Mat detectorMask[16];
 

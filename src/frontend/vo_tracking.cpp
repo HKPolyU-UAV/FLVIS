@@ -110,6 +110,15 @@ private:
                               getDoubleVariableFromYaml(configFilePath,"para_2"),
                               getDoubleVariableFromYaml(configFilePath,"para_3"),
                               getDoubleVariableFromYaml(configFilePath,"para_4"));
+        Vec3 f_para1 = Vec3(getDoubleVariableFromYaml(configFilePath,"feature_para1"),//max features in a grid
+                            getDoubleVariableFromYaml(configFilePath,"feature_para2"),//min features in a grid
+                            getDoubleVariableFromYaml(configFilePath,"feature_para3"));//distance of features
+        Vec3 f_para2 = Vec3(getDoubleVariableFromYaml(configFilePath,"feature_para4"),//goodFeaturesToTrack detector maxCorners
+                            getDoubleVariableFromYaml(configFilePath,"feature_para5"),//goodFeaturesToTrack detector qualityLevel
+                            getDoubleVariableFromYaml(configFilePath,"feature_para6"));//goodFeaturesToTrack detector minDistance
+        Vec6 f_para;//feature related parameters
+        f_para.head(3)=f_para1;
+        f_para.tail(3)=f_para2;
         cv::Mat cam0_cameraMatrix = cameraMatrixFromYamlIntrinsics(configFilePath,"cam0_intrinsics");
         cv::Mat cam0_distCoeffs   = distCoeffsFromYaml(configFilePath,"cam0_distortion_coeffs");
         cout << "image_width :" << image_width << endl;
@@ -140,6 +149,7 @@ private:
                               cam0_cameraMatrix,
                               cam0_distCoeffs,
                               SE3(mat_imu_cam.topLeftCorner(3,3),mat_imu_cam.topRightCorner(3,1)),
+                              f_para,
                               parameter);
             img0_sub.subscribe(nh, "/vo/image", 1);
             img1_sub.subscribe(nh, "/vo/depth_image", 1);
@@ -158,13 +168,14 @@ private:
             Mat4x4  mat_i_mavimu  = Mat44FromYaml(configFilePath,"T_imu_mavimu");
             SE3 T_i_mavi = SE3(mat_i_mavimu.topLeftCorner(3,3),mat_i_mavimu.topRightCorner(3,1));
             SE3 T_i_c0 = T_i_mavi*T_mavi_c0;
-            cout << "cam1_cameraMatrix:" << endl << cam1_cameraMatrix << endl;
-            cout << "cam1_distCoeffs  :" << endl << cam1_distCoeffs << endl;
-            cout << "Mat_camimu_cam0 :" << endl << mat_mavimu_cam0 << endl;
-            cout << "Mat_camimu_cam1 :" << endl << mat_mavimu_cam1 << endl;
+//            cout << "cam1_cameraMatrix:" << endl << cam1_cameraMatrix << endl;
+//            cout << "cam1_distCoeffs  :" << endl << cam1_distCoeffs << endl;
+//            cout << "Mat_camimu_cam0 :" << endl << mat_mavimu_cam0 << endl;
+//            cout << "Mat_camimu_cam1 :" << endl << mat_mavimu_cam1 << endl;
             cam_tracker->init(image_width,image_height,
                               cam0_cameraMatrix,cam0_distCoeffs,
                               T_i_c0,
+                              f_para,
                               parameter,
                               STEREO_EuRoC_MAV,
                               1.0,

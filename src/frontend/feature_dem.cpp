@@ -11,13 +11,24 @@ static bool sortbysecdesc(const pair<cv::Point2f,float> &a,
 
 FeatureDEM::FeatureDEM(const int image_width,
                        const int image_height,
-                       int boundaryBoxSize)
+                       const Vec6 f_para)
 {
     width=image_width;
     height=image_height;
     regionWidth  = floor(width/4.0);
     regionHeight = floor(height/4.0);
-    boundary_dis = floor(boundaryBoxSize/2.0);
+    boundary_dis = floor(f_para(2)/2.0);
+    max_region_feature_num = f_para(0);
+    min_region_feature_num = f_para(1);
+    gftt_num = (int)f_para(3);
+    gftt_ql = (double)f_para(4);
+    gftt_dis = (int)f_para(5);
+    cout << "max_region_feature_num:" << max_region_feature_num << endl;
+    cout << "min_region_feature_num:" << min_region_feature_num << endl;
+    cout << "boundary_dis:" << boundary_dis << endl;
+    cout << "gftt_num:" << gftt_num << endl;
+    cout << "gftt_ql:" << gftt_ql << endl;
+    cout << "gftt_dis:" << gftt_dis << endl;
     int gridx[5],gridy[5];
     for(int i=0; i<5; i++)
     {
@@ -143,7 +154,7 @@ void FeatureDEM::redetect(const cv::Mat& img,
     }
 
     vector<cv::Point2f>  features;
-    cv::goodFeaturesToTrack(img, features, 500, 0.01, 10, mask);
+    cv::goodFeaturesToTrack(img, features, gftt_num, gftt_ql, gftt_dis, mask);
     vector<pair<cv::Point2f,float>> regionKeyPts_prepare[16];
     for(int i=0; i<16; i++)
     {
@@ -172,12 +183,12 @@ void FeatureDEM::redetect(const cv::Mat& img,
             {
                 regionKeyPts[i].push_back(make_pair(pt,999999.0));
                 new_features.push_back(pt);
-                if(regionKeyPts[i].size() >= MAX_REGION_FREATURES_NUM) break;
+                if(regionKeyPts[i].size() >= max_region_feature_num) break;
             }
         }
-        //        if(regionKeyPts[i].size()<MIN_REGION_FREATURES_NUM)
+        //        if(regionKeyPts[i].size()<min_region_feature_num)
         //        {
-        //            int cnt = MIN_REGION_FREATURES_NUM-regionKeyPts[i].size();
+        //            int cnt = min_region_feature_num-regionKeyPts[i].size();
         //            int x_begin = regionWidth*(i%4);
         //            int y_begin = regionHeight*(i/4);
         //            for(int i=0; i<cnt; i++)
@@ -208,7 +219,7 @@ void FeatureDEM::detect(const cv::Mat& img, vector<Vec2>& newPts)
     newPts.clear();
 
     vector<cv::Point2f>  features;
-    cv::goodFeaturesToTrack(img,features,1000,0.01,10);
+    cv::goodFeaturesToTrack(img,features, gftt_num*2, gftt_ql, gftt_dis);
     for(int i=0; i<16; i++)
     {
         regionKeyPts[i].clear();
@@ -237,7 +248,7 @@ void FeatureDEM::detect(const cv::Mat& img, vector<Vec2>& newPts)
             {
                 regionKeyPts[i].push_back(tmp.at(j));
                 count++;
-                if(count>=MAX_REGION_FREATURES_NUM) break;
+                if(count>=max_region_feature_num) break;
             }
         }
     }

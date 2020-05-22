@@ -5,13 +5,14 @@
 void F2FTracking::init(const int w, const int h,
                        const Mat c0_cameraMatrix_in, const Mat c0_distCoeffs_in,
                        const SE3 T_i_c0_in,
+                       const Vec6 feature_para,
                        const Vec4 vi_para,
                        const TYPEOFCAMERA cam_type_in,
                        const double cam_scale_in,
                        const Mat c1_cameraMatrix_in, const Mat c1_distCoeffs_in,
                        const SE3 T_c0_c1)
 {
-    this->feature_dem   = new FeatureDEM(w,h,5);
+    this->feature_dem   = new FeatureDEM(w,h,feature_para);
     this->lkorb_tracker = new LKORBTracking(w,h);
     this->vimotion      = new VIMOTION(T_i_c0_in,  9.81,
                                        vi_para[0], vi_para[1],  vi_para[2], vi_para[3]);
