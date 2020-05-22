@@ -63,12 +63,14 @@ public:
 
     //IO
     int  validLMCount(void);
-    void getAll2dPlane3dPair_cvPf(vector<cv::Point2f>& p2d,vector<cv::Point3f>& p3d);
+    void getAll2dPlaneUndistort3d_cvPf(vector<cv::Point2f>& p2d_p,
+                                       vector<cv::Point2f>& p2d_u,
+                                       vector<cv::Point3f>& p3d);
     void get2dUndistort3dInlierPair_cvPf(vector<cv::Point2f>& p2d,vector<cv::Point3f>& p3d);
     void getValidInliersPair(vector<LandMarkInFrame> &lms);
 
     void getKeyFrameInf(vector<int64_t>& lm_id, vector<Vec2>& lm_2d, vector<Vec3>& lm_3d);
-
+    vector<cv::Point2f> get2dPlaneVec_cvPf(void);
     vector<Vec2> get2dPlaneVec(void);
     vector<Vec3> getValid3dPts(void);
 

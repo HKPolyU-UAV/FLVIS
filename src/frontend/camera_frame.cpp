@@ -74,7 +74,7 @@ void CameraFrame::calReprjInlierOutlier(double &mean_prjerr, vector<Vec2> &outli
     double sh = sh_over_med * valid_distances.at(half);
 
     if(sh>=5.0) sh=5.0;
-//    if(sh<=3.0) sh=3.0;
+    //    if(sh<=3.0) sh=3.0;
     for(int i=this->landmarks.size()-1; i>=0; i--)
     {
         if(distances.at(i)>sh)
@@ -94,44 +94,46 @@ void CameraFrame::recover3DPts_c_FromStereo(vector<Vec3> &pt3ds,
     pt3ds.clear();
     maskHas3DInf.clear();
 
-    vector<Vec2> pts2d_img0,pts2d_img1;
-    pts2d_img0 = this->get2dPlaneVec();
     vector<float>   err;
     vector<unsigned char> status;
-    vector<cv::Point2f> pts0 = vVec2_2_vcvP2f(pts2d_img0);
-    vector<cv::Point2f> pts1 = pts0;
+    vector<cv::Point2f> pt0_plane;
+    vector<cv::Point2f> pt2d_0_plane;
+    vector<cv::Point2f> pt2d_1_plane;
+    vector<cv::Point2f> pt2d_0_undistort;
+    vector<cv::Point2f> pt2d_1_undistort;
+    vector<cv::Point3f> pt3d;
+    this->getAll2dPlaneUndistort3d_cvPf(pt2d_0_plane,pt2d_0_undistort,pt3d);
+
+    pt2d_1_plane = pt2d_0_plane;
+
+
+    vector<cv::Point2f> project_to_to_img1_plane;
+    cv::Mat r_,t_;
+    SE3_to_rvec_tvec(d_camera.T_cam1_cam0*T_c_w,r_,t_);
+    cv::projectPoints(pt3d,r_,t_,d_camera.K1,d_camera.D1,project_to_to_img1_plane);
     for(int i=0; i<this->landmarks.size(); i++)
     {   //reporject lm to cam1
         if(landmarks.at(i).hasDepthInf()){
-            Vec3 lm3d_c = DepthCamera::world2cameraT_c_w(landmarks.at(i).lm_3d_w,
-                                                         this->d_camera.T_cam1_cam0*this->T_c_w);
-            Vec2 reProj=this->d_camera.camera2pixel(lm3d_c,
-                                                    this->d_camera.cam1_fx,
-                                                    this->d_camera.cam1_fy,
-                                                    this->d_camera.cam1_cx,
-                                                    this->d_camera.cam1_cy);
-            pts1.at(i) = cv::Point2f(reProj[0],reProj[1]);
+            pt2d_1_plane.at(i) = project_to_to_img1_plane.at(i);
         }
     }
+
     cv::calcOpticalFlowPyrLK(this->img0, this->img1,
-                             pts0, pts1,
+                             pt2d_0_plane, pt2d_1_plane,
                              status, err, cv::Size(31,31),5,
                              cv::TermCriteria(cv::TermCriteria::COUNT+cv::TermCriteria::EPS, 30, 0.01),
                              cv::OPTFLOW_USE_INITIAL_FLOW);
-    pts2d_img0.clear();
-    pts2d_img1.clear();
-    for(int i=0; i<status.size(); i++)
-    {
-        pts2d_img0.push_back(Vec2(pts0.at(i).x,pts0.at(i).y));
-        pts2d_img1.push_back(Vec2(pts1.at(i).x,pts1.at(i).y));
-    }
+
+    cv::undistortPoints(pt2d_1_plane,pt2d_1_undistort,
+                        d_camera.K1,d_camera.D1,d_camera.R1,d_camera.P1);
 
     for(size_t i=0; i<status.size(); i++)
     {
         if(status.at(i)==1)
         {
             Vec3 pt3d_c;
-            if(Triangulation::trignaulationPtFromStereo(pts2d_img0.at(i),pts2d_img1.at(i),
+            if(Triangulation::trignaulationPtFromStereo(Vec2(pt2d_0_undistort.at(i).x,pt2d_0_undistort.at(i).y),
+                                                        Vec2(pt2d_1_undistort.at(i).x,pt2d_1_undistort.at(i).y),
                                                         this->d_camera.P0_,
                                                         this->d_camera.P1_,
                                                         pt3d_c))
@@ -145,7 +147,7 @@ void CameraFrame::recover3DPts_c_FromStereo(vector<Vec3> &pt3ds,
                 Vec3 pt3d_c;
                 float d_rand;
                 d_rand = 0.3 + static_cast<float>(rand())/(static_cast<float>(RAND_MAX/(0.4)));
-                pt3d_c = DepthCamera::pixel2camera(pts2d_img0.at(i),
+                pt3d_c = DepthCamera::pixel2camera(Vec2(pt2d_0_undistort.at(i).x,pt2d_0_undistort.at(i).y),
                                                    this->d_camera.cam0_fx,
                                                    this->d_camera.cam0_fy,
                                                    this->d_camera.cam0_cx,
@@ -160,7 +162,7 @@ void CameraFrame::recover3DPts_c_FromStereo(vector<Vec3> &pt3ds,
             Vec3 pt3d_c;
             float d_rand;
             d_rand = 0.3 + static_cast<float>(rand())/(static_cast<float>(RAND_MAX/(0.4)));
-            pt3d_c = DepthCamera::pixel2camera(pts2d_img0.at(i),
+            pt3d_c = DepthCamera::pixel2camera(Vec2(pt2d_0_undistort.at(i).x,pt2d_0_undistort.at(i).y),
                                                this->d_camera.cam0_fx,
                                                this->d_camera.cam0_fy,
                                                this->d_camera.cam0_cx,
@@ -396,21 +398,21 @@ void CameraFrame::get2dUndistort3dInlierPair_cvPf(vector<cv::Point2f> &p2d, vect
     }
 }
 
-void CameraFrame::getAll2dPlane3dPair_cvPf(vector<cv::Point2f> &p2d, vector<cv::Point3f> &p3d)
+void CameraFrame::getAll2dPlaneUndistort3d_cvPf(vector<cv::Point2f> &p2d_p,
+                                                vector<cv::Point2f> &p2d_u,
+                                                vector<cv::Point3f> &p3d)
 {
-    p2d.clear();
+    p2d_p.clear();
+    p2d_u.clear();
     p3d.clear();
     for(LandMarkInFrame &lm : landmarks)
     {
-        if(lm.hasDepthInf())
-        {
-            p2d.push_back(cv::Point2f(lm.lm_2d_plane[0],lm.lm_2d_plane[1]));
-            p3d.push_back(cv::Point3f(lm.lm_3d_w[0],lm.lm_3d_w[1],lm.lm_3d_w[2]));
-        }
+        p2d_p.push_back(cv::Point2f(lm.lm_2d_plane[0],lm.lm_2d_plane[1]));
+        p2d_u.push_back(cv::Point2f(lm.lm_2d_undistort[0],lm.lm_2d_undistort[1]));
+        p3d.push_back(cv::Point3f(lm.lm_3d_w[0],lm.lm_3d_w[1],lm.lm_3d_w[2]));
+
     }
 }
-
-//void CameraFrame::get2d3dpairs(vector<cv::Point2f> &p2d, vector<cv::Point3f> &p3d)
 
 void CameraFrame::updateLMState(vector<uchar> status)
 {
@@ -469,6 +471,17 @@ vector<Vec2> CameraFrame::get2dPlaneVec(void)
     return ret;
 }
 
+vector<cv::Point2f> CameraFrame::get2dPlaneVec_cvPf(void)
+{
+    vector<cv::Point2f> ret;
+    ret.clear();
+    for(size_t i=0; i<landmarks.size(); i++)
+    {
+        ret.push_back(cv::Point2f(landmarks.at(i).lm_2d_plane(0),
+                                  landmarks.at(i).lm_2d_plane(0)));
+    }
+    return ret;
+}
 
 
 void CameraFrame::getKeyFrameInf(vector<int64_t> &lm_id, vector<Vec2> &lm_2d, vector<Vec3> &lm_3d)

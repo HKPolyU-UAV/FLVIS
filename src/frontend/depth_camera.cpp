@@ -32,6 +32,18 @@ void DepthCamera::setSteroCamInfo(const cv::Mat K0_in,      const cv::Mat D0_in,
     this->R1=R1_in;
     this->P0=P0_in;
     this->P1=P1_in;
+    cout << "K0" << K0 << endl;
+    cout << "D0" << D0 << endl;
+    cout << "K1" << K1 << endl;
+    cout << "D1" << D0 << endl;
+    cout << "K0_rect" << K0_rect << endl;
+    cout << "K1_rect" << K1_rect << endl;
+    cout << "D0_rect" << D0_rect << endl;
+    cout << "D1_rect" << D1_rect << endl;
+    cout << "R0" << R0 << endl;
+    cout << "P0" << P0 << endl;
+    cout << "R1" << R1 << endl;
+    cout << "P1" << P1 << endl;
 
     T_cam0_cam1 = T_c0_c1_in;
     T_cam1_cam0 = T_cam0_cam1.inverse();

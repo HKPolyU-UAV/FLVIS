@@ -37,7 +37,7 @@ public:
   ~FeatureDEM();
 
   void detect(const cv::Mat& img,
-              vector<Vec2>& newPts);
+              vector<cv::Point2f>& newPts);
 
 //  void detect_conventional(const cv::Mat& img,
 //              vector<Vec2>& pts,
@@ -45,7 +45,7 @@ public:
 
   void redetect(const cv::Mat& img,
                 const vector<Vec2>& existedPts,
-                vector<Vec2>& newPts,
+                vector<cv::Point2f>& newPts,
                 int &newKeyPtscount);
 
 private:

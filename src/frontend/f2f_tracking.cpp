@@ -101,13 +101,15 @@ bool F2FTracking::init_frame()
     bool init_succeed=false;
     if(cam_type==DEPTH_D435)
     {
-        vector<Vec2> pts2d;
+        vector<cv::Point2f> pts2d;
         this->feature_dem->detect(curr_frame->img0,pts2d);
         cout << "Detect " << pts2d.size() << " Features for init process"<< endl;
         for(size_t i=0; i<pts2d.size(); i++)
         {
-            curr_frame->landmarks.push_back(LandMarkInFrame(pts2d.at(i),
-                                                            pts2d.at(i),
+            curr_frame->landmarks.push_back(LandMarkInFrame(Vec2(pts2d.at(i).x,
+                                                                 pts2d.at(i).y),
+                                                            Vec2(pts2d.at(i).x,
+                                                                 pts2d.at(i).y),
                                                             Vec3(0,0,0),
                                                             false,
                                                             curr_frame->T_c_w));
@@ -127,13 +129,18 @@ bool F2FTracking::init_frame()
     }
     if(cam_type==STEREO_EuRoC_MAV){
 
-        vector<Vec2> pts2d_img0,pts2d_img1;
-        this->feature_dem->detect(curr_frame->img0,pts2d_img0);
-        cout << "Detect " << pts2d_img0.size() << " Features for init process"<< endl;
-        for(size_t i=0; i<pts2d_img0.size(); i++)
+        vector<cv::Point2f> pts2d;
+        vector<cv::Point2f> pts2d_undistort;
+        this->feature_dem->detect(curr_frame->img0,pts2d);
+        cv::undistortPoints(pts2d,pts2d_undistort,
+                            d_camera.K0,d_camera.D0,d_camera.R0,d_camera.P0);
+        cout << "Detect " << pts2d.size() << " Features for init process"<< endl;
+        for(size_t i=0; i<pts2d.size(); i++)
         {
-            curr_frame->landmarks.push_back(LandMarkInFrame(pts2d_img0.at(i),
-                                                            pts2d_img0.at(i),
+            curr_frame->landmarks.push_back(LandMarkInFrame(Vec2(pts2d.at(i).x,
+                                                                 pts2d.at(i).y),
+                                                            Vec2(pts2d_undistort.at(i).x,
+                                                                 pts2d_undistort.at(i).y),
                                                             Vec3(0,0,0),
                                                             false,
                                                             curr_frame->T_c_w));
@@ -217,8 +224,10 @@ void F2FTracking::image_feed(const double time,
         //cv::equalizeHist(curr_frame->img0,curr_frame->img0);
         break;
     case STEREO_EuRoC_MAV:
-        cv::remap(img0_in, curr_frame->img0, c0_RM[0], c0_RM[1],cv::INTER_LINEAR);
-        cv::remap(img1_in, curr_frame->img1, c1_RM[0], c1_RM[1],cv::INTER_LINEAR);
+        curr_frame->img0=img0_in;
+        curr_frame->img1=img1_in;
+        //        cv::remap(img0_in, curr_frame->img0, c0_RM[0], c0_RM[1],cv::INTER_LINEAR);
+        //        cv::remap(img1_in, curr_frame->img1, c1_RM[0], c1_RM[1],cv::INTER_LINEAR);
         cv::equalizeHist(curr_frame->img0,curr_frame->img0);
         cv::equalizeHist(curr_frame->img1,curr_frame->img1);
         break;
@@ -371,20 +380,23 @@ void F2FTracking::image_feed(const double time,
                                              mean_reprojection_error);
         }
         //STEP5:
-        vector<Vec2> newKeyPts;
+        vector<cv::Point2f> pts2d,pts2d_undistort;
         int newPtsCount;
         int orig_size = curr_frame->landmarks.size();
 
         this->feature_dem->redetect(curr_frame->img0,
                                     curr_frame->get2dPlaneVec(),
-                                    newKeyPts,newPtsCount);
-
+                                    pts2d,newPtsCount);
+        cv::undistortPoints(pts2d,pts2d_undistort,
+                            d_camera.K0,d_camera.D0,d_camera.R0,d_camera.P0);
         if(orig_size>60)
         {
-            for(size_t i=0; i<newKeyPts.size(); i++)
+            for(size_t i=0; i<pts2d.size(); i++)
             {
-                curr_frame->landmarks.push_back(LandMarkInFrame(newKeyPts.at(i),
-                                                                newKeyPts.at(i),
+                curr_frame->landmarks.push_back(LandMarkInFrame(Vec2(pts2d.at(i).x,
+                                                                     pts2d.at(i).y),
+                                                                Vec2(pts2d_undistort.at(i).x,
+                                                                     pts2d_undistort.at(i).y),
                                                                 Vec3(0,0,0),
                                                                 false,
                                                                 curr_frame->T_c_w,
@@ -392,10 +404,12 @@ void F2FTracking::image_feed(const double time,
             }
         }else
         {
-            for(size_t i=0; i<newKeyPts.size(); i++)
+            for(size_t i=0; i<pts2d.size(); i++)
             {
-                curr_frame->landmarks.push_back(LandMarkInFrame(newKeyPts.at(i),
-                                                                newKeyPts.at(i),
+                curr_frame->landmarks.push_back(LandMarkInFrame(Vec2(pts2d.at(i).x,
+                                                                     pts2d.at(i).y),
+                                                                Vec2(pts2d_undistort.at(i).x,
+                                                                     pts2d_undistort.at(i).y),
                                                                 Vec3(0,0,0),
                                                                 false,
                                                                 curr_frame->T_c_w,
@@ -456,15 +470,19 @@ void F2FTracking::image_feed(const double time,
         if((cnt%5)==0)
         {
             cout << "vision tracking fail, IMU motion only" << endl << "Tring to recover~" << endl;
-            vector<Vec2> pts2d;
+            vector<cv::Point2f> pts2d,pts2d_undistort;
             this->feature_dem->detect(curr_frame->img0,pts2d);
+            cv::undistortPoints(pts2d,pts2d_undistort,
+                                d_camera.K0,d_camera.D0,d_camera.R0,d_camera.P0);
             cout << "Detect " << pts2d.size() << " Features"<< endl;
             if(this->vimotion->viGetCorrFrameState(curr_frame->frame_time,curr_frame->T_c_w))
             {
                 for(size_t i=0; i<pts2d.size(); i++)
                 {
-                    curr_frame->landmarks.push_back(LandMarkInFrame(pts2d.at(i),
-                                                                    pts2d.at(i),
+                    curr_frame->landmarks.push_back(LandMarkInFrame(Vec2(pts2d.at(i).x,
+                                                                         pts2d.at(i).y),
+                                                                    Vec2(pts2d_undistort.at(i).x,
+                                                                         pts2d_undistort.at(i).y),
                                                                     Vec3(0,0,0),
                                                                     false,
                                                                     curr_frame->T_c_w));

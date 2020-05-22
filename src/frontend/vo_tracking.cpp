@@ -121,10 +121,10 @@ private:
         f_para.tail(3)=f_para2;
         cv::Mat cam0_cameraMatrix = cameraMatrixFromYamlIntrinsics(configFilePath,"cam0_intrinsics");
         cv::Mat cam0_distCoeffs   = distCoeffsFromYaml(configFilePath,"cam0_distortion_coeffs");
-        cout << "image_width :" << image_width << endl;
-        cout << "image_height:" << image_height << endl;
-        cout << "cam0_cameraMatrix:" << endl << cam0_cameraMatrix << endl;
-        cout << "cam0_distCoeffs  :" << endl << cam0_distCoeffs << endl;
+//        cout << "image_width :" << image_width << endl;
+//        cout << "image_height:" << image_height << endl;
+//        cout << "cam0_cameraMatrix:" << endl << cam0_cameraMatrix << endl;
+//        cout << "cam0_distCoeffs  :" << endl << cam0_distCoeffs << endl;
         if(vi_type_from_yaml==0)
         {
             cam_type=DEPTH_D435;
@@ -143,7 +143,7 @@ private:
         if(cam_type==DEPTH_D435)
         {
             Mat4x4  mat_imu_cam  = Mat44FromYaml(configFilePath,"T_imu_cam0");
-            cout << "Mat_imu_cam0 :" << endl << mat_imu_cam << endl;
+//            cout << "Mat_imu_cam0 :" << endl << mat_imu_cam << endl;
             cam_tracker->init(image_width,
                               image_height,
                               cam0_cameraMatrix,
