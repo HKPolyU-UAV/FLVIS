@@ -49,7 +49,7 @@ void CameraFrame::calReprjInlierOutlier(double &mean_prjerr, vector<Vec2> &outli
         Vec3 lm3d_w=lm.lm_3d_w;
         Vec3 lm3d_c = DepthCamera::world2cameraT_c_w(lm3d_w,this->T_c_w);
         Vec2 reProj=this->d_camera.camera2pixel(lm3d_c);
-        Vec2 lm2d = lm.lm_2d;
+        Vec2 lm2d = lm.lm_2d_undistort;
         Vec2 err=lm2d-reProj;
         double distance = err.norm();
         //double relativeDist = sqrt(pow(lm2d(0)-reProj(0),2)+pow(lm2d(1)-reProj(1),2));
@@ -79,7 +79,7 @@ void CameraFrame::calReprjInlierOutlier(double &mean_prjerr, vector<Vec2> &outli
     {
         if(distances.at(i)>sh)
         {
-            outlier.push_back(this->landmarks.at(i).lm_2d);
+            outlier.push_back(this->landmarks.at(i).lm_2d_plane);
             this->landmarks.at(i).is_tracking_inlier=false;
         }else
         {
@@ -95,7 +95,7 @@ void CameraFrame::recover3DPts_c_FromStereo(vector<Vec3> &pt3ds,
     maskHas3DInf.clear();
 
     vector<Vec2> pts2d_img0,pts2d_img1;
-    pts2d_img0 = this->get2dPtsVec();
+    pts2d_img0 = this->get2dPlaneVec();
     vector<float>   err;
     vector<unsigned char> status;
     vector<cv::Point2f> pts0 = vVec2_2_vcvP2f(pts2d_img0);
@@ -181,7 +181,7 @@ void CameraFrame::recover3DPts_c_FromDepthImg(vector<Vec3>& pt3ds,
     for(size_t i=0; i<landmarks.size(); i++)
     {
         //use round to find the nearst pixel from depth image;
-        cv::Point2f pt=cv::Point2f(round(landmarks.at(i).lm_2d[0]),round(landmarks.at(i).lm_2d[1]));
+        cv::Point2f pt=cv::Point2f(round(landmarks.at(i).lm_2d_plane[0]),round(landmarks.at(i).lm_2d_plane[1]));
         Vec3 pt3d;
         //CV_16UC1 = Z16 16-Bit unsigned int
         if(isnan(d_img.at<ushort>(pt)))
@@ -218,7 +218,7 @@ void CameraFrame::recover3DPts_c_FromTriangulation(vector<Vec3> &pt3ds, vector<b
         Vec3 baseline = T_c_w1.translation()-T_c_w.translation();
         if(baseline.norm()>=0.2)
         {
-            Vec3 pt3d_w = Triangulation::triangulationPt(landmarks.at(i).lm_1st_obs_2d,landmarks.at(i).lm_2d,
+            Vec3 pt3d_w = Triangulation::triangulationPt(landmarks.at(i).lm_1st_obs_2d,landmarks.at(i).lm_2d_undistort,
                                                          landmarks.at(i).lm_1st_obs_frame_pose,T_c_w,
                                                          d_camera.cam0_fx,
                                                          d_camera.cam0_fy,
@@ -382,7 +382,7 @@ int CameraFrame::validLMCount()
     return ret;
 }
 
-void CameraFrame::get2d3dInlierPair_cvPf(vector<cv::Point2f> &p2d, vector<cv::Point3f> &p3d)
+void CameraFrame::get2dUndistort3dInlierPair_cvPf(vector<cv::Point2f> &p2d, vector<cv::Point3f> &p3d)
 {
     p2d.clear();
     p3d.clear();
@@ -390,13 +390,13 @@ void CameraFrame::get2d3dInlierPair_cvPf(vector<cv::Point2f> &p2d, vector<cv::Po
     {
         if(lm.hasDepthInf() && lm.is_tracking_inlier==true)
         {
-            p2d.push_back(cv::Point2f(lm.lm_2d[0],lm.lm_2d[1]));
+            p2d.push_back(cv::Point2f(lm.lm_2d_undistort[0],lm.lm_2d_undistort[1]));
             p3d.push_back(cv::Point3f(lm.lm_3d_w[0],lm.lm_3d_w[1],lm.lm_3d_w[2]));
         }
     }
 }
 
-void CameraFrame::get2d3dPair_cvPf(vector<cv::Point2f> &p2d, vector<cv::Point3f> &p3d)
+void CameraFrame::getAll2dPlane3dPair_cvPf(vector<cv::Point2f> &p2d, vector<cv::Point3f> &p3d)
 {
     p2d.clear();
     p3d.clear();
@@ -404,7 +404,7 @@ void CameraFrame::get2d3dPair_cvPf(vector<cv::Point2f> &p2d, vector<cv::Point3f>
     {
         if(lm.hasDepthInf())
         {
-            p2d.push_back(cv::Point2f(lm.lm_2d[0],lm.lm_2d[1]));
+            p2d.push_back(cv::Point2f(lm.lm_2d_plane[0],lm.lm_2d_plane[1]));
             p3d.push_back(cv::Point3f(lm.lm_3d_w[0],lm.lm_3d_w[1],lm.lm_3d_w[2]));
         }
     }
@@ -441,26 +441,6 @@ void CameraFrame::getValidInliersPair(vector<LandMarkInFrame> &lms)
     }
 }
 
-void CameraFrame::unpack(vector<Vec2> &pt2d,
-                         vector<cv::Mat>  &descriptors,
-                         vector<Vec3> &pt3d,
-                         vector<unsigned char> &mask3d)
-{
-    pt2d.clear();
-    descriptors.clear();
-    pt3d.clear();
-    mask3d.clear();
-    for(size_t i=0; i<pt2d.size(); i++)
-    {
-        pt2d.push_back(landmarks.at(i).lm_2d);
-        pt3d.push_back(landmarks.at(i).lm_3d_w);
-        //descriptors.push_back(landmarks.at(i).lm_descriptor);
-        if(landmarks.at(i).hasDepthInf())
-        {mask3d.push_back(1);}
-        else
-        {mask3d.push_back(0);}
-    }
-}
 
 vector<Vec3> CameraFrame::getValid3dPts(void)
 {
@@ -477,51 +457,18 @@ vector<Vec3> CameraFrame::getValid3dPts(void)
 
 }
 
-vector<cv::Point2f> CameraFrame::get2dPtsVec_cvP2f(void)
-{
-    vector<cv::Point2f> ret;
-    ret.clear();
-    for(size_t i=0; i<landmarks.size(); i++)
-    {
-        ret.push_back(cv::Point2f(landmarks.at(i).lm_2d[0],
-                      landmarks.at(i).lm_2d[1]));
-    }
-    return ret;
-}
-vector<cv::Point3f> CameraFrame::get3dPtsVec_cvP3f(void)
-{
-    vector<cv::Point3f> ret;
-    ret.clear();
-    for(size_t i=0; i<landmarks.size(); i++)
-    {
-        ret.push_back(cv::Point3f(landmarks.at(i).lm_2d[0],
-                      landmarks.at(i).lm_2d[1],
-                landmarks.at(i).lm_2d[3]));
-    }
-    return ret;
-}
 
-vector<Vec2> CameraFrame::get2dPtsVec(void)
+vector<Vec2> CameraFrame::get2dPlaneVec(void)
 {
     vector<Vec2> ret;
     ret.clear();
     for(size_t i=0; i<landmarks.size(); i++)
     {
-        ret.push_back(landmarks.at(i).lm_2d);
+        ret.push_back(landmarks.at(i).lm_2d_plane);
     }
     return ret;
 }
 
-vector<Vec3> CameraFrame::get3dPtsVec(void)
-{
-    vector<Vec3> ret;
-    ret.clear();
-    for(size_t i=0; i<landmarks.size(); i++)
-    {
-        ret.push_back(landmarks.at(i).lm_3d_w);
-    }
-    return ret;
-}
 
 
 void CameraFrame::getKeyFrameInf(vector<int64_t> &lm_id, vector<Vec2> &lm_2d, vector<Vec3> &lm_3d)
@@ -535,7 +482,7 @@ void CameraFrame::getKeyFrameInf(vector<int64_t> &lm_id, vector<Vec2> &lm_2d, ve
         if(lm.hasDepthInf())
         {
             lm_3d.push_back(lm.lm_3d_w);
-            lm_2d.push_back(lm.lm_2d);
+            lm_2d.push_back(lm.lm_2d_undistort);
             lm_id.push_back(lm.lm_id);
         }
     }

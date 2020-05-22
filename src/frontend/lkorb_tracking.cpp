@@ -26,7 +26,7 @@ bool LKORBTracking::tracking(CameraFrame& from,
     vector<int>         in_frame_idx;
     vector<cv::Point2f> from_cvP2f;
     vector<cv::Point3f> from_cvP3f;
-    from.get2d3dPair_cvPf(from_cvP2f,from_cvP3f);
+    from.getAll2dPlane3dPair_cvPf(from_cvP2f,from_cvP3f);
     vector<cv::Point2f>   tracked_cvP2f=from_cvP2f;
 
     if(use_guess){//project 3d lms to 2d using guess
@@ -69,7 +69,8 @@ bool LKORBTracking::tracking(CameraFrame& from,
         {
             of_inlier_cnt++;
             LandMarkInFrame lm=from.landmarks.at(i);
-            lm.lm_2d=Vec2(tracked_cvP2f.at(i).x,tracked_cvP2f.at(i).y);
+            lm.lm_2d_plane=Vec2(tracked_cvP2f.at(i).x,tracked_cvP2f.at(i).y);
+            lm.lm_2d_undistort=Vec2(tracked_cvP2f.at(i).x,tracked_cvP2f.at(i).y);
             to.landmarks.push_back(lm);
         }
         else
@@ -126,7 +127,7 @@ bool LKORBTracking::tracking(CameraFrame& from,
     cv::Mat inliers;
     vector<cv::Point2f> p2d;
     vector<cv::Point3f> p3d;
-    to.get2d3dInlierPair_cvPf(p2d,p3d);
+    to.get2dUndistort3dInlierPair_cvPf(p2d,p3d);
     if(use_guess){
         SE3_to_rvec_tvec(T_c_w_guess, r_ , t_ );
         cv::solvePnPRansac(p3d,p2d,K0_rect,D0_rect,

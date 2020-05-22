@@ -77,7 +77,7 @@ inline void drawFrame(cv::Mat& img, CameraFrame& frame, int min, int max)
             if(z<min)  z=min;
             int b=floor((z-min)*gap);
             int r=255-b;
-            cv::Point pt(round(lm.lm_2d[0]),round(lm.lm_2d[1]));
+            cv::Point pt(round(lm.lm_2d_plane[0]),round(lm.lm_2d_plane[1]));
             cv::circle(img, pt, 2, cv::Scalar( b, 0, r ), 2);
 //            if(lm.is_belong_to_kf)
 //            {

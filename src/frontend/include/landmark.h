@@ -18,7 +18,8 @@ public:
 class LandMarkInFrame : public LandMark
 {
 public:
-    Vec2 lm_2d;
+    Vec2 lm_2d_plane;
+    Vec2 lm_2d_undistort;
     Vec3 lm_3d_c;      //land mark 3d in camera frame
     bool has_3d;
     bool is_belong_to_kf;
@@ -26,6 +27,7 @@ public:
     Vec2 lm_1st_obs_2d;
     SE3  lm_1st_obs_frame_pose;//camera pose of first observation(for triangulation only)
     LandMarkInFrame(const Vec2 pt2d,
+                    const Vec2 pt2d_undist,
                     const Vec3 pt3d_c,
                     const bool has_3d_inf,
                     const SE3 T_c_w,

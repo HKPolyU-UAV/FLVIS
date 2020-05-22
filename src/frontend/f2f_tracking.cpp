@@ -126,6 +126,7 @@ bool F2FTracking::init_frame()
         for(size_t i=0; i<pts2d.size(); i++)
         {
             curr_frame->landmarks.push_back(LandMarkInFrame(pts2d.at(i),
+                                                            pts2d.at(i),
                                                             Vec3(0,0,0),
                                                             false,
                                                             curr_frame->T_c_w));
@@ -151,6 +152,7 @@ bool F2FTracking::init_frame()
         for(size_t i=0; i<pts2d_img0.size(); i++)
         {
             curr_frame->landmarks.push_back(LandMarkInFrame(pts2d_img0.at(i),
+                                                            pts2d_img0.at(i),
                                                             Vec3(0,0,0),
                                                             false,
                                                             curr_frame->T_c_w));
@@ -393,7 +395,7 @@ void F2FTracking::image_feed(const double time,
         int orig_size = curr_frame->landmarks.size();
 
         this->feature_dem->redetect(curr_frame->img0,
-                                    curr_frame->get2dPtsVec(),
+                                    curr_frame->get2dPlaneVec(),
                                     newKeyPts,newPtsCount);
 
         if(orig_size>60)
@@ -401,6 +403,7 @@ void F2FTracking::image_feed(const double time,
             for(size_t i=0; i<newKeyPts.size(); i++)
             {
                 curr_frame->landmarks.push_back(LandMarkInFrame(newKeyPts.at(i),
+                                                                newKeyPts.at(i),
                                                                 Vec3(0,0,0),
                                                                 false,
                                                                 curr_frame->T_c_w,
@@ -411,6 +414,7 @@ void F2FTracking::image_feed(const double time,
             for(size_t i=0; i<newKeyPts.size(); i++)
             {
                 curr_frame->landmarks.push_back(LandMarkInFrame(newKeyPts.at(i),
+                                                                newKeyPts.at(i),
                                                                 Vec3(0,0,0),
                                                                 false,
                                                                 curr_frame->T_c_w,
@@ -479,6 +483,7 @@ void F2FTracking::image_feed(const double time,
                 for(size_t i=0; i<pts2d.size(); i++)
                 {
                     curr_frame->landmarks.push_back(LandMarkInFrame(pts2d.at(i),
+                                                                    pts2d.at(i),
                                                                     Vec3(0,0,0),
                                                                     false,
                                                                     curr_frame->T_c_w));

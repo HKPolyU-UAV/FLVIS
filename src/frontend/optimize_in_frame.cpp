@@ -53,7 +53,7 @@ void OptimizeInFrame::optimize(CameraFrame &frame)
             edge->setId(lm.lm_id);
             edge->setVertex( 0, dynamic_cast<g2o::VertexSBAPointXYZ*> (optimizer.vertex(lm.lm_id)));
             edge->setVertex( 1, dynamic_cast<g2o::VertexSE3Expmap*>   (optimizer.vertex(0)));
-            edge->setMeasurement(Eigen::Vector2d(lm.lm_2d));
+            edge->setMeasurement(Eigen::Vector2d(lm.lm_2d_undistort));
             edge->setInformation(Eigen::Matrix2d::Identity());
             edge->setParameterId(0,0);
             edge->setRobustKernel(new g2o::RobustKernelHuber());
