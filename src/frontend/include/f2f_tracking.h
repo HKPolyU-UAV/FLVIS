@@ -29,6 +29,7 @@ public:
     FeatureDEM         *feature_dem;
     LKORBTracking      *lkorb_tracker;
     VIMOTION           *vimotion;
+    DepthCamera         d_camera;
 
     //states:
     bool has_imu;

@@ -14,35 +14,50 @@ void DepthCamera::setDepthCamInfo(double fx, double fy, double cx, double cy, do
     cam_type = DEPTH_D435;
 }
 
-void DepthCamera::setSteroCamInfo(const cv::Mat K0_in, const cv::Mat D0_in, const Mat3x4 P0_in,
-                                  const cv::Mat K1_in, const cv::Mat D1_in, const Mat3x4 P1_in,
+void DepthCamera::setSteroCamInfo(const cv::Mat K0_in,      const cv::Mat D0_in,
+                                  const cv::Mat K0_rect_in, const cv::Mat D0_rect_in, const cv::Mat R0_in, const cv::Mat P0_in,
+                                  const cv::Mat K1_in,      const cv::Mat D1_in,
+                                  const cv::Mat K1_rect_in, const cv::Mat D1_rect_in, const cv::Mat R1_in, const cv::Mat P1_in,
                                   const SE3 T_c0_c1_in)
 {
-    this->P0_ = P0_in;
-    this->P1_ = P1_in;
     this->K0=K0_in;
-    this->K1=K1_in;
     this->D0=D0_in;
+    this->K1=K1_in;
     this->D1=D1_in;
-    //    cout << "-------------------" << endl;
-    //    cout << K0 << endl;
-    //    cout << K1 << endl;
-    //    cout << D0 << endl;
-    //    cout << D1 << endl;
-    //    cout << "-------------------" << endl;
-    cam0_fx = P0_in(0,0);
-    cam0_fy = P0_in(1,1);
-    cam0_cx = P0_in(0,2);
-    cam0_cy = P0_in(1,2);
+    this->K0_rect=K0_rect_in;
+    this->K1_rect=K1_rect_in;
+    this->D0_rect=D0_rect_in;
+    this->D1_rect=D1_rect_in;
+    this->R0=R0_in;
+    this->R1=R1_in;
+    this->P0=P0_in;
+    this->P1=P1_in;
 
-    cam1_fx = P1_in(0,0);
-    cam1_fy = P1_in(1,1);
-    cam1_cx = P1_in(0,2);
-    cam1_cy = P1_in(1,2);
-    K0_ << cam0_fx,0,cam0_cx,0,cam0_fy,cam0_cy,0,0,1;
-    K1_ << cam1_fx,0,cam1_cx,0,cam1_fy,cam1_cy,0,0,1;
     T_cam0_cam1 = T_c0_c1_in;
     T_cam1_cam0 = T_cam0_cam1.inverse();
+
+    for(int i=0; i<3; i++)
+    {
+        for(int j=0; j<4; j++)
+        {
+            P0_(i,j) = P0.at<double>(i,j);
+            P1_(i,j) = P1.at<double>(i,j);
+        }
+    }
+
+    cam0_fx = P0_(0,0);
+    cam0_fy = P0_(1,1);
+    cam0_cx = P0_(0,2);
+    cam0_cy = P0_(1,2);
+
+    cam1_fx = P1_(0,0);
+    cam1_fy = P1_(1,1);
+    cam1_cx = P1_(0,2);
+    cam1_cy = P1_(1,2);
+
+    K0_ << cam0_fx,0,cam0_cx,0,cam0_fy,cam0_cy,0,0,1;
+    K1_ << cam1_fx,0,cam1_cx,0,cam1_fy,cam1_cy,0,0,1;
+
     cam_type = STEREO_EuRoC_MAV;
 }
 
@@ -104,7 +119,6 @@ Vec3 DepthCamera::pixel2worldT_c_w ( const Vec2& p_p, const SE3& T_c_w, double d
 {
     return camera2worldT_c_w ( pixel2camera ( p_p, depth ), T_c_w );
 }
-
 
 
 

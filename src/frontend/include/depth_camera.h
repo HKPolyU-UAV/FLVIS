@@ -21,7 +21,7 @@ public:
     double cam_scale_factor;
     Mat3x3 K0_;
     Mat3x4 P0_;
-    cv::Mat K0,D0,P0;
+    cv::Mat K0,D0,K0_rect,D0_rect,R0,P0;
 
 
     DepthCamera();
@@ -46,11 +46,13 @@ public:
     double cam1_fx, cam1_fy, cam1_cx, cam1_cy;
     Mat3x3 K1_;
     Mat3x4 P1_;
-    cv::Mat K1,D1,P1;
+    cv::Mat K1,D1,K1_rect,D1_rect,R1,P1;
     SE3    T_cam0_cam1;
     SE3    T_cam1_cam0;
-    void setSteroCamInfo(const cv::Mat K0_in, const cv::Mat D0_in, const Mat3x4 P0_in,
-                         const cv::Mat K1_in, const cv::Mat D1_in, const Mat3x4 P1_in,
+    void setSteroCamInfo(const cv::Mat K0_in,      const cv::Mat D0_in,
+                         const cv::Mat K0_rect_in, const cv::Mat D0_rect_in, const cv::Mat R0_in, const cv::Mat P0_in,
+                         const cv::Mat K1_in,      const cv::Mat D1_in,
+                         const cv::Mat K1_rect_in, const cv::Mat D1_rect_in, const cv::Mat R1_in, const cv::Mat P1_in,
                          const SE3 T_c0_c1_in);
 
 private:

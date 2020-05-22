@@ -59,30 +59,11 @@ void F2FTracking::init(const int w, const int h,
                                     c1_RM[0],c1_RM[1]);
         K0_rect = P0.rowRange(0,3).colRange(0,3);
         K1_rect = P1.rowRange(0,3).colRange(0,3);
-
         DepthCamera dc;
-        Mat3x4 P0_,P1_;
-        P0_(0,0) = P0.at<double>(0,0);
-        P0_(1,1) = P0.at<double>(1,1);
-        P0_(0,2) = P0.at<double>(0,2);
-        P0_(1,2) = P0.at<double>(1,2);
-        P0_(2,2) = P0.at<double>(2,2);
-        P0_(0,3) = P0.at<double>(0,3);
-        P0_(1,3) = P0.at<double>(1,3);
-        P0_(2,3) = P0.at<double>(2,3);
-
-        P1_(0,0) = P1.at<double>(0,0);
-        P1_(1,1) = P1.at<double>(1,1);
-        P1_(0,2) = P1.at<double>(0,2);
-        P1_(1,2) = P1.at<double>(1,2);
-        P1_(2,2) = P1.at<double>(2,2);
-        P1_(0,3) = P1.at<double>(0,3);
-        P1_(1,3) = P1.at<double>(1,3);
-        P1_(2,3) = P1.at<double>(2,3);
-
-        dc.setSteroCamInfo(K0_rect, D0_rect, P0_,
-                           K1_rect, D1_rect, P1_,
+        dc.setSteroCamInfo(K0, D0, K0_rect, D0_rect, R0, P0,
+                           K1, D1, K1_rect, D1_rect, R1, P1,
                            T_c0_c1);
+        this->d_camera = lkorb_tracker->d_camera = curr_frame->d_camera = last_frame->d_camera = dc;
         curr_frame->d_camera = last_frame->d_camera = dc;
     }
     this->frameCount = 0;
@@ -432,9 +413,9 @@ void F2FTracking::image_feed(const double time,
         }
 
         curr_frame->eraseNoDepthPoint();
-//        cout << "After BA Inliers: " << orig_size
-//             << "  New features: " << newKeyPts.size()
-//             << "  Next Frame: " << curr_frame->validLMCount() << " | " << curr_frame->landmarks.size() << endl;
+        //        cout << "After BA Inliers: " << orig_size
+        //             << "  New features: " << newKeyPts.size()
+        //             << "  Next Frame: " << curr_frame->validLMCount() << " | " << curr_frame->landmarks.size() << endl;
 
         //STEP7:
         ID_POSE tmp;

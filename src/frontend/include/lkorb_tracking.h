@@ -9,6 +9,7 @@ class LKORBTracking
 {
     int width,height;
 public:
+    DepthCamera  d_camera;
     LKORBTracking(int width_in,int height_in);
     bool tracking(CameraFrame &from,
                   CameraFrame &to,
