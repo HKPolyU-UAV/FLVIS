@@ -22,3 +22,17 @@ para_2: 0.1
 para_3: 0.01
 #gyro-bias feedback parameter
 para_4: 0.01
+
+#feature relate parameter
+#max features in a grid
+feature_para1: 15
+#min features in a grid
+feature_para2: 30
+#distance of features
+feature_para3: 5
+#goodFeaturesToTrack detector maxCorners
+feature_para4: 500
+#goodFeaturesToTrack detector qualityLevel
+feature_para5: 0.001
+#goodFeaturesToTrack detector minDistance
+feature_para6: 5
