@@ -1,9 +1,10 @@
 <launch>
+
 <!--Input######################################################################################################-->
     <include file="$(find flvis)/launch/d435i/d435i.launch"/>
 
 <!--FLVIS######################################################################################################-->
-    <arg name="node_start_delay"  default="4.0" />
+    <arg name="node_start_delay"  default="1.0" />
     <param name="/yamlconfigfile" type="string" value="$(find flvis)/launch/d435i/d435i_sn943222072828.yaml"/>
     <param name="/voc"            type="string" value="$(find flvis)/voc/voc_orb.dbow3"/>
     <param name="/lite_version"   type="bool"   value="false" />
@@ -13,8 +14,8 @@
     <!-- Manager -->
     <node pkg="nodelet" type="nodelet"
           name="flvis_nodelet_manager" args="manager" output="screen"
-          launch-prefix="bash -c 'sleep $(arg node_start_delay); $0 $@' ">
-          <param name="num_worker_threads" value="1" />
+          launch-prefix="bash -c 'sleep 0; $0 $@' ">
+          <param name="num_worker_threads" value="8" />
     </node>
 
     <!-- TrackingNode -->
@@ -40,6 +41,8 @@
         name="LoopClosingNodeletClass_loader" output="screen"
         launch-prefix="bash -c 'sleep $(arg node_start_delay); $0 $@' ">
     </node>
+
+
 
 </launch>
 
