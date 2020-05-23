@@ -97,8 +97,11 @@ void FeatureDEM::fillIntoRegion(const cv::Mat& img, const vector<cv::Point2f>& p
         for(size_t i=0; i<pts.size(); i++)
         {
             cv::Point2f pt = pts.at(i);
+            if (pt.x>=3 && pt.x<(width-3) && pt.y>=3 && pt.y<(height-3))
+            {
             int regionNum= 4*floor(pt.y/regionHeight) + (pt.x/regionWidth);
             region[regionNum].push_back(make_pair(pt,99999.0));
+            }
         }
     }
     else
@@ -106,7 +109,7 @@ void FeatureDEM::fillIntoRegion(const cv::Mat& img, const vector<cv::Point2f>& p
         for(size_t i=0; i<pts.size(); i++)
         {
             cv::Point2f pt = pts.at(i);
-            if (pt.x>=10 && pt.x<(width-10) && pt.y>=10 && pt.y<(height-10))
+            if (pt.x>=3 && pt.x<(width-3) && pt.y>=3 && pt.y<(height-3))
             {
                 float Harris_R;
                 calHarrisR(img,pt,Harris_R);
