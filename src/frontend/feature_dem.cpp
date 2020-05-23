@@ -140,18 +140,18 @@ void FeatureDEM::redetect(const cv::Mat& img,
     //
     cv::Mat mask = cv::Mat(height, width, CV_8UC1, cv::Scalar(255));
     //over exposure mask
-    int over_exp_block_cnt=0;
-    for(int xx=10; xx < img.cols-10; xx+=10)
-    {
-        for(int yy=10; yy < img.rows-10; yy+=10)
-        {
-            if(img.at<unsigned char>(yy,xx)==255)
-            {
-                over_exp_block_cnt++;
-                cv::circle(mask, cv::Point2f(xx,yy), 15, 0, -1);
-            }
-        }
-    }
+//    int over_exp_block_cnt=0;
+//    for(int xx=10; xx < img.cols-10; xx+=10)
+//    {
+//        for(int yy=10; yy < img.rows-10; yy+=10)
+//        {
+//            if(img.at<unsigned char>(yy,xx)==255)
+//            {
+//                over_exp_block_cnt++;
+//                cv::circle(mask, cv::Point2f(xx,yy), 15, 0, -1);
+//            }
+//        }
+//    }
 
     vector<cv::Point2f>  features;
     cv::goodFeaturesToTrack(img, features, gftt_num, gftt_ql, gftt_dis, mask);

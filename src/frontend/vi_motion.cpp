@@ -286,9 +286,9 @@ void VIMOTION::viCorrectionFromVision(const double t_curr, const SE3 Tcw_curr,
         //        cout << "Bg_est : " << gyro_bias_est.transpose().format(CleanFmt) << endl;
 
         double ba_est_norm = acc_bias_est.norm();
-        if(ba_est_norm>1.0)
+        if(ba_est_norm>0.5)
         {
-            acc_bias_est*=(1.0/ba_est_norm);
+            acc_bias_est*=(0.5/ba_est_norm);
         }
         double bw_est_norm = gyro_bias_est.norm();
         if(ba_est_norm>0.1)
@@ -306,19 +306,12 @@ void VIMOTION::viCorrectionFromVision(const double t_curr, const SE3 Tcw_curr,
 
         if(dt<0.1)
         {
-            acc_bias  +=  (this->para_3)*acc_bias_est;
-            gyro_bias +=  (this->para_4)*gyro_bias_est;
-            for (int i=0; i<3; i++)
-            {
-                if(acc_bias[i]>1.0) acc_bias[i] = 1.0;
-                if(acc_bias[i]<-1.0) acc_bias[i] = -1.0;
-                if(gyro_bias[i]>0.1) gyro_bias[i] = 0.1;
-                if(gyro_bias[i]<-0.1) gyro_bias[i] = -0.1;
-            }
+            acc_bias  =  (1-para_3)*acc_bias+(para_3)*acc_bias_est;
+            gyro_bias =  (1-para_3)*gyro_bias+(para_4)*gyro_bias_est;
         }
         //correct
-        cout << "acc_bias : " << acc_bias.transpose().format(CleanFmt) << endl;
-        cout << "gyro_bias: " << gyro_bias.transpose().format(CleanFmt) << endl;
+//        cout << "acc_bias : " << acc_bias.transpose().format(CleanFmt) << endl;
+//        cout << "gyro_bias: " << gyro_bias.transpose().format(CleanFmt) << endl;
     }
     else
     {
