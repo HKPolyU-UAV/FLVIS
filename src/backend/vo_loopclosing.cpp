@@ -634,8 +634,8 @@ private:
 
     void frame_callback(const flvis::KeyFrameConstPtr& msg)
     {
-
-
+        if(msg->command==KFMSG_CMD_RESET_LM)
+            return;
 
         tic_toc_ros unpack_tt;
         sim_vec.clear();
