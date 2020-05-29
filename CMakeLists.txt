@@ -117,7 +117,7 @@ add_library(flvis
     )
 
 add_dependencies(flvis
-    my_package_generate_messages_cpp
+    flvis_generate_messages_cpp
     ${catkin_EXPORTED_TARGETS})
 
 target_link_libraries(flvis
