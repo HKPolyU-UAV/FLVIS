@@ -16,6 +16,9 @@ bool LKORBTracking::tracking(CameraFrame& from,
                              vector<cv::Point2f>& lm2d_to,
                              vector<cv::Point2f>& outlier)
 {
+    lm2d_from.clear();
+    lm2d_to.clear();
+    outlier.clear();
     //STEP1: Optical Flow
     //STEP2: F matrix check
     //STEP3: PNP_RANSAC
