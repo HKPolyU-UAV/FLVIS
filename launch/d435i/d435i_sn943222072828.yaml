@@ -14,14 +14,22 @@ T_imu_cam0:
   0.0, -1.0,  0.0,  0.0,
   0.0,  0.0,  0.0,  1.0]
 
+is_lite_version:   False
+
+##vifusion parameter
 #Madgwick beta
-para_1: 0.1
+vifusion_para1: 0.1
 #proportion of vision feedforware(roll and pich)
-para_2: 0.1
+vifusion_para2: 0.03
 #acc-bias feedback parameter
-para_3: 0.01
+vifusion_para3: 0.003
 #gyro-bias feedback parameter
-para_4: 0.01
+vifusion_para4: 0.01
+#acc saturation level
+vifusion_para5: 0.5
+#gyro saturation level
+vifusion_para6: 0.1
+
 
 #feature relate parameter
 #max features in a grid
@@ -36,3 +44,11 @@ feature_para4: 500
 feature_para5: 0.001
 #goodFeaturesToTrack detector minDistance
 feature_para6: 5
+
+
+#LocalMapThread
+output_sparse_map: False
+window_size:       8
+
+#LoopClosureTheread
+

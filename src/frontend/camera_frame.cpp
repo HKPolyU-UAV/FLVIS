@@ -267,11 +267,11 @@ void CameraFrame::depthInnovation(const bool apply_iir)
             {
                 if(!landmarks.at(i).hasDepthInf())
                 {
-//                    lm_c_measure = pts3d_c_cam_measure.at(i);
-//                    Vec3 pt3d_w = DepthCamera::camera2worldT_c_w(lm_c_measure,this->T_c_w);
-//                    landmarks.at(i).lm_3d_c = lm_c_measure;
-//                    landmarks.at(i).lm_3d_w = pt3d_w;
-//                    landmarks.at(i).has_3d = true;
+                    lm_c_measure = pts3d_c_cam_measure.at(i);
+                    Vec3 pt3d_w = DepthCamera::camera2worldT_c_w(lm_c_measure,this->T_c_w);
+                    landmarks.at(i).lm_3d_c = lm_c_measure;
+                    landmarks.at(i).lm_3d_w = pt3d_w;
+                    landmarks.at(i).has_3d = true;
                 }
                 continue;
             }

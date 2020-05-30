@@ -8,7 +8,6 @@
     <arg name="node_start_delay"  default="5.0" />
     <param name="/yamlconfigfile" type="string" value="$(find flvis)/launch/d435_pixhawk/px4_d435_sn841512070537.yaml"/>
     <param name="/voc"            type="string" value="$(find flvis)/voc/voc_orb.dbow3"/>
-    <param name="/lite_version"   type="bool"   value="ture" />
     <!--In lite version, the visualization will be simplified -->
 
     <!-- Manager -->
@@ -37,8 +36,6 @@
     <node pkg="nodelet" type="nodelet" args="load flvis/LocalMapNodeletClass flvis_nodelet_manager"
           name="LocalMapNodeletClass_loader" output="screen"
           launch-prefix="bash -c 'sleep $(arg node_start_delay); $0 $@' ">
-        <param name="/window_size" type="int" value="8" />
-        <!--window_size: Num of keyframes in sliding window optimizer-->
     </node>
     <!-- LoopClosingNode -->
 <!--    <node pkg="nodelet" type="nodelet" args="load flvis/LoopClosingNodeletClass flvis_nodelet_manager"

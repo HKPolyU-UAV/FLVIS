@@ -7,8 +7,6 @@
     <arg name="node_start_delay"  default="1.0" />
     <param name="/yamlconfigfile" type="string" value="$(find flvis)/launch/d435i/d435i_sn943222072828.yaml"/>
     <param name="/voc"            type="string" value="$(find flvis)/voc/voc_orb.dbow3"/>
-    <param name="/lite_version"   type="bool"   value="false" />
-    <!--In lite version, the visualization will be simplified -->
 
 
     <!-- Manager -->
@@ -32,8 +30,6 @@
     <node pkg="nodelet" type="nodelet" args="load flvis/LocalMapNodeletClass flvis_nodelet_manager"
           name="LocalMapNodeletClass_loader" output="screen"
           launch-prefix="bash -c 'sleep $(arg node_start_delay); $0 $@' ">
-        <param name="/window_size" type="int" value="8" />
-        <!--window_size: Num of keyframes in sliding window optimizer-->
     </node>
 
     <!-- LoopClosingNode -->

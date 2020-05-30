@@ -97,8 +97,8 @@ private:
         //Load Parameter
         string configFilePath;
         nh.getParam("/yamlconfigfile",   configFilePath);
-        string lite;
-        nh.getParam("/lite_version",   is_lite_version);
+        is_lite_version = false;
+        is_lite_version = getBoolVariableFromYaml(configFilePath,"is_lite_version");
         if(is_lite_version)
             cout << "flvis run in lite version" << endl;
 
@@ -106,10 +106,16 @@ private:
         int vi_type_from_yaml = getIntVariableFromYaml(configFilePath,"type_of_vi");
         int image_width  = getIntVariableFromYaml(configFilePath,"image_width");
         int image_height = getIntVariableFromYaml(configFilePath,"image_height");
-        Vec4 parameter = Vec4(getDoubleVariableFromYaml(configFilePath,"para_1"),
-                              getDoubleVariableFromYaml(configFilePath,"para_2"),
-                              getDoubleVariableFromYaml(configFilePath,"para_3"),
-                              getDoubleVariableFromYaml(configFilePath,"para_4"));
+        Vec3 vi_para1 = Vec3(getDoubleVariableFromYaml(configFilePath,"vifusion_para1"),
+                             getDoubleVariableFromYaml(configFilePath,"vifusion_para2"),
+                             getDoubleVariableFromYaml(configFilePath,"vifusion_para3"));
+        Vec3 vi_para2 = Vec3(getDoubleVariableFromYaml(configFilePath,"vifusion_para4"),
+                             getDoubleVariableFromYaml(configFilePath,"vifusion_para5"),
+                             getDoubleVariableFromYaml(configFilePath,"vifusion_para6"));
+        Vec6 vi_para;
+        vi_para.head(3)=vi_para1;
+        vi_para.tail(3)=vi_para2;
+
         Vec3 f_para1 = Vec3(getDoubleVariableFromYaml(configFilePath,"feature_para1"),//max features in a grid
                             getDoubleVariableFromYaml(configFilePath,"feature_para2"),//min features in a grid
                             getDoubleVariableFromYaml(configFilePath,"feature_para3"));//distance of features
@@ -121,10 +127,10 @@ private:
         f_para.tail(3)=f_para2;
         cv::Mat cam0_cameraMatrix = cameraMatrixFromYamlIntrinsics(configFilePath,"cam0_intrinsics");
         cv::Mat cam0_distCoeffs   = distCoeffsFromYaml(configFilePath,"cam0_distortion_coeffs");
-//        cout << "image_width :" << image_width << endl;
-//        cout << "image_height:" << image_height << endl;
-//        cout << "cam0_cameraMatrix:" << endl << cam0_cameraMatrix << endl;
-//        cout << "cam0_distCoeffs  :" << endl << cam0_distCoeffs << endl;
+        //        cout << "image_width :" << image_width << endl;
+        //        cout << "image_height:" << image_height << endl;
+        //        cout << "cam0_cameraMatrix:" << endl << cam0_cameraMatrix << endl;
+        //        cout << "cam0_distCoeffs  :" << endl << cam0_distCoeffs << endl;
         if(vi_type_from_yaml==0)
         {
             cam_type=DEPTH_D435;
@@ -143,14 +149,14 @@ private:
         if(cam_type==DEPTH_D435)
         {
             Mat4x4  mat_imu_cam  = Mat44FromYaml(configFilePath,"T_imu_cam0");
-//            cout << "Mat_imu_cam0 :" << endl << mat_imu_cam << endl;
+            //            cout << "Mat_imu_cam0 :" << endl << mat_imu_cam << endl;
             cam_tracker->init(image_width,
                               image_height,
                               cam0_cameraMatrix,
                               cam0_distCoeffs,
                               SE3(mat_imu_cam.topLeftCorner(3,3),mat_imu_cam.topRightCorner(3,1)),
                               f_para,
-                              parameter);
+                              vi_para);
             img0_sub.subscribe(nh, "/vo/image", 1);
             img1_sub.subscribe(nh, "/vo/depth_image", 1);
         }
@@ -168,15 +174,15 @@ private:
             Mat4x4  mat_i_mavimu  = Mat44FromYaml(configFilePath,"T_imu_mavimu");
             SE3 T_i_mavi = SE3(mat_i_mavimu.topLeftCorner(3,3),mat_i_mavimu.topRightCorner(3,1));
             SE3 T_i_c0 = T_i_mavi*T_mavi_c0;
-//            cout << "cam1_cameraMatrix:" << endl << cam1_cameraMatrix << endl;
-//            cout << "cam1_distCoeffs  :" << endl << cam1_distCoeffs << endl;
-//            cout << "Mat_camimu_cam0 :" << endl << mat_mavimu_cam0 << endl;
-//            cout << "Mat_camimu_cam1 :" << endl << mat_mavimu_cam1 << endl;
+            //            cout << "cam1_cameraMatrix:" << endl << cam1_cameraMatrix << endl;
+            //            cout << "cam1_distCoeffs  :" << endl << cam1_distCoeffs << endl;
+            //            cout << "Mat_camimu_cam0 :" << endl << mat_mavimu_cam0 << endl;
+            //            cout << "Mat_camimu_cam1 :" << endl << mat_mavimu_cam1 << endl;
             cam_tracker->init(image_width,image_height,
                               cam0_cameraMatrix,cam0_distCoeffs,
                               T_i_c0,
                               f_para,
-                              parameter,
+                              vi_para,
                               STEREO_EuRoC_MAV,
                               1.0,
                               cam1_cameraMatrix,cam1_distCoeffs,

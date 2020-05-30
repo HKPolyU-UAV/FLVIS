@@ -6,7 +6,7 @@ void F2FTracking::init(const int w, const int h,
                        const Mat c0_cameraMatrix_in, const Mat c0_distCoeffs_in,
                        const SE3 T_i_c0_in,
                        const Vec6 feature_para,
-                       const Vec4 vi_para,
+                       const Vec6 vi_para,
                        const TYPEOFCAMERA cam_type_in,
                        const double cam_scale_in,
                        const Mat c1_cameraMatrix_in, const Mat c1_distCoeffs_in,
@@ -144,7 +144,7 @@ void F2FTracking::image_feed(const double time,
     {
         curr_frame->img0=img0_in;
         curr_frame->d_img=img1_in;
-        if(frameCount<60) return;
+        if(frameCount<50) return;
         //cv::equalizeHist(curr_frame->img0,curr_frame->img0);
         break;
     }
@@ -155,8 +155,8 @@ void F2FTracking::image_feed(const double time,
         curr_frame->img1=img1_in;
         //        cv::remap(img0_in, curr_frame->img0, c0_RM[0], c0_RM[1],cv::INTER_LINEAR);
         //        cv::remap(img1_in, curr_frame->img1, c1_RM[0], c1_RM[1],cv::INTER_LINEAR);
-//        cv::equalizeHist(curr_frame->img0,curr_frame->img0);
-//        cv::equalizeHist(curr_frame->img1,curr_frame->img1);
+        cv::equalizeHist(curr_frame->img0,curr_frame->img0);
+        cv::equalizeHist(curr_frame->img1,curr_frame->img1);
         break;
     }
     }

@@ -5,7 +5,9 @@ VIMOTION::VIMOTION(SE3 T_i_c_fromCalibration,
                    double para_1_in,   //Madgwick beta
                    double para_2_in,  //proportion of vision feedforware(roll and pich)
                    double para_3_in,  //acc-bias feedback parameter
-                   double para_4_in) //gyro-bias feedback parameter)
+                   double para_4_in,
+                   double para_5_in,
+                   double para_6_in) //gyro-bias feedback parameter)
 {
     this->T_i_c = T_i_c_fromCalibration;
     this->T_c_i = this->T_i_c.inverse();
@@ -25,6 +27,8 @@ VIMOTION::VIMOTION(SE3 T_i_c_fromCalibration,
     this->para_2=para_2_in;
     this->para_3=para_3_in;
     this->para_4=para_4_in;
+    this->ba_sat=para_5_in;
+    this->bw_sat=para_6_in;
 }
 
 void VIMOTION::viIMUinitialization(const IMUSTATE imu_read,
@@ -286,14 +290,14 @@ void VIMOTION::viCorrectionFromVision(const double t_curr, const SE3 Tcw_curr,
         //        cout << "Bg_est : " << gyro_bias_est.transpose().format(CleanFmt) << endl;
 
         double ba_est_norm = acc_bias_est.norm();
-        if(ba_est_norm>0.5)
+        if(ba_est_norm>ba_sat)
         {
-            acc_bias_est*=(0.5/ba_est_norm);
+            acc_bias_est*=(ba_sat/ba_est_norm);
         }
         double bw_est_norm = gyro_bias_est.norm();
-        if(ba_est_norm>0.1)
+        if(ba_est_norm>bw_sat)
         {
-            gyro_bias_est*=(0.1/bw_est_norm);
+            gyro_bias_est*=(bw_sat/bw_est_norm);
         }
 
 //        for (int i=0; i<3; i++)
