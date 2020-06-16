@@ -4,14 +4,14 @@
 #2---d435+pixhawk
 type_of_vi: 2
 #depth image is aligned to left cam0
-image_width: 480
-image_height: 270
-cam0_intrinsics: [239.08380126953125, 239.08380126953125, 238.68667602539062, 134.68154907226562]#fx fy cx cy
+image_width: 640
+image_height: 360
+cam0_intrinsics: [318.7784118652344, 318.7784118652344, 318.2489013671875, 179.57540893554688]#fx fy cx cy
 cam0_distortion_coeffs: [0.0, 0.0, 0.0, 0.0]#k1 k2 r1 r2
 T_imu_cam0:
-[ -0.00857902, -0.00753527,  0.99993481, 0.13868685,
-  -0.99950034, -0.03035717, -0.00880406, 0.01598506,
-   0.03042154, -0.99951071, -0.00727107, 0.00416676,
+[ -0.08003882,  0.01761342,  0.99663612, 0.12268334,
+  -0.99628563, -0.03327134, -0.07942267, 0.0124343,
+   0.03176051, -0.99929114,  0.02021099, 0.0031378,
           0.0,         0.0,         0.0,        1.0]
 
 is_lite_version:   True
@@ -26,22 +26,22 @@ vifusion_para3: 0.003
 #gyro-bias feedback parameter
 vifusion_para4: 0.01
 #acc saturation level
-vifusion_para5: 0.5
+vifusion_para5: 0.3
 #gyro saturation level
 vifusion_para6: 0.1
 
 
 #feature relate parameter
 #max features in a grid
-feature_para1: 15
+feature_para1: 10
 #min features in a grid
-feature_para2: 30
+feature_para2: 20
 #distance of features
-feature_para3: 5
+feature_para3: 3
 #goodFeaturesToTrack detector maxCorners
-feature_para4: 500
+feature_para4: 400
 #goodFeaturesToTrack detector qualityLevel
-feature_para5: 0.001
+feature_para5: 0.01
 #goodFeaturesToTrack detector minDistance
 feature_para6: 5
 
