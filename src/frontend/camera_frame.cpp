@@ -188,8 +188,17 @@ void CameraFrame::recover3DPts_c_FromDepthImg(vector<Vec3>& pt3ds,
         //CV_16UC1 = Z16 16-Bit unsigned int
         if(isnan(d_img.at<ushort>(pt)))
         {
-            pt3ds.push_back(Vec3(0,0,0));
-            maskHas3DInf.push_back(false);
+          Vec3 pt3d_c;
+          float d_rand;
+          d_rand = 0.3 + static_cast<float>(rand())/(static_cast<float>(RAND_MAX/(0.4)));
+          pt3d_c = DepthCamera::pixel2camera(Vec2(landmarks.at(i).lm_2d_plane[0],landmarks.at(i).lm_2d_plane[1]),
+                                             this->d_camera.cam0_fx,
+                                             this->d_camera.cam0_fy,
+                                             this->d_camera.cam0_cx,
+                                             this->d_camera.cam0_cy,
+                                             d_rand);
+          pt3ds.push_back(pt3d_c);
+          maskHas3DInf.push_back(false);
         }
         else
         {
@@ -203,8 +212,17 @@ void CameraFrame::recover3DPts_c_FromDepthImg(vector<Vec3>& pt3ds,
                 maskHas3DInf.push_back(true);
             }else
             {
-                pt3ds.push_back(Vec3(0,0,0));
-                maskHas3DInf.push_back(false);
+              Vec3 pt3d_c;
+              float d_rand;
+              d_rand = 0.3 + static_cast<float>(rand())/(static_cast<float>(RAND_MAX/(0.4)));
+              pt3d_c = DepthCamera::pixel2camera(Vec2(landmarks.at(i).lm_2d_plane[0],landmarks.at(i).lm_2d_plane[1]),
+                                                 this->d_camera.cam0_fx,
+                                                 this->d_camera.cam0_fy,
+                                                 this->d_camera.cam0_cx,
+                                                 this->d_camera.cam0_cy,
+                                                 d_rand);
+              pt3ds.push_back(pt3d_c);
+              maskHas3DInf.push_back(false);
             }
         }
     }
@@ -489,15 +507,13 @@ void CameraFrame::getKeyFrameInf(vector<int64_t> &lm_id, vector<Vec2> &lm_2d, ve
     lm_id.clear();
     lm_2d.clear();
     lm_3d.clear();
-    for(size_t i=0; i<landmarks.size(); i++)
+    for(LandMarkInFrame &lm : landmarks)
     {
-        LandMarkInFrame lm=landmarks.at(i);
-        if(lm.hasDepthInf())
+        if(lm.hasDepthInf() && lm.is_tracking_inlier==true)
         {
-            lm_3d.push_back(lm.lm_3d_w);
-            lm_2d.push_back(lm.lm_2d_undistort);
-            lm_id.push_back(lm.lm_id);
+          lm_3d.push_back(lm.lm_3d_w);
+          lm_2d.push_back(lm.lm_2d_undistort);
+          lm_id.push_back(lm.lm_id);
         }
     }
-
 }
