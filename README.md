@@ -1,8 +1,20 @@
 #  FLVIS
 ## Feedback Loop Based Visual Inertial SLAM
 
-### 1-Demo Video
+### 1-Video
 TBD
+
+| EuRoC DataSet MH_05    | 
+| ---------------------- | 
+| <img src="others/mh05_gif.gif" width="300">  |
+
+| Handheld Test in Lab   | 
+| ---------------------- | 
+| <img src="others/lab_gif.gif" width="300">  |
+
+| FlVIS on UAV Platform  | 
+| ---------------------- | 
+| <img src="others/uav_gif.gif" width="300">  |
 ### 2-Relevent Publication:
 TBD
 ### 3-Support Hardware/Dataset:
