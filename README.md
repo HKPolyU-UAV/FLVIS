@@ -3,18 +3,6 @@
 
 ### 1-Video
 TBD
-
-| EuRoC DataSet MH_05    | 
-| ---------------------- | 
-| <img src="others/mh05_gif.gif" width="300">  |
-
-| Handheld Test in Lab   | 
-| ---------------------- | 
-| <img src="others/lab_gif.gif" width="300">  |
-
-| FlVIS on UAV Platform  | 
-| ---------------------- | 
-| <img src="others/uav_gif.gif" width="300">  |
 ### 2-Relevent Publication:
 TBD
 ### 3-Support Hardware/Dataset:
@@ -60,7 +48,18 @@ run the following launch files:
 roslaunch flvis rviz.launch
 roslaunch flvis flvis_euroc_mav.launch
 ````
+### 6-Screenshots
+| EuRoC DataSet MH_05    | 
+| ---------------------- | 
+| <img src="others/mh05_gif.gif" width="300">  |
 
+| Handheld Test in Lab   | 
+| ---------------------- | 
+| <img src="others/lab_gif.gif" width="300">  |
+
+| FlVIS on UAV Platform  | 
+| ---------------------- | 
+| <img src="others/uav_gif.gif" width="300">  |
 ### Maintainer:
 [Shengyang Chen](https://www.polyu.edu.hk/researchgrp/cywen/index.php/en/people/researchstudent.html)(Dept.ME,PolyU): shengyang.chen@connect.polyu.hk <br />
 Yajing Zou(Dept.LSGI,PolyU):rick.zou@connect.polyu.hk
