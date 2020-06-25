@@ -2,7 +2,8 @@
 ## Feedback Loop Based Visual Inertial SLAM
 
 ### 1-Video
-TBD
+<a href="https://www.youtube.com/embed/ljZWb2x6CRQ" target="_blank"><img src="http://img.youtube.com/vi/ljZWb2x6CRQ/0.jpg" 
+alt="cla" width="480" height="300" border="1" /></a>
 ### 2-Relevent Publication:
 TBD
 ### 3-Support Hardware/Dataset:
