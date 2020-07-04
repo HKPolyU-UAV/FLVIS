@@ -1,5 +1,5 @@
-#ifndef F2FTRACKING_H
-#define F2FTRACKING_H
+#ifndef TRACKING_H
+#define TRACKING_H
 
 //Lucas-Kanade tracking with ORB feature verify
 
@@ -9,12 +9,17 @@ class LKORBTracking
 {
     int width,height;
 public:
+    DepthCamera  d_camera;
     LKORBTracking(int width_in,int height_in);
     bool tracking(CameraFrame &from,
                   CameraFrame &to,
-                  vector<Vec2>& lm2d_from,
-                  vector<Vec2>& lm2d_to,
-                  vector<Vec2>& outlier);
+                  SE3 T_c_w_guess,
+                  bool use_guess,
+                  cv::Mat K0_rect,//cam0 rectified cameraMatrix;
+                  cv::Mat D0_rect,//cam0 rectified distCoeffs;
+                  vector<cv::Point2f>& lm2d_from,
+                  vector<cv::Point2f>& lm2d_to,
+                  vector<cv::Point2f>& outlier);
 };
 
 #endif // F2FTRACKING_H

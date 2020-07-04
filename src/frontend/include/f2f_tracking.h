@@ -29,6 +29,7 @@ public:
     FeatureDEM         *feature_dem;
     LKORBTracking      *lkorb_tracker;
     VIMOTION           *vimotion;
+    DepthCamera         d_camera;
 
     //states:
     bool has_imu;
@@ -50,6 +51,20 @@ public:
     deque<ID_POSE> pose_records;
     CameraFrame::Ptr curr_frame,last_frame;
 
+    void init(const int w, const int h,
+              const Mat c0_cameraMatrix_in,
+              const Mat c0_distCoeffs_in,
+              const SE3 T_i_c0_in,
+              const Vec6 feature_para,
+              const Vec6 vi_para,
+              const TYPEOFCAMERA cam_type_in=DEPTH_D435,
+              const double cam_scale_in=1000.0,
+              const Mat c1_cameraMatrix_in=Mat1d(3, 3),
+              const Mat c1_distCoeffs_in=Mat1d(4, 1),
+              const SE3 T_c0_c1=SE3());
+
+    void correction_feed(const double time, const CorrectionInfStruct corr);
+
     void imu_feed(const double time,
                   const Vec3 acc,
                   const Vec3 gyro,
@@ -62,19 +77,6 @@ public:
                     const cv::Mat img1_in,
                     bool &new_keyframe,
                     bool &reset_cmd);
-
-    void correction_feed(const double time, const CorrectionInfStruct corr);
-
-    void init(const int w, const int h,
-              const Mat c0_cameraMatrix_in,
-              const Mat c0_distCoeffs_in,
-              const SE3 T_i_c0_in,
-              const Vec4 vi_para=Vec4(0,0,0,0),
-              const TYPEOFCAMERA cam_type_in=DEPTH_D435I,
-              const double cam_scale_in=1000.0,
-              const Mat c1_cameraMatrix_in=Mat1d(3, 3),
-              const Mat c1_distCoeffs_in=Mat1d(4, 1),
-              const SE3 T_c0_c1=SE3());
 
 private:
     bool init_frame(void);

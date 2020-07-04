@@ -1,41 +1,46 @@
 <launch>
 
-  <!-- <param name="/yamlconfigfile" type="string" value="$(find flvis)/launch/d435_sn841512070537.yaml"/>-->
-    <param name="/yamlconfigfile" type="string" value="$(find flvis)/launch/d435i/d435_sn912112073494.yaml"/>
-    <node pkg="octomap_server" type="octomap_server_node" name="octomap_server">
-        <param name="resolution" value="0.2" />
-        <param name="frame_id" type="string" value="map" />
-        <param name="sensor_model/max_range" value="2.0" />
-        <remap from="cloud_in" to="/vo_octo_tracking" />
-    </node>
-    <node pkg="rosbag" type="play" name="rosbag" args="$(find flvis)/bag/2020-01-25-21-05-15.bag -s3"/>
+<!--Input######################################################################################################-->
+    <node pkg="rosbag" type="play" name="rosbag" args="$(find flvis)/bag/melab_sn943222072828.bag -s3"/>
 
-    <arg name="node_start_delay" default="1.0" />
-    <param name="/voc"             type="string" value="$(find flvis)/voc/voc_orb.dbow3"/>
+<!--FLVIS######################################################################################################-->
+    <arg name="node_start_delay"  default="1.0" />
+    <param name="/yamlconfigfile" type="string" value="$(find flvis)/launch/d435i/d435i_sn943222072828.yaml"/>
+    <param name="/voc"            type="string" value="$(find flvis)/voc/voc_orb.dbow3"/>
+    <param name="/lite_version"   type="bool"   value="false" />
+    <!--In lite version, the visualization will be simplified -->
+
+
     <!-- Manager -->
-    <node pkg="nodelet" type="nodelet" name="flvis_nodelet_manager"  args="manager" output="screen"
-    launch-prefix="bash -c 'sleep $(arg node_start_delay); $0 $@' "/>
+    <node pkg="nodelet" type="nodelet"
+          name="flvis_nodelet_manager" args="manager" output="screen"
+          launch-prefix="bash -c 'sleep $(arg node_start_delay); $0 $@' ">
+          <param name="num_worker_threads" value="4" />
+    </node>
+
     <!-- TrackingNode -->
     <node pkg="nodelet" type="nodelet" args="load flvis/TrackingNodeletClass flvis_nodelet_manager"
         name="TrackingNodeletClass_loader" output="screen"
         launch-prefix="bash -c 'sleep $(arg node_start_delay); $0 $@' ">
-        <param name="num_worker_threads" type="int" value="3" />
         <!-- D435i -->
         <remap from="/vo/depth_image"  to="/camera/aligned_depth_to_infra1/image_raw"/>
         <remap from="/vo/image"        to="/camera/infra1/image_rect_raw"/>
         <remap from="/imu"             to="/camera/imu"/>
     </node>
-    <!--Parameter: window_size: localmap size. 1 stand for 0.1 meters in real world. Default size: 10-->
+
     <!-- LocalMapNode -->
     <node pkg="nodelet" type="nodelet" args="load flvis/LocalMapNodeletClass flvis_nodelet_manager"
-        name="LocalMapNodeletClass_loader" output="screen"
-        launch-prefix="bash -c 'sleep $(arg node_start_delay); $0 $@' ">
-        <param name="/window_size" type="int" value="12" />
+          name="LocalMapNodeletClass_loader" output="screen"
+          launch-prefix="bash -c 'sleep $(arg node_start_delay); $0 $@' ">
+        <param name="/window_size" type="int" value="8" />
+        <!--window_size: Num of keyframes in sliding window optimizer-->
     </node>
+
     <!-- LoopClosingNode -->
-<!--    <node pkg="nodelet" type="nodelet" args="load flvis/LoopClosingNodeletClass flvis_nodelet_manager"
+    <node pkg="nodelet" type="nodelet" args="load flvis/LoopClosingNodeletClass flvis_nodelet_manager"
         name="LoopClosingNodeletClass_loader" output="screen"
         launch-prefix="bash -c 'sleep $(arg node_start_delay); $0 $@' ">
-    </node>-->
+    </node>
+
 
 </launch>

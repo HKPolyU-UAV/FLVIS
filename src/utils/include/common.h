@@ -13,6 +13,7 @@
 #include <pcl/point_cloud.h>
 
 #include <opencv2/opencv.hpp>
+#include <opencv2/core/eigen.hpp>
 
 #include "../3rdPartLib/Sophus/sophus/so3.h"
 #include "../3rdPartLib/Sophus/sophus/se3.h"
@@ -117,10 +118,7 @@ inline vector<Vec2> vcvP2f_2_vVec2(const vector<cv::Point2f>& vc2f)
 inline cv::Mat Mat3x3_to_cvMat(const Mat3x3 R)
 {
     cv::Mat ret;
-    double data[9] = { R(0,0), R(0,1), R(0,2),
-                       R(1,0), R(1,1), R(1,2),
-                       R(2,0), R(2,1), R(2,2)};
-    ret = cv::Mat(3, 3, CV_64F, data);
+    cv::eigen2cv(R, ret);
     return ret;
 }
 //transfor Vec3 to cv tvec

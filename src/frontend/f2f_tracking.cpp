@@ -5,21 +5,25 @@
 void F2FTracking::init(const int w, const int h,
                        const Mat c0_cameraMatrix_in, const Mat c0_distCoeffs_in,
                        const SE3 T_i_c0_in,
-                       const Vec4 vi_para,
+                       const Vec6 feature_para,
+                       const Vec6 vi_para,
                        const TYPEOFCAMERA cam_type_in,
                        const double cam_scale_in,
                        const Mat c1_cameraMatrix_in, const Mat c1_distCoeffs_in,
                        const SE3 T_c0_c1)
 {
-    this->feature_dem   = new FeatureDEM(w,h,5);
+    this->feature_dem   = new FeatureDEM(w,h,feature_para);
     this->lkorb_tracker = new LKORBTracking(w,h);
-    this->vimotion      = new VIMOTION(T_i_c0_in);
+    this->vimotion      = new VIMOTION(T_i_c0_in,  9.81,
+                                       vi_para[0], vi_para[1],  vi_para[2], vi_para[3]);
     curr_frame = std::make_shared<CameraFrame>();
     last_frame = std::make_shared<CameraFrame>();
     curr_frame->height = last_frame->height = h;
     curr_frame->width = last_frame->width = w;
     this->cam_type = cam_type_in;
-    if(cam_type==DEPTH_D435I)
+    switch (this->cam_type)
+    {
+    case DEPTH_D435:
     {
         K0_rect = c0_cameraMatrix_in;
         D0_rect = c0_distCoeffs_in;
@@ -29,10 +33,10 @@ void F2FTracking::init(const int w, const int h,
                            K0_rect.at<double>(0,2),//cx
                            K0_rect.at<double>(1,2),//cy
                            1000.0);
-        curr_frame->d_camera = last_frame->d_camera = dc;
+        d_camera = lkorb_tracker->d_camera = curr_frame->d_camera = last_frame->d_camera = dc;
+        break;
     }
-    if(cam_type==STEREO_EuRoC_MAV)
-    {
+    case STEREO_EuRoC_MAV:{
         K0 = c0_cameraMatrix_in;
         D0 = c0_distCoeffs_in;
         K1 = c1_cameraMatrix_in;
@@ -56,51 +60,17 @@ void F2FTracking::init(const int w, const int h,
                                     c1_RM[0],c1_RM[1]);
         K0_rect = P0.rowRange(0,3).colRange(0,3);
         K1_rect = P1.rowRange(0,3).colRange(0,3);
-
         DepthCamera dc;
-        Mat3x4 P0_,P1_;
-        P0_(0,0) = P0.at<double>(0,0);
-        P0_(1,1) = P0.at<double>(1,1);
-        P0_(0,2) = P0.at<double>(0,2);
-        P0_(1,2) = P0.at<double>(1,2);
-        P0_(2,2) = P0.at<double>(2,2);
-        P0_(0,3) = P0.at<double>(0,3);
-        P0_(1,3) = P0.at<double>(1,3);
-        P0_(2,3) = P0.at<double>(2,3);
-
-        P1_(0,0) = P1.at<double>(0,0);
-        P1_(1,1) = P1.at<double>(1,1);
-        P1_(0,2) = P1.at<double>(0,2);
-        P1_(1,2) = P1.at<double>(1,2);
-        P1_(2,2) = P1.at<double>(2,2);
-        P1_(0,3) = P1.at<double>(0,3);
-        P1_(1,3) = P1.at<double>(1,3);
-        P1_(2,3) = P1.at<double>(2,3);
-
-        dc.setSteroCamInfo(K0_rect, D0_rect, P0_,
-                           K1_rect, D1_rect, P1_,
+        dc.setSteroCamInfo(K0, D0, K0_rect, D0_rect, R0, P0,
+                           K1, D1, K1_rect, D1_rect, R1, P1,
                            T_c0_c1);
-        curr_frame->d_camera = last_frame->d_camera = dc;
+        d_camera = lkorb_tracker->d_camera = curr_frame->d_camera = last_frame->d_camera = dc;
+        break;
+    }
     }
     this->frameCount = 0;
     this->vo_tracking_state = UnInit;
     this->has_localmap_feedback = false;
-}
-
-
-void F2FTracking::imu_feed(const double time, const Vec3 acc, const Vec3 gyro,
-                           Quaterniond &q_w_i, Vec3 &pos_w_i, Vec3 &vel_w_i)
-{
-    if(!(vimotion->imu_initialized))
-    {
-        //estimate orientation
-        this->has_imu=true;
-        vimotion->viIMUinitialization(IMUSTATE(time,acc,gyro),q_w_i,pos_w_i,vel_w_i);
-    }else {
-        //estimate pos vel and orientation
-        vimotion->viIMUPropagation(IMUSTATE(time,acc,gyro),q_w_i,pos_w_i,vel_w_i);
-        //vimotion->viIMUPropagation(IMUSTATE(time,Vec3(0,0,-9.8),Vec3(0,0,0.1)),q_w_i,pos_w_i,vel_w_i);
-    }
 }
 
 void F2FTracking::correction_feed(const double time, const CorrectionInfStruct corr)
@@ -109,65 +79,17 @@ void F2FTracking::correction_feed(const double time, const CorrectionInfStruct c
     this->has_localmap_feedback = true;
 }
 
-
-
-
-bool F2FTracking::init_frame()
+void F2FTracking::imu_feed(const double time, const Vec3 acc, const Vec3 gyro,
+                           Quaterniond &q_w_i, Vec3 &pos_w_i, Vec3 &vel_w_i)
 {
-    bool init_succeed=false;
-    if(cam_type==DEPTH_D435I)
+    if(!(vimotion->imu_initialized))
     {
-        vector<Vec2> pts2d;
-        vector<cv::Mat>  descriptors;
-        this->feature_dem->detect(curr_frame->img0,pts2d,descriptors);
-        cout << "Detect " << pts2d.size() << " Features for init process"<< endl;
-        for(size_t i=0; i<pts2d.size(); i++)
-        {
-            curr_frame->landmarks.push_back(LandMarkInFrame(descriptors.at(i),
-                                                            pts2d.at(i),
-                                                            Vec3(0,0,0),
-                                                            false,
-                                                            curr_frame->T_c_w));
-        }
-        curr_frame->depthInnovation();
-        if(curr_frame->validLMCount()>30)
-        {
-            ID_POSE tmp;
-            tmp.frame_id = curr_frame->frame_id;
-            tmp.T_c_w = curr_frame->T_c_w;
-            pose_records.push_back(tmp);
-            T_c_w_last_keyframe = curr_frame->T_c_w;
-            init_succeed = true;
-            cout << "vo_tracking_state = Tracking" << endl;
-        }
+        this->has_imu=true;
+        vimotion->viIMUinitialization(IMUSTATE(time,acc,gyro),q_w_i,pos_w_i,vel_w_i);
+    }else
+    {
+        vimotion->viIMUPropagation(IMUSTATE(time,acc,gyro),q_w_i,pos_w_i,vel_w_i);
     }
-    if(cam_type==STEREO_EuRoC_MAV){
-
-        vector<Vec2> pts2d_img0,pts2d_img1;
-        vector<cv::Mat>  descriptors;
-        this->feature_dem->detect(curr_frame->img0,pts2d_img0,descriptors);
-        cout << "Detect " << pts2d_img0.size() << " Features for init process"<< endl;
-        for(size_t i=0; i<pts2d_img0.size(); i++)
-        {
-            curr_frame->landmarks.push_back(LandMarkInFrame(descriptors.at(i),
-                                                            pts2d_img0.at(i),
-                                                            Vec3(0,0,0),
-                                                            false,
-                                                            curr_frame->T_c_w));
-        }
-        curr_frame->depthInnovation();
-        if(curr_frame->validLMCount()>30)
-        {
-            ID_POSE tmp;
-            tmp.frame_id = curr_frame->frame_id;
-            tmp.T_c_w = curr_frame->T_c_w;
-            pose_records.push_back(tmp);
-            T_c_w_last_keyframe = curr_frame->T_c_w;
-            init_succeed = true;
-            cout << "vo_tracking_state = Tracking" << endl;
-        }
-    }
-    return init_succeed;
 }
 
 void F2FTracking::image_feed(const double time,
@@ -181,33 +103,62 @@ void F2FTracking::image_feed(const double time,
     reset_cmd = false;
     frameCount++;
 
-//    if(frameCount==40)
-//    {
-//        vimotion->imu_initialized = false;
-//        vimotion->is_first_data = true;
-//        vo_tracking_state = UnInit;
-//        reset_cmd = true;
-//        return;
-//    }
-
     last_frame.swap(curr_frame);
     curr_frame->clear();
     curr_frame->frame_id = frameCount;
     curr_frame->frame_time = time;
+    bool mbRGB = 0;
+    if(img0_in.channels()==3)
+    {
+        if(mbRGB)
+            cvtColor(img0_in,img0_in,CV_RGB2GRAY);
+        else
+            cvtColor(img0_in,img0_in,CV_BGR2GRAY);
+    }
+    else if(img0_in.channels()==4)
+    {
+        if(mbRGB)
+            cvtColor(img0_in,img0_in,CV_RGBA2GRAY);
+        else
+            cvtColor(img0_in,img0_in,CV_BGRA2GRAY);
+    }
+    if(img1_in.channels()==3)
+    {
+        if(mbRGB)
+            cvtColor(img1_in,img1_in,CV_RGB2GRAY);
+        else
+            cvtColor(img1_in,img1_in,CV_BGR2GRAY);
+    }
+    else if(img1_in.channels()==4)
+    {
+        if(mbRGB)
+            cvtColor(img1_in,img1_in,CV_RGBA2GRAY);
+        else
+            cvtColor(img1_in,img1_in,CV_BGRA2GRAY);
+    }
+
 
     switch(this->cam_type)
     {
-    case DEPTH_D435I:
+    case DEPTH_D435:
+    {
         curr_frame->img0=img0_in;
         curr_frame->d_img=img1_in;
-        cv::equalizeHist(curr_frame->img0,curr_frame->img0);
+        if(frameCount<50) return;
+        //cv::equalizeHist(curr_frame->img0,curr_frame->img0);
         break;
+    }
+
     case STEREO_EuRoC_MAV:
-        cv::remap(img0_in, curr_frame->img0, c0_RM[0], c0_RM[1],cv::INTER_LINEAR);
-        cv::remap(img1_in, curr_frame->img1, c1_RM[0], c1_RM[1],cv::INTER_LINEAR);
+    {
+        curr_frame->img0=img0_in;
+        curr_frame->img1=img1_in;
+        //        cv::remap(img0_in, curr_frame->img0, c0_RM[0], c0_RM[1],cv::INTER_LINEAR);
+        //        cv::remap(img1_in, curr_frame->img1, c1_RM[0], c1_RM[1],cv::INTER_LINEAR);
         cv::equalizeHist(curr_frame->img0,curr_frame->img0);
         cv::equalizeHist(curr_frame->img1,curr_frame->img1);
         break;
+    }
     }
 
     switch(vo_tracking_state)
@@ -228,20 +179,13 @@ void F2FTracking::image_feed(const double time,
             {
                 Eigen::Quaterniond q_init_w_i;
                 vimotion->viVisiontrigger(q_init_w_i);
-                Vec3 rpy = Q2rpy(q_init_w_i);
-                cout << "use imu pose for init pose" << endl;
-                cout << "roll:"   << rpy[0]*57 << " pitch:" << rpy[1]*57 << " yaw:"   << rpy[2]*57 << endl;
                 Mat3x3 R_w_c = q_init_w_i.toRotationMatrix()*vimotion->T_i_c.rotation_matrix();
                 SE3    T_w_c(R_w_c,t_w_c);
-                rpy = Q2rpy(T_w_c.unit_quaternion());
-                cout << "camera in world: " << endl;
-                cout << "roll:"   << rpy[0]*57 << " pitch:" << rpy[1]*57 << " yaw:"   << rpy[2]*57 << endl;
                 curr_frame->T_c_w=T_w_c.inverse();//Tcw = (Twc)^-1
-
-                SE3 Twi = curr_frame->T_c_w.inverse()*vimotion->T_c_i;
-                rpy = Q2rpy(Twi.unit_quaternion());
-                cout << "imu in world: " << endl;
-                cout << "roll:"   << rpy[0]*57 << " pitch:" << rpy[1]*57 << " yaw:"   << rpy[2]*57 << endl;
+                Vec3 rpy_imu = Q2rpy(q_init_w_i);
+                cout << "Init pose by IMU, rpy:" << (57.0*rpy_imu).transpose() << endl;
+                Vec3 rpy_cam = Q2rpy(T_w_c.unit_quaternion());
+                cout << "Init pose of cam, rpy:" << (57.0*rpy_cam).transpose() << endl;
             }else
             {
                 break;
@@ -257,19 +201,7 @@ void F2FTracking::image_feed(const double time,
     }
     case Tracking:
     {
-        /* F2F Workflow
-                             STEP1: Recover from LocalMap Feedback msg
-                             STEP2: Track Match and Update to curr_frame
-                             STEP3: 2D3D-PNP
-                             (Option) ->IMU roll pitch compensation
-                             STEP4: F2FBA
-                             (Option) ->IMU state update from vision
-                             STEP5: Redetect
-                             STEP6: Update Landmarks(IIR)
-                             STEP7: Record Pose
-                             STEP8: Switch KeyFrame if needed
-                    */
-        //STEP1:
+        //STEP1: Recover from LocalMap Feedback msg
         if(has_localmap_feedback)
         {
             //find pose;
@@ -300,24 +232,29 @@ void F2FTracking::image_feed(const double time,
             last_frame->forceMarkOutlier(correction_inf.lm_outlier_count,correction_inf.lm_outlier_id);
             has_localmap_feedback = false;
         }
-        //STEP2:
-        vector<Vec2> lm2d_from,lm2d_to,outlier_tracking;
-        this->lkorb_tracker->tracking(*last_frame,
-                                      *curr_frame,
-                                      lm2d_from,
-                                      lm2d_to,
-                                      outlier_tracking);
-        //STEP3:
-        vector<cv::Point2f> p2d;
-        vector<cv::Point3f> p3d;
-        curr_frame->getValid2d3dPair_cvPf(p2d,p3d);
-        static int continus_tracking_fail_cnt = 0;//anti flashlight/autoexposure vibration
-        if(p2d.size()<=10)
-        {
+
+        //STEP2: Track from frame to frame
+        SE3  imu_guess;
+        bool has_imu_guess=false;
+        if(this->has_imu)
+            has_imu_guess = this->vimotion->viGetCorrFrameState(time,imu_guess);
+        bool tracking_success;
+        tracking_success = lkorb_tracker->tracking(*last_frame,
+                                                   *curr_frame,
+                                                   imu_guess,
+                                                   has_imu_guess,
+                                                   K0_rect,
+                                                   D0_rect,
+                                                   curr_frame->flow_last,
+                                                   curr_frame->flow_curr,
+                                                   curr_frame->tracking_outlier);
+        static int continus_tracking_fail_cnt = 0;
+        if(!tracking_success)
+        {//cv tracking failed
             continus_tracking_fail_cnt++;
             cout << "[Critical Warning] Tracking Fail-no enough lm pairs" << endl;
             last_frame.swap(curr_frame);//dummy swap, escape this frame
-            if(continus_tracking_fail_cnt>3)
+            if(continus_tracking_fail_cnt>=2)
             {
                 vo_tracking_state = TrackingFail;
                 cout << "Tracking failed! Swith to tracking Fail Mode" << endl;
@@ -326,61 +263,77 @@ void F2FTracking::image_feed(const double time,
             break;
         }
         continus_tracking_fail_cnt = 0;
-        cv::Mat r_ = cv::Mat::zeros(3, 1, CV_64FC1);
-        cv::Mat t_ = cv::Mat::zeros(3, 1, CV_64FC1);
-        SE3_to_rvec_tvec(last_frame->T_c_w, r_ , t_ );
-        cv::Mat inliers;
-        solvePnPRansac(p3d,p2d,K0_rect,D0_rect,
-                       r_,t_,false,100,3.0,0.99,inliers,cv::SOLVEPNP_ITERATIVE);
-        curr_frame->T_c_w = SE3_from_rvec_tvec(r_,t_);
-        std::vector<uchar> status;
-        for (int i = 0; i < (int)p2d.size(); i++)
-            status.push_back(0);
-        for( int i = 0; i < inliers.rows; i++)
-        {
-            int n = inliers.at<int>(i);
-            status[n] = 1;
-        }
-        curr_frame->updateLMState(status);
+
         //(Option) ->IMU roll pitch compensation
         if(this->has_imu)
         {
             vimotion->viVisionRPCompensation(curr_frame->frame_time, curr_frame->T_c_w);
         }
-        //STEP4:
+
+        //STEP3: In frame BA, remove outliers
         OptimizeInFrame::optimize(*curr_frame);
         vector<Vec2> outlier_reproject;
         double mean_reprojection_error;
         curr_frame->calReprjInlierOutlier(mean_reprojection_error,outlier_reproject,1.5);
         curr_frame->reprojection_error=mean_reprojection_error;
         curr_frame->eraseReprjOutlier();
+        //cout << "avg reproj err: " << mean_reprojection_error << endl;
 
-        //(Option) ->Vision Feedback and bias estimation
+        //(Option) ->IMU state update from vision
         if(this->has_imu)
         {
             vimotion->viCorrectionFromVision(curr_frame->frame_time,
                                              curr_frame->T_c_w,
                                              last_frame->frame_time,
-                                             curr_frame->T_c_w);
+                                             curr_frame->T_c_w,
+                                             mean_reprojection_error);
         }
-        //STEP5:
-        vector<Vec2> newKeyPts;
-        vector<cv::Mat>  newDescriptor;
+
+        //STEP5: Redetect
+        vector<cv::Point2f> pts2d,pts2d_undistort;
         int newPtsCount;
-        this->feature_dem->redetect(curr_frame->img0,
-                                    curr_frame->get2dPtsVec(),
-                                    newKeyPts,newDescriptor,newPtsCount);
-        for(size_t i=0; i<newKeyPts.size(); i++)
+        int orig_size = curr_frame->landmarks.size();
+
+        this->feature_dem->redetect(curr_frame->img0, curr_frame->get2dPlaneVec(),  pts2d,newPtsCount);
+        switch(this->cam_type)
         {
-            curr_frame->landmarks.push_back(LandMarkInFrame(newDescriptor.at(i),
-                                                            newKeyPts.at(i),
+        case DEPTH_D435:
+        {
+            pts2d_undistort = pts2d;
+            break;
+        }
+        case STEREO_EuRoC_MAV:
+        {
+            cv::undistortPoints(pts2d,pts2d_undistort,
+                                d_camera.K0,d_camera.D0,d_camera.R0,d_camera.P0);
+            break;
+        }
+        }
+        bool add_as_inliers=false;
+        if(orig_size<60)
+        {
+            add_as_inliers =true;
+        }
+        for(size_t i=0; i<pts2d.size(); i++)
+        {
+            curr_frame->landmarks.push_back(LandMarkInFrame(Vec2(pts2d.at(i).x,
+                                                                 pts2d.at(i).y),
+                                                            Vec2(pts2d_undistort.at(i).x,
+                                                                 pts2d_undistort.at(i).y),
                                                             Vec3(0,0,0),
                                                             false,
-                                                            curr_frame->T_c_w));
+                                                            curr_frame->T_c_w,
+                                                            add_as_inliers));
         }
-        //STEP6:
-        curr_frame->depthInnovation();
-        //STEP7:
+
+        //STEP6: Depth Innovation and Update Landmarks(IIR)
+        bool applyiir=true;
+        if(mean_reprojection_error>1.0)
+            applyiir = false;
+        curr_frame->depthInnovation(applyiir);
+        curr_frame->eraseNoDepthPoint();
+
+        //STEP7: Record Pose
         ID_POSE tmp;
         tmp.frame_id = curr_frame->frame_id;
         tmp.T_c_w = curr_frame->T_c_w;
@@ -389,12 +342,18 @@ void F2FTracking::image_feed(const double time,
         {
             pose_records.pop_front();
         }
-        //STEP8:
+        //STEP8: Switch KeyFrame if needed
         SE3 T_diff_key_curr = T_c_w_last_keyframe*(curr_frame->T_c_w.inverse());
         Vec3 t=T_diff_key_curr.translation();
         Vec3 r=T_diff_key_curr.so3().log();
         double t_norm = fabs(t[0]) + fabs(t[1]) + fabs(t[2]);
         double r_norm = fabs(r[0]) + fabs(r[1]) + fabs(r[2]);
+
+        if(frameCount<40 && (frameCount%3)==0)
+        {
+            new_keyframe = true;
+            T_c_w_last_keyframe = curr_frame->T_c_w;
+        }
         if(t_norm>=0.03 || r_norm>=0.2)
         {
             new_keyframe = true;
@@ -406,50 +365,38 @@ void F2FTracking::image_feed(const double time,
     {
         static int cnt=0;
         cnt++;
-        if(cnt==15)
+        if((cnt%3)==0)
         {
             cout << "vision tracking fail, IMU motion only" << endl << "Tring to recover~" << endl;
-            vector<Vec2> pts2d;
-            vector<cv::Mat>  descriptors;
-            this->feature_dem->detect(curr_frame->img0,pts2d,descriptors);
-            cout << "Detect " << pts2d.size() << " Features"<< endl;
             if(this->vimotion->viGetCorrFrameState(curr_frame->frame_time,curr_frame->T_c_w))
             {
-                for(size_t i=0; i<pts2d.size(); i++)
+                if(this->init_frame())
                 {
-                    curr_frame->landmarks.push_back(LandMarkInFrame(descriptors.at(i),
-                                                                    pts2d.at(i),
-                                                                    Vec3(0,0,0),
-                                                                    false,
-                                                                    curr_frame->T_c_w));
-                }
-                curr_frame->depthInnovation();
-                if(curr_frame->validLMCount()>30)
-                {
-                    ID_POSE tmp;
-                    tmp.frame_id = curr_frame->frame_id;
-                    tmp.T_c_w = curr_frame->T_c_w;
-                    pose_records.push_back(tmp);
-                    T_c_w_last_keyframe = curr_frame->T_c_w;
                     new_keyframe = true;
                     vo_tracking_state = Tracking;
-                    cout << "vo_tracking_state = Working" << endl;
-                }else
+                    cout << "Recover succeed" << endl;
+                }
+                else
                 {
-                    cout << "Re-initialization fail: no enough measurement" << endl;
+                    last_frame.swap(curr_frame);
+                    cout << "Recover failure" << endl;
                 }
             }
             else
             {
+                last_frame.swap(curr_frame);
                 cout << "Re-initialization fail: can not find the frame in motion module" << endl;
             }
             cnt=0;
-        }else
-        {
-            if((cnt%5)==0)
-                reset_cmd = true;
         }
-
+        else
+        {
+            last_frame.swap(curr_frame);
+            if((cnt%2)==0)
+            {
+                reset_cmd = true;
+            }
+        }
         break;
     }//end of state: TrackingFail
     }//end of state machine
@@ -457,4 +404,58 @@ void F2FTracking::image_feed(const double time,
     auto stop = high_resolution_clock::now();
     auto duration = duration_cast<milliseconds>(stop - start);
     curr_frame->solving_time = (duration.count()/1000.0);
+}
+
+bool F2FTracking::init_frame()
+{
+    bool init_succeed=false;
+    vector<cv::Point2f> pts2d;
+    this->feature_dem->detect(curr_frame->img0,pts2d);
+    cout << "Detect " << pts2d.size() << " Features for init process"<< endl;
+    switch (this->cam_type)
+    {
+    case DEPTH_D435:
+    {
+        for(size_t i=0; i<pts2d.size(); i++)
+        {
+            curr_frame->landmarks.push_back(LandMarkInFrame(Vec2(pts2d.at(i).x,
+                                                                 pts2d.at(i).y),
+                                                            Vec2(pts2d.at(i).x,
+                                                                 pts2d.at(i).y),
+                                                            Vec3(0,0,0),
+                                                            false,
+                                                            curr_frame->T_c_w));
+        }
+        break;
+    }
+    case STEREO_EuRoC_MAV:{
+        vector<cv::Point2f> pts2d_undistort;
+        cv::undistortPoints(pts2d,pts2d_undistort,
+                            d_camera.K0,d_camera.D0,d_camera.R0,d_camera.P0);
+        for(size_t i=0; i<pts2d.size(); i++)
+        {
+            curr_frame->landmarks.push_back(LandMarkInFrame(Vec2(pts2d.at(i).x,
+                                                                 pts2d.at(i).y),
+                                                            Vec2(pts2d_undistort.at(i).x,
+                                                                 pts2d_undistort.at(i).y),
+                                                            Vec3(0,0,0),
+                                                            false,
+                                                            curr_frame->T_c_w));
+        }
+        break;
+    }
+    }
+    curr_frame->depthInnovation();
+    curr_frame->eraseNoDepthPoint();
+    if(curr_frame->validLMCount()>30)
+    {
+        ID_POSE tmp;
+        tmp.frame_id = curr_frame->frame_id;
+        tmp.T_c_w = curr_frame->T_c_w;
+        pose_records.push_back(tmp);
+        T_c_w_last_keyframe = curr_frame->T_c_w;
+        init_succeed = true;
+        cout << "vo_tracking_state = Tracking" << endl;
+    }
+    return init_succeed;
 }

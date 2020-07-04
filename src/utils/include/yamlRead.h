@@ -58,4 +58,10 @@ inline int getIntVariableFromYaml(string FilePath, string vName)
   const int ret = config[vName].as<int>();
   return ret;
 }
+inline bool getBoolVariableFromYaml(string FilePath, string vName)
+{
+  YAML::Node config = YAML::LoadFile(FilePath);
+  const bool ret = config[vName].as<bool>();
+  return ret;
+}
 #endif // YAML_EIGEN_H

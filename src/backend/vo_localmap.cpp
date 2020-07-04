@@ -35,6 +35,11 @@
 #include <g2o/core/block_solver.h>
 #include <g2o/core/optimization_algorithm_levenberg.h>
 
+#include <pcl_ros/point_cloud.h>
+#include <pcl/point_types.h>
+#include <pcl_conversions/pcl_conversions.h>
+#include <pcl/filters/voxel_grid.h>
+
 
 using namespace cv;
 using namespace std;
@@ -63,6 +68,8 @@ public:
     ~LocalMapNodeletClass() {;}
 
 private:
+    bool output_sparse_map;
+    ros::Publisher  map_pub;
     ros::Subscriber sub_kf;
     CorrectionInfMsg* pub_correction_inf;
 
@@ -73,6 +80,8 @@ private:
     LMOPTIMIZER_STATE optimizer_state;
     g2o::SparseOptimizer optimizer;
     vector<g2o::EdgeSE3ProjectXYZ*> edges;
+
+    pcl::PointCloud<pcl::PointXYZ>::Ptr map;
 
 
     void frame_callback(const flvis::KeyFrameConstPtr& msg)
@@ -319,18 +328,34 @@ private:
             //landmark position
             vector<LM_ITEM> lms;
             bag->getMultiViewLMs(lms,4);
-            cout<<"multi view lm  number:  "<<lms.size()<<endl;
+            //cout<<"multi view lm  number:  "<<lms.size()<<endl;
             //bag.getAllLMs(lms);
             correction_inf.lm_count = lms.size();
             //cout << "correction_inf" << endl;
-            for (auto lm:lms)
+            if(output_sparse_map)
             {
-                g2o::VertexSBAPointXYZ* v = dynamic_cast<g2o::VertexSBAPointXYZ*> (optimizer.vertex(lm.id));
-                Eigen::Vector3d pos = v->estimate();
-                int64_t id = v->id();
-                correction_inf.lm_id.push_back(id);
-                correction_inf.lm_3d.push_back(pos);
+                for (auto lm:lms)
+                {
+                    g2o::VertexSBAPointXYZ* v = dynamic_cast<g2o::VertexSBAPointXYZ*> (optimizer.vertex(lm.id));
+                    Eigen::Vector3d pos = v->estimate();
+                    map->points.push_back (pcl::PointXYZ(pos(0), pos(1), pos(2)));
+                    int64_t id = v->id();
+                    correction_inf.lm_id.push_back(id);
+                    correction_inf.lm_3d.push_back(pos);
+                }
             }
+            else
+            {
+                for (auto lm:lms)
+                {
+                    g2o::VertexSBAPointXYZ* v = dynamic_cast<g2o::VertexSBAPointXYZ*> (optimizer.vertex(lm.id));
+                    Eigen::Vector3d pos = v->estimate();
+                    int64_t id = v->id();
+                    correction_inf.lm_id.push_back(id);
+                    correction_inf.lm_3d.push_back(pos);
+                }
+            }
+
             optimizer_state=SLIDING_WINDOW;
             pub_correction_inf->pub(correction_inf.frame_id,
                                     correction_inf.T_c_w,
@@ -339,7 +364,17 @@ private:
                                     correction_inf.lm_3d,
                                     correction_inf.lm_outlier_count,
                                     correction_inf.lm_outlier_id);
-
+            if(output_sparse_map)
+            {
+                pcl::VoxelGrid<pcl::PointXYZ> sor;
+                map->width = map->points.size();
+                sor.setInputCloud (map);
+                sor.setLeafSize (0.08f, 0.08f, 0.08f);
+                sensor_msgs::PointCloud2 output;
+                pcl::toROSMsg(*map,output);
+                output.header.frame_id="map";
+                map_pub.publish(output);
+            }
         }//if(optimizer_state==OPTIMIZING)
         kfs.pop_front();
     }//call back function
@@ -350,10 +385,11 @@ private:
 
         string configFilePath;
         nh.getParam("/yamlconfigfile",   configFilePath);
-        int cam_type_from_yaml = getIntVariableFromYaml(configFilePath,"type_of_cam");
-        if(cam_type_from_yaml==0) cam_type=DEPTH_D435I;
-        if(cam_type_from_yaml==1) cam_type=STEREO_EuRoC_MAV;
-        if(cam_type==DEPTH_D435I)
+        int vi_type_from_yaml = getIntVariableFromYaml(configFilePath,"type_of_vi");
+        if(vi_type_from_yaml==0) cam_type=DEPTH_D435;
+        if(vi_type_from_yaml==1) cam_type=STEREO_EuRoC_MAV;
+        if(vi_type_from_yaml==2) cam_type=DEPTH_D435;
+        if(cam_type==DEPTH_D435)
         {
             cv::Mat K0 = cameraMatrixFromYamlIntrinsics(configFilePath,"cam0_intrinsics");
             cv::Mat D0   = distCoeffsFromYaml(configFilePath,"cam0_distortion_coeffs");
@@ -383,8 +419,8 @@ private:
             Mat3x3 R_=T_c0_c1.inverse().rotation_matrix();
             Vec3   T_=T_c0_c1.inverse().translation();
             cv::Mat R__ = (cv::Mat1d(3, 3) << R_(0,0), R_(0,1), R_(0,2),
-                            R_(1,0), R_(1,1), R_(1,2),
-                            R_(2,0), R_(2,1), R_(2,2));
+                           R_(1,0), R_(1,1), R_(1,2),
+                           R_(2,0), R_(2,1), R_(2,2));
             cv::Mat T__ = (cv::Mat1d(3, 1) << T_(0), T_(1), T_(2));
             cv::Mat R0,R1,P0,P1,Q;
             cv::stereoRectify(K0,D0,K1,D1,cv::Size(w,h),R__,T__,
@@ -401,7 +437,7 @@ private:
             cout << P1 << endl;
             cout << "-----------------" << endl;
         }
-        nh.getParam("window_size",   fix_window_optimizer_size);
+        fix_window_optimizer_size = getIntVariableFromYaml(configFilePath,"window_size");
         cout << "window_size: " << fix_window_optimizer_size << endl;
         if(fix_window_optimizer_size < 3 || fix_window_optimizer_size > 100)
         {
@@ -409,9 +445,20 @@ private:
             cout << "invalide window_size use default :" << fix_window_optimizer_size << endl;
         }
         bag = new PoseLMBag(fix_window_optimizer_size);
+
         optimizer_state = UN_INITIALIZED;
 
         pub_correction_inf = new CorrectionInfMsg(nh,"/vo_localmap_feedback");
+
+        output_sparse_map = false;
+        output_sparse_map = getBoolVariableFromYaml(configFilePath,"output_sparse_map");
+        if(output_sparse_map)
+        {
+            map = pcl::PointCloud<pcl::PointXYZ>::Ptr(new pcl::PointCloud<pcl::PointXYZ>);
+            map->header.frame_id = "map";
+            map->height = map->width = 1;
+            map_pub = nh.advertise<sensor_msgs::PointCloud2>("/map_cloud", 1);
+        }
 
         sub_kf = nh.subscribe<flvis::KeyFrame>(
                     "/vo_kf",

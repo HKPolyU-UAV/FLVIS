@@ -23,13 +23,6 @@
  *  //For every region, select features by Harris index and boundary size
  * */
 
-#define MAX_REGION_FREATURES_NUM (30)
-#define MIN_REGION_FREATURES_NUM (20)
-
-
-#define BOUNDARYBOXSIZE          (5)
-
-
 using namespace std;
 
 
@@ -40,17 +33,19 @@ public:
 
   FeatureDEM(const int image_width,
              const int image_height,
-             int boundaryBoxSize=BOUNDARYBOXSIZE);
+             const Vec6 f_para);
   ~FeatureDEM();
 
   void detect(const cv::Mat& img,
-              vector<Vec2>& pts,
-              vector<cv::Mat>& descriptors);
+              vector<cv::Point2f>& newPts);
+
+//  void detect_conventional(const cv::Mat& img,
+//              vector<Vec2>& pts,
+//              vector<cv::Mat>& descriptors);
 
   void redetect(const cv::Mat& img,
                 const vector<Vec2>& existedPts,
-                vector<Vec2>& newPts,
-                vector<cv::Mat>& newDescriptors,
+                vector<cv::Point2f>& newPts,
                 int &newKeyPtscount);
 
 private:
@@ -59,16 +54,20 @@ private:
   int regionWidth;
   int regionHeight;
   int boundary_dis;
-  vector<pair<cv::Point2f,float> > regionKeyPts[16];
+  int max_region_feature_num;
+  int min_region_feature_num;
+  int gftt_num;
+  double gftt_ql;
+  int gftt_dis;
+  vector<pair<cv::Point2f,float>> regionKeyPts[16];
   cv::Mat detectorMask[16];
 
   void calHarrisR(const cv::Mat& img, cv::Point2f& Pt, float &R);
 
-  void filterAndFillIntoRegion(const cv::Mat& img,
-                               const vector<cv::Point2f>& pts);
-
   void fillIntoRegion(const cv::Mat& img,
-                      const vector<cv::Point2f>& pts);
+                      const vector<cv::Point2f>& pts,
+                      vector<pair<cv::Point2f,float>> (&region)[16],
+                      bool  existed_features);
 
 
 

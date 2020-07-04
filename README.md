@@ -1,8 +1,9 @@
 #  FLVIS
 ## Feedback Loop Based Visual Inertial SLAM
 
-### 1-Demo Video
-TBD
+### 1-Video
+<a href="https://www.youtube.com/embed/ljZWb2x6CRQ" target="_blank"><img src="http://img.youtube.com/vi/ljZWb2x6CRQ/0.jpg" 
+alt="cla" width="480" height="300" border="1" /></a>
 ### 2-Relevent Publication:
 TBD
 ### 3-Support Hardware/Dataset:
@@ -16,7 +17,12 @@ Ubuntu 18.04 + ROS melodic <br />
 ````
 git clone https://github.com/Ttoto/FLVIS.git
 ````
-4.2 Compile and Install 3rd Part library
+4.2 Install 3rd Part library
+````
+sudo apt-get install libsuitesparse-dev 
+sudo apt-get install ros-melodic-octomap
+
+````
 ````
 cd catkin_ws/src/FLVIS/3rdPartLib/
 ./install3rdPartLib.sh
@@ -43,7 +49,18 @@ run the following launch files:
 roslaunch flvis rviz.launch
 roslaunch flvis flvis_euroc_mav.launch
 ````
+### 6-Screenshots
+| EuRoC DataSet MH_05    | 
+| ---------------------- | 
+| <img src="others/mh05_gif.gif" width="300">  |
 
+| Handheld Test in Lab   | 
+| ---------------------- | 
+| <img src="others/lab_gif.gif" width="300">  |
+
+| FlVIS on UAV Platform  | 
+| ---------------------- | 
+| <img src="others/uav_gif.gif" width="300">  |
 ### Maintainer:
 [Shengyang Chen](https://www.polyu.edu.hk/researchgrp/cywen/index.php/en/people/researchstudent.html)(Dept.ME,PolyU): shengyang.chen@connect.polyu.hk <br />
 Yajing Zou(Dept.LSGI,PolyU):rick.zou@connect.polyu.hk

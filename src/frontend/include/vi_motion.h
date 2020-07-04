@@ -26,6 +26,7 @@ public:
     double para_3;//acc-bias feedback parameter
     double para_4;//gyro-bias feedback parameter
     double magnitude_g;//magnitude of gravity
+    double ba_sat,bw_sat;
     Vec3 acc_bias;
     Vec3 gyro_bias;
     Vec3 gravity;
@@ -42,7 +43,9 @@ public:
              double para_1_in = 0.1,   //Madgwick beta
              double para_2_in = 0.05,  //proportion of vision feedforware(roll and pich)
              double para_3_in = 0.01,  //acc-bias feedback parameter
-             double para_4_in = 0.01); //gyro-bias feedback parameter
+             double para_4_in = 0.01,  //gyro-bias feedback parameter
+             double para_5_in = 0.5,   //acc bias saturation level
+             double para_6_in = 0.1);  //gyro bias saturation level
 
     void viIMUinitialization(const IMUSTATE imu_read,
                              Quaterniond& q_w_i,
@@ -61,7 +64,8 @@ public:
     bool viGetCorrFrameState(const double time, SE3& T_c_w);//get correspond frame time
 
     void viCorrectionFromVision(const double t_curr, const SE3 Tcw_curr,
-                                const double t_last, const SE3 Tcw_last);
+                                const double t_last, const SE3 Tcw_last,
+                                const double err);
     bool viGetIMURollPitchAtTime(const double time, double& roll, double& pitch);
 
 private:

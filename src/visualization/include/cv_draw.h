@@ -42,16 +42,14 @@ inline void drawOutlier(cv::Mat& img, const vector<Vec2>& outlier)
     }
 }
 
-inline void drawFlow(cv::Mat& img, const vector<Vec2>& from, const vector<Vec2>& to)
+inline void drawFlow(cv::Mat& img, const vector<cv::Point2f>& from, const vector<cv::Point2f>& to)
 {
     if(from.size()==to.size())
     {
         for(size_t i=0; i<from.size(); i++)
         {
-            cv::Point pt_from(floor(from.at(i)[0]),floor(from.at(i)[1]));
-            cv::Point pt_to(floor(to.at(i)[0]),floor(to.at(i)[1]));
-            //circle(img, pt_from, 2, Scalar( 0, 255, 0 ));
-            cv::arrowedLine(img, pt_from, pt_to, cv::Scalar( 0,204,204),1);
+            cv::circle(img, from.at(i), 1, cv::Scalar( 0, 255, 0 ), 1);
+            cv::line  (img, from.at(i), to.at(i), cv::Scalar( 0,204,204),1);
         }
     }
 }
@@ -63,12 +61,12 @@ inline void drawFrame(cv::Mat& img, CameraFrame& frame, int min, int max)
     if(fps>0&&fps<500)
     {
         cv::putText(img, "FPS:"+std::to_string(fps),
-                cv::Point(0,20), cv::FONT_HERSHEY_SIMPLEX, 0.8, cv::Scalar(0,255,0), 2, cv::LINE_8);
+                    cv::Point(0,20), cv::FONT_HERSHEY_SIMPLEX, 0.8, cv::Scalar(0,255,0), 2, cv::LINE_8);
     }
     std::stringstream stream;
     stream << std::fixed << std::setprecision(2) << frame.reprojection_error;
     cv::putText(img, "ERR:"+stream.str(),
-            cv::Point(img.cols-150,20), cv::FONT_HERSHEY_SIMPLEX, 0.8, cv::Scalar(0,255,0), 2, cv::LINE_8);
+                cv::Point(img.cols-150,20), cv::FONT_HERSHEY_SIMPLEX, 0.8, cv::Scalar(0,255,0), 2, cv::LINE_8);
     int gap= floor(250/(max-min));
     for(auto lm:frame.landmarks)
     {
@@ -79,8 +77,16 @@ inline void drawFrame(cv::Mat& img, CameraFrame& frame, int min, int max)
             if(z<min)  z=min;
             int b=floor((z-min)*gap);
             int r=255-b;
-            cv::Point pt(round(lm.lm_2d[0]),round(lm.lm_2d[1]));
-            cv::circle(img, pt, 2, cv::Scalar( b, 0, r ), 2);
+            cv::Point pt(round(lm.lm_2d_plane[0]),round(lm.lm_2d_plane[1]));
+            cv::circle(img, pt, 3, cv::Scalar( b, 0, r ), 3);
+//            if(lm.is_belong_to_kf)
+//            {
+//                cv::circle(img, pt, 3, cv::Scalar( b, 0, r ), 4);
+//            }
+//            else
+//            {
+//                cv::circle(img, pt, 2, cv::Scalar( b, 0, r ), 2);
+//            }
         }
     }
 }
@@ -108,9 +114,9 @@ inline void visualizeDepthImg(cv::Mat& visualized_depth, CameraFrame& frame)
         if(d_img.at<ushort>(i)==0)
         {
             cv::Vec3b color = visualized_depth.at<cv::Vec3b>(i);
-            color[0]=0;
-            color[1]=0;
-            color[2]=0;
+            color[0]=255;
+            color[1]=255;
+            color[2]=255;
             visualized_depth.at<cv::Vec3b>(i)=color;
         }
     }

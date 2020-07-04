@@ -32,6 +32,10 @@ public:
     double solving_time;
     double reprojection_error;
 
+    vector<cv::Point2f> flow_0,flow_1;
+    vector<cv::Point2f> depth_inno_outlier;
+    vector<cv::Point2f> flow_last,flow_curr;
+    vector<cv::Point2f> tracking_outlier;
 
 
     CameraFrame();
@@ -46,30 +50,28 @@ public:
                                    vector<bool>& maskHas3DInf);
     void recover3DPts_c_FromTriangulation(vector<Vec3>& pt3ds,
                                           vector<bool>& maskHas3DInf);
-    void depthInnovation(void);
+    void depthInnovation(const bool apply_iir=true);
+    void eraseNoDepthPoint(void);
     void correctLMP3DWByLMP3DCandT(void);//correct lm_3d_w by lm_3d_w and T_c_w
     void forceCorrectLM3DW(const int& cnt, const vector<int64_t>& ids, const vector<Vec3>& lms_3d);
     void forceMarkOutlier( const int& cnt, const vector<int64_t>& ids);
+    void markAsKF(void);
+    int  coVisKFCnt(void);
 
     //outlier from ransac pnp
     void updateLMState(vector<uchar> status);
 
     //IO
     int  validLMCount(void);
-    void getValid2d3dPair_cvPf(vector<cv::Point2f>& p2d,vector<cv::Point3f>& p3d);
+    void getAll2dPlaneUndistort3d_cvPf(vector<cv::Point2f>& p2d_p,
+                                       vector<cv::Point2f>& p2d_u,
+                                       vector<cv::Point3f>& p3d);
+    void get2dUndistort3dInlierPair_cvPf(vector<cv::Point2f>& p2d,vector<cv::Point3f>& p3d);
     void getValidInliersPair(vector<LandMarkInFrame> &lms);
-    void unpack(vector<Vec2>& pt2d,
-                vector<cv::Mat> & descriptors,
-                vector<Vec3>& pt3d,
-                vector<unsigned char>& mask3d);
-    void getKeyFrameInf(vector<int64_t>& lm_id, vector<Vec2>& lm_2d, vector<Vec3>& lm_3d, vector<cv::Mat> &lm_descriptors);
 
-
-    vector<cv::Point2f> get2dPtsVec_cvP2f(void);
-    vector<cv::Point3f> get3dPtsVec_cvP3f(void);
-    vector<Vec2> get2dPtsVec(void);
-    vector<Vec3> get3dPtsVec(void);
-    vector<cv::Mat>  getDescriptorVec(void);
+    void getKeyFrameInf(vector<int64_t>& lm_id, vector<Vec2>& lm_2d, vector<Vec3>& lm_3d);
+    vector<cv::Point2f> get2dPlaneVec_cvPf(void);
+    vector<Vec2> get2dPlaneVec(void);
     vector<Vec3> getValid3dPts(void);
 
 private:
