@@ -1,3 +1,5 @@
+sudo apt-get install cmake libeigen3-dev libsuitesparse-dev libqt4-dev qt4-qmake
+
 cd yaml-cpp-0.6.2
 mkdir build
 cd build
