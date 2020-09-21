@@ -289,6 +289,15 @@ void VIMOTION::viCorrectionFromVision(const double t_curr, const SE3 Tcw_curr,
         //        cout << "Ba_est : " << acc_bias_est.transpose().format(CleanFmt) << endl;
         //        cout << "Bg_est : " << gyro_bias_est.transpose().format(CleanFmt) << endl;
 
+        if(isnan(acc_bias_est(0)))
+        {
+          acc_bias_est=Vec3(0,0,0);
+        }
+        if(isnan(gyro_bias_est(0)))
+        {
+          gyro_bias_est=Vec3(0,0,0);
+        }
+
         double ba_est_norm = acc_bias_est.norm();
         if(ba_est_norm>ba_sat)
         {
