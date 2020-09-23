@@ -44,8 +44,6 @@ void CameraFrame::calReprjInlierOutlier(double &mean_prjerr, vector<Vec2> &outli
 {
     vector<double> distances;
     vector<double> valid_distances;
-    cout << T_c_w.translation() << endl;
-    cout << T_c_w.rotation_matrix()<< endl;
     for(LandMarkInFrame &lm :landmarks)
     {
         Vec3 lm3d_w=lm.lm_3d_w;
@@ -69,7 +67,7 @@ void CameraFrame::calReprjInlierOutlier(double &mean_prjerr, vector<Vec2> &outli
     }
     mean_prjerr = sum/(double)valid_distances.size();
 
-    cout << valid_distances.size() << endl;
+    //cout << valid_distances.size() << endl;
     //mean SH
     //double sh = mean_prjerr*sh_over_mean;
     //robust MAD SH MAD=1.4826*MED
