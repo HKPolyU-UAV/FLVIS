@@ -1,0 +1,70 @@
+#type_of_vi:
+#0---d435i
+#1---euroc mav dataset
+#2---d435+pixhawk
+type_of_vi: 1
+
+image_width: 752
+image_height: 480
+
+T_imu_mavimu:
+[ 0.0,  0.0,  1.0,  0.0,
+  0.0, -1.0,  0.0,  0.0,
+  1.0,  0.0,  0.0,  0.0,
+  0.0,  0.0,  0.0,  1.0]
+
+#cam0
+cam0_intrinsics: [458.654, 457.296, 367.215, 248.375]#fx fy cx cy
+cam0_distortion_coeffs: [-0.28340811, 0.07395907, 0.00019359, 1.76187114e-05]#k1 k2 r1 r2
+T_mavimu_cam0:
+[ 0.0148655429818, -0.999880929698, 0.00414029679422, -0.0216401454975,
+  0.999557249008, 0.0149672133247, 0.025715529948, -0.064676986768,
+ -0.0257744366974, 0.00375618835797, 0.999660727178, 0.00981073058949,
+  0.0, 0.0, 0.0, 1.0]
+
+#cam1
+cam1_intrinsics: [457.587, 456.134, 379.999, 255.238]#fx fy cx cy
+cam1_distortion_coeffs: [-0.28368365,  0.07451284, -0.00010473, -3.55590700e-05]#k1 k2 r1 r2
+T_mavimu_cam1:
+[ 0.0125552670891, -0.999755099723, 0.0182237714554, -0.0198435579556,
+  0.999598781151, 0.0130119051815, 0.0251588363115, 0.0453689425024,
+ -0.0253898008918, 0.0179005838253, 0.999517347078, 0.00786212447038,
+  0.0, 0.0, 0.0, 1.0]
+
+is_lite_version:   False
+
+##vifusion parameter
+#Madgwick beta
+vifusion_para1: 0.1
+#proportion of vision feedforware(roll and pich)
+vifusion_para2: 0.03
+#acc-bias feedback parameter
+vifusion_para3: 0.003
+#gyro-bias feedback parameter
+vifusion_para4: 0.01
+#acc saturation level
+vifusion_para5: 0.5
+#gyro saturation level
+vifusion_para6: 0.1
+
+
+#feature relate parameter
+#max features in a grid
+feature_para1: 30
+#min features in a grid
+feature_para2: 20
+#distance of features
+feature_para3: 5
+#goodFeaturesToTrack detector maxCorners
+feature_para4: 500
+#goodFeaturesToTrack detector qualityLevel
+feature_para5: 0.001
+#goodFeaturesToTrack detector minDistance
+feature_para6: 10
+
+
+#LocalMapThread
+output_sparse_map: True
+window_size:       10
+
+#LoopClosureTheread

@@ -1,0 +1,49 @@
+<launch>
+
+<!--Input######################################################################################################-->
+    <include file="$(find flvis)/launch/d435i/d435i_stereo.launch"/>
+
+<!--FLVIS######################################################################################################-->
+    <arg name="node_start_delay"  default="2.0" />
+    <param name="/yamlconfigfile" type="string" value="$(find flvis)/launch/d435i/sn943222072828_stereo.yaml"/>
+    <param name="/voc"            type="string" value="$(find flvis)/voc/voc_orb.dbow3"/>
+
+
+    <!-- Manager -->
+    <node pkg="nodelet" type="nodelet"
+          name="flvis_nodelet_manager" args="manager" output="screen"
+          launch-prefix="bash -c 'sleep 0; $0 $@' ">
+          <param name="num_worker_threads" value="8" />
+    </node>
+
+    <!-- TrackingNode -->
+    <node pkg="nodelet" type="nodelet" args="load flvis/TrackingNodeletClass flvis_nodelet_manager"
+        name="TrackingNodeletClass_loader" output="screen"
+        launch-prefix="bash -c 'sleep $(arg node_start_delay); $0 $@' ">
+        <!-- D435i -->
+        <remap from="/vo/input_image_0"  to="/camera/infra1/image_rect_raw"/>
+        <remap from="/vo/input_image_1"  to="/camera/infra2/image_rect_raw"/>
+        <remap from="/imu"               to="/camera/imu"/>
+    </node>
+
+    <!-- LocalMapNode -->
+<!--    <node pkg="nodelet" type="nodelet" args="load flvis/LocalMapNodeletClass flvis_nodelet_manager"
+          name="LocalMapNodeletClass_loader" output="screen"
+          launch-prefix="bash -c 'sleep $(arg node_start_delay); $0 $@' ">
+    </node>-->
+
+    <!-- LoopClosingNode -->
+<!--    <node pkg="nodelet" type="nodelet" args="load flvis/LoopClosingNodeletClass flvis_nodelet_manager"
+        name="LoopClosingNodeletClass_loader" output="screen"
+        launch-prefix="bash -c 'sleep $(arg node_start_delay); $0 $@' ">
+    </node>-->
+
+
+
+</launch>
+
+
+
+
+
+
