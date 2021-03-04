@@ -17,8 +17,8 @@ void KeyFrameMsg::cmdLMResetPub(ros::Time stamp)
     kf.frame_id = 0;
     kf.lm_count = 0;
     kf.command = KFMSG_CMD_RESET_LM;
-    kf.img = sensor_msgs::Image();
-    kf.d_img = sensor_msgs::Image();
+    kf.img0 = sensor_msgs::Image();
+    kf.img1 = sensor_msgs::Image();
     kf.lm_count = 0;
     kf.lm_id_data = std_msgs::Int64MultiArray();
     kf.lm_2d_data.clear();
@@ -34,11 +34,19 @@ void KeyFrameMsg::pub(CameraFrame& frame, ros::Time stamp)
     kf.header.stamp = stamp;
     kf.frame_id = frame.frame_id;
     kf.command = KFMSG_CMD_NONE;
-    cv_bridge::CvImage cvimg(std_msgs::Header(), "mono8", frame.img0);
-    cvimg.toImageMsg(kf.img);
+    cv_bridge::CvImage cvimg0(std_msgs::Header(), "mono8", frame.img0);
+    cvimg0.toImageMsg(kf.img0);
+    if(frame.d_camera.cam_type==DEPTH_D435)
+    {
+        cv_bridge::CvImage cv_d_img(std_msgs::Header(), "16UC1", frame.d_img);
+        cv_d_img.toImageMsg(kf.img1);
+    }
 
-    cv_bridge::CvImage cv_d_img(std_msgs::Header(), "16UC1", frame.d_img);
-    cv_d_img.toImageMsg(kf.d_img);
+    if(frame.d_camera.cam_type==STEREO_UNRECT || frame.d_camera.cam_type==STEREO_RECT)
+    {
+        cv_bridge::CvImage cvimg1(std_msgs::Header(), "mono8", frame.img1);
+        cvimg1.toImageMsg(kf.img1);
+    }
 
     vector<int64_t> lm_id;
     vector<Vec2> lm_2d;
@@ -117,8 +125,8 @@ void KeyFrameMsg::pub(CameraFrame& frame, ros::Time stamp)
 
 void KeyFrameMsg::unpack(flvis::KeyFrameConstPtr kf_const_ptr,
                          int64_t         &frame_id,
-                         cv::Mat         &img,
-                         cv::Mat         &d_img,
+                         cv::Mat         &img0,
+                         cv::Mat         &img1,
                          int             &lm_count,
                          vector<int64_t> &lm_id,
                          vector<Vec2>    &lm_2d,
@@ -127,17 +135,18 @@ void KeyFrameMsg::unpack(flvis::KeyFrameConstPtr kf_const_ptr,
                          SE3             &T_c_w,
                          ros::Time       &T)
 {
-    img.release();
+    img0.release();
+    img1.release();
     lm_id.clear();
     lm_2d.clear();
     lm_3d.clear();
     lm_descriptors.clear();
 
     frame_id = kf_const_ptr->frame_id;
-    cv_bridge::CvImagePtr cvbridge_image  = cv_bridge::toCvCopy(kf_const_ptr->img, kf_const_ptr->img.encoding);
-    img=cvbridge_image->image;
-    cv_bridge::CvImagePtr cvbridge_d_image = cv_bridge::toCvCopy(kf_const_ptr->d_img, kf_const_ptr->d_img.encoding);
-    d_img = cvbridge_d_image->image;
+    cv_bridge::CvImagePtr cvbridge_image  = cv_bridge::toCvCopy(kf_const_ptr->img0, kf_const_ptr->img0.encoding);
+    img0=cvbridge_image->image;
+    cv_bridge::CvImagePtr cvbridge_d_image = cv_bridge::toCvCopy(kf_const_ptr->img1, kf_const_ptr->img1.encoding);
+    img1 = cvbridge_d_image->image;
     lm_count = kf_const_ptr->lm_count;
     int count =  kf_const_ptr->lm_count;
     for(auto i=0; i<count; i++)

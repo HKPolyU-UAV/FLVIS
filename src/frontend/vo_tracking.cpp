@@ -15,6 +15,7 @@
 #include <include/tic_toc_ros.h>
 #include <include/common.h>
 #include <include/f2f_tracking.h>
+#include <include/vi_type.h>
 #include <include/rviz_frame.h>
 #include <include/rviz_path.h>
 #include <include/rviz_pose.h>
@@ -27,15 +28,11 @@
 #include <include/keyframe_msg.h>
 #include <include/correction_inf_msg.h>
 #include <tf/transform_listener.h>
-//#include <include/octomap_feeder.h>
+
 
 namespace flvis_ns
 {
-#define VI_TYPE_D435I_DEPTH        (0)
-#define VI_TYPE_EUROC_MAV          (1)
-#define VI_TYPE_D435_DEPTH_PIXHAWK (2)
-#define VI_TYPE_D435I_STEREO       (3)
-#define VI_TYPE_KITTI_STEREO       (4)
+
 
 enum TYPEOFIMU{D435I,
                EuRoC_MAV,

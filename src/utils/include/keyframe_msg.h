@@ -12,8 +12,8 @@
 
 
 struct KeyFrameStruct {
-    cv::Mat         img;
-    cv::Mat         d_img;
+    cv::Mat         img0;
+    cv::Mat         img1;
     int64_t         frame_id;
     int             lm_count;
     vector<int64_t> lm_id;
@@ -33,8 +33,8 @@ public:
     void pub(CameraFrame& frame, ros::Time stamp=ros::Time::now());
     static void unpack(flvis::KeyFrameConstPtr kf_const_ptr,
                        int64_t         &frame_id,
-                       cv::Mat             &img,
-                       cv::Mat             &d_img,
+                       cv::Mat         &img0,
+                       cv::Mat         &img1,
                        int             &lm_count,
                        vector<int64_t> &lm_id,
                        vector<Vec2>    &lm_2d,

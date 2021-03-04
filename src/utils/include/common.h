@@ -67,20 +67,20 @@ typedef pcl::PointCloud<PointI> PointCloudI;
 
 
 //transfor descriptors to vector of Mat(cv)
-inline void descriptors_to_vMat(const cv::Mat& descriptorMat, vector<cv::Mat>& vecDescriptorMat)
+inline void descriptors_to_vecDesciptor(const cv::Mat& descriptors, vector<cv::Mat>& vecDescriptor)
 {
-    vecDescriptorMat.clear();
-    for(int i=0; i<descriptorMat.size().height;i++)
+    vecDescriptor.clear();
+    for(int i=0; i<descriptors.size().height;i++)
     {
-        vecDescriptorMat.push_back(descriptorMat.row(i));
+        vecDescriptor.push_back(descriptors.row(i));
     }
 }
 //transfer vector of Mat to descriptors
-inline void vMat_to_descriptors(const cv::Mat& descriptorMat, vector<cv::Mat>& vecDescriptorMat)
+inline void vecDesciptor_to_descriptors(const vector<cv::Mat>& vecDescriptor, cv::Mat& descriptors)
 {
-  for(uint64_t i=0; i<vecDescriptorMat.size();i++)
+  for(uint64_t i=0; i<vecDescriptor.size();i++)
   {
-      descriptorMat.row(i) = vecDescriptorMat[i] + 0;// if delete 0, descriptorMat.row(i) will be zeros.
+      descriptors.row(i) = vecDescriptor[i] + 0;// if delete 0, descriptorMat.row(i) will be zeros.
   }
 }
 

@@ -1,8 +1,8 @@
 Header header
 int64  frame_id
 int8   command
-sensor_msgs/Image img
-sensor_msgs/Image d_img
+sensor_msgs/Image img0
+sensor_msgs/Image img1
 int32 lm_count
 std_msgs/Int64MultiArray lm_id_data
 geometry_msgs/Vector3[]  lm_2d_data

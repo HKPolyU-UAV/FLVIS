@@ -100,8 +100,8 @@ private:
         ros::Time tt;
         KeyFrameMsg::unpack(msg,
                             kf.frame_id,
-                            kf.img,
-                            kf.d_img,
+                            kf.img0,
+                            kf.img1,
                             kf.lm_count,
                             kf.lm_id,
                             kf.lm_2d,

@@ -1,27 +1,43 @@
-#include <pluginlib/class_list_macros.h>
-#include <nodelet/nodelet.h>
-#include <ros/ros.h>
-#include <cv_bridge/cv_bridge.h>
-#include <opencv2/opencv.hpp>
-
+//STDLIB
 #include <iostream>
 #include <fstream>
 #include <deque>
 #include <stdint.h>
+#include <condition_variable>
 
+//ROS
+#include <pluginlib/class_list_macros.h>
+#include <nodelet/nodelet.h>
+#include <ros/ros.h>
+#include <cv_bridge/cv_bridge.h>
+#include <sensor_msgs/PointCloud2.h>
+#include <geometry_msgs/Vector3.h>
+#include <geometry_msgs/TransformStamped.h>
+#include <tf/transform_listener.h>
+#include <tf/transform_broadcaster.h>
+#include <tf2_ros/transform_broadcaster.h>
+#include <tf2/LinearMath/Quaternion.h>
+
+//FLVIS
 #include <include/yamlRead.h>
-
 #include <include/keyframe_msg.h>
 #include <flvis/KeyFrame.h>
-#include <geometry_msgs/Vector3.h>
+#include <include/camera_frame.h>
+#include <include/vi_type.h>
+#include <include/tic_toc_ros.h>
+#include <include/rviz_path.h>
 
-// DBoW3
+//OPENCV
+#include <opencv2/opencv.hpp>
+
+//DBoW3
 #include "../3rdPartLib/DBow3/src/DBoW3.h"
 #include "../3rdPartLib/DBow3/src/DescManip.h"
 #include "../3rdPartLib/DBow3/src/Vocabulary.h"
 #include "../3rdPartLib/DBow3/src/BowVector.h"
 #include "../3rdPartLib/DBow3/src/ScoringObject.h"
 #include "../3rdPartLib/DBow3/src/Database.h"
+
 //g2o
 #include <g2o/config.h>
 #include <g2o/core/sparse_optimizer.h>
@@ -30,44 +46,26 @@
 #include <g2o/core/robust_kernel_impl.h>
 #include <g2o/core/optimization_algorithm_levenberg.h>
 #include <g2o/core/optimization_algorithm_gauss_newton.h>
-
 #include <g2o/solvers/dense/linear_solver_dense.h>
 #include <g2o/solvers/cholmod/linear_solver_cholmod.h>
 #include <g2o/solvers/csparse/linear_solver_csparse.h>
-
 #include <g2o/types/slam3d/vertex_pointxyz.h>
 #include <g2o/types/slam3d/vertex_se3.h>
 #include <g2o/types/slam3d/edge_se3.h>
 
-
-#include <include/tic_toc_ros.h>
-
+//PCL
 #include <pcl/io/pcd_io.h>
 #include <pcl/io/ply_io.h>
-
 #include <pcl/common/transforms.h>
 #include <pcl/point_types.h>
 #include <pcl/filters/voxel_grid.h>
 
-#include <condition_variable>
-
-// For TF
-#include <tf2_ros/transform_broadcaster.h>
-#include <geometry_msgs/TransformStamped.h>
-#include <tf2/LinearMath/Quaternion.h>
-#include <tf/transform_listener.h>
-#include <ros/ros.h>
-#include <sensor_msgs/PointCloud2.h>
-#include <tf/transform_broadcaster.h>
-
-#include <include/rviz_path.h>
 
 using namespace DBoW3;
 using namespace std;
 
 namespace flvis_ns
 {
-
 
 struct sort_simmat_by_score
 {
@@ -105,27 +103,11 @@ struct KeyFrameLC
     SE3             T_c_w;
     SE3             T_c_w_odom;
     vector<Vec2>    lm_2d;
-    vector<double>  lm_d;
+    vector<Vec3>    lm_3d;
+    vector<double>  lm_depth;
     vector<cv::Mat> lm_descriptor;
     BowVector       kf_bv;
 };
-
-struct KeyFrameLCStruct
-{
-    int64_t         frame_id;
-    int64_t         keyframe_id;
-    int             lm_count;
-    vector<int64_t> lm_id;
-    vector<Vec2>    lm_2d;
-    vector<Vec3  >  lm_3d;
-    vector<cv::Mat>     lm_descriptor;
-    BowVector       kf_bv;
-    SE3             T_c_w_odom;
-    SE3             T_c_w;
-    ros::Time       t;
-};
-
-
 
 class LoopClosingNodeletClass : public nodelet::Nodelet
 {
@@ -135,18 +117,11 @@ public:
 
 private:
     ros::Subscriber sub_kf;
-    int image_width,image_height;
-    cv::Mat cameraMatrix,distCoeffs;
-    cv::Mat diplay_img;
-    double fx,fy,cx,cy;
-    enum TYPEOFCAMERA cam_type;
-    //bool optimizer_initialized;
+    DepthCamera dc;
 
     ros::Time tt;
     tf::Transform transform;
     tf::TransformBroadcaster br;
-
-    vector<int64_t> optimizer_lm_id;
 
     LC_PARAS lc_paras;
     //DBow related para
@@ -171,11 +146,7 @@ private:
     //kf id
     int64_t kf_id = 0;
     //last loop id
-    int64_t last_pgo_id = -1000;
-
-
-
-
+    int64_t last_pgo_id = -5000;
 
     bool isLoopCandidate( uint64_t &kf_prev_idx)
     {
@@ -186,8 +157,8 @@ private:
         vector<Vector2d> max_sim_mat;
         if(g_size < 40) return is_lc_candidate;
         uint64_t sort_index;
-        if((g_size - lc_paras.lcKFDist) > 1000)
-            sort_index = g_size - lc_paras.lcKFDist -1000;
+        if((g_size - lc_paras.lcKFDist) > 5000)
+            sort_index = g_size - lc_paras.lcKFDist -5000;
         else
             sort_index = 0;
         for (uint64_t i = sort_index; i < static_cast<uint64_t>(g_size - lc_paras.lcKFDist); i++)
@@ -211,9 +182,9 @@ private:
             double score_i = sim_matrix[i][g_size-1];
             if (score_i < lc_min_score && score_i > 0.001) lc_min_score = score_i;
         }
-
+        cout << "lc_min_score is " << lc_min_score << endl;
         lc_min_score = min(lc_min_score, 0.4);
-        //cout<<"max sim score is: "<< max_sim_mat[0](1)<<endl;
+        cout<< "max sim score is: "<< max_sim_mat[0](1)<<endl;
         if( max_sim_mat[0](1) < max(lc_paras.minScore, lc_min_score)) return is_lc_candidate;
 
         int idx_max = int(max_sim_mat[0](0));
@@ -248,96 +219,6 @@ private:
         return is_lc_candidate;
     }
 
-    bool isLoopClosure(shared_ptr<KeyFrameLCStruct> kf0, shared_ptr<KeyFrameLCStruct> kf1,SE3 &se_ji)
-    {
-        //kf0 previous kf, kf1 current kf,
-        bool is_lc = false;
-        int common_pt = 0;
-
-        if (!(kf1->lm_descriptor.size() == 0) && !(kf0->lm_descriptor.size() == 0))
-        {
-
-            cv::BFMatcher *bfm = new cv::BFMatcher(cv::NORM_HAMMING, false); // cross-check
-            cv::Mat pdesc_l1= cv::Mat::zeros(cv::Size(32,static_cast<int>(kf0->lm_descriptor.size())),CV_8U);
-            cv::Mat pdesc_l2= cv::Mat::zeros(cv::Size(32,static_cast<int>(kf1->lm_descriptor.size())),CV_8U);
-            vector<vector<cv::DMatch>> pmatches_12, pmatches_21;
-            // 12 and 21 matches
-            vMat_to_descriptors(pdesc_l1,kf0->lm_descriptor);
-            vMat_to_descriptors(pdesc_l2,kf1->lm_descriptor);
-            // cout<<"size: "<<pdesc_l1.size().height<<" "<<pdesc_l1.size().width<<endl;
-            // cout<<"size: "<<pdesc_l2.size().height<<" "<<pdesc_l2.size().width<<endl;
-            bfm->knnMatch(pdesc_l1, pdesc_l2, pmatches_12, 2);
-            bfm->knnMatch(pdesc_l2, pdesc_l1, pmatches_21, 2);
-
-            // resort according to the queryIdx
-            sort(pmatches_12.begin(), pmatches_12.end(), sort_descriptor_by_queryIdx());
-            sort(pmatches_21.begin(), pmatches_21.end(), sort_descriptor_by_queryIdx());
-
-            // bucle around pmatches
-
-            vector<cv::Point3f> p3d;
-            vector<cv::Point2f> p2d;
-            p3d.clear();
-            p2d.clear();
-
-            for (size_t i = 0; i < pmatches_12.size(); i++)
-            {
-                // check if they are mutual best matches
-                size_t lr_qdx = static_cast<size_t>(pmatches_12[i][0].queryIdx);
-                size_t lr_tdx = static_cast<size_t>(pmatches_12[i][0].trainIdx);
-                size_t rl_tdx = static_cast<size_t>(pmatches_21[lr_tdx][0].trainIdx);
-
-                // check if they are mutual best matches and satisfy the distance ratio test
-
-                if (lr_qdx == rl_tdx)
-                {
-                    if(pmatches_12[i][0].distance/pmatches_12[i][1].distance < static_cast<float>(lc_paras.ratioMax))
-                    {
-                        common_pt++;
-                        // save data for optimization
-                        Vector3f P = (kf0->lm_3d[lr_qdx]).cast <float> ();
-                        Vector2f pl_obs = (kf1->lm_2d[lr_tdx]).cast <float> ();
-
-                        cv::Point3f p3(P(0),P(1),P(2));
-                        cv::Point2f p2(pl_obs(0),pl_obs(1));
-                        p3d.push_back(p3);
-                        p2d.push_back(p2);
-                    }
-
-                }
-
-            }
-            cv::Mat r_ = cv::Mat::zeros(3, 1, CV_64FC1);
-            cv::Mat t_ = cv::Mat::zeros(3, 1, CV_64FC1);
-            cv::Mat inliers;
-            SE3_to_rvec_tvec(kf0->T_c_w, r_ , t_ );
-            if(p3d.size() < 5) return is_lc;
-            solvePnPRansac(p3d,p2d,cameraMatrix,distCoeffs,r_,t_,false,100,3.0,0.99,inliers,cv::SOLVEPNP_P3P);
-            // cout<<"selected points size: "<<p3d.size()<<" inliers size: "<<inliers.rows<<" unseletced size: "<<pmatches_12.size()<<endl;
-            // cout<<"ratio test: "<<inliers.rows*1.0/p3d.size()<<" "<<"number test "<<inliers.rows<<endl;
-
-            if(inliers.rows*1.0/p3d.size() < lc_paras.ratioRansac || inliers.rows < lc_paras.minPts ) //return is_lc;
-            {
-                // cout<<"dont believe: "<<endl;
-                // cout<<"ratio test: "<<static_cast<double>(inliers.rows)/static_cast<double>(p3d.size())<<" "<<"number test "<<inliers.rows<<endl;
-                return is_lc;
-            }
-
-            // cout<<"after ransac test: "<<endl;
-
-            SE3 se_iw = kf0->T_c_w;
-            SE3 se_jw = SE3_from_rvec_tvec(r_,t_);
-            //SE3 se_jw_p = kf1->T_c_w;
-
-            se_ji = se_jw*se_iw.inverse();// i previous kf, j current kf, sji = sjw*swi; from prev to curr
-            //se_ij = se_ji.inverse();
-            //SE3 se_j_correct = se_jw*se_jw_p.inverse();
-
-            if(se_ji.translation().norm() < 3 && se_ji.so3().log().norm() < 1.5) is_lc = true;
-        }
-        return is_lc;
-    }
-
     bool isLoopClosureKF(shared_ptr<KeyFrameLC> kf0, shared_ptr<KeyFrameLC> kf1,SE3 &se_ji)
     {
         //kf0 previous kf, kf1 current kf,
@@ -356,8 +237,10 @@ private:
             cv::Mat pdesc_l2= cv::Mat::zeros(cv::Size(32,static_cast<int>(kf1->lm_descriptor.size())),CV_8U);
             vector<vector<cv::DMatch>> pmatches_12, pmatches_21;
             // 12 and 21 matches
-            vMat_to_descriptors(pdesc_l1,kf0->lm_descriptor);
-            vMat_to_descriptors(pdesc_l2,kf1->lm_descriptor);
+            vecDesciptor_to_descriptors(kf0->lm_descriptor,pdesc_l1);
+            vecDesciptor_to_descriptors(kf1->lm_descriptor,pdesc_l2);
+            //            vMat_to_descriptors(pdesc_l1,kf0->lm_descriptor);
+            //            vMat_to_descriptors(pdesc_l2,kf1->lm_descriptor);
             // cout<<"size: "<<pdesc_l1.size().height<<" "<<pdesc_l1.size().width<<endl;
             // cout<<"size: "<<pdesc_l2.size().height<<" "<<pdesc_l2.size().width<<endl;
             bfm->knnMatch(pdesc_l1, pdesc_l2, pmatches_12, 2);
@@ -385,19 +268,18 @@ private:
                 size_t rl_tdx = static_cast<size_t>(pmatches_21[lr_tdx][0].trainIdx);
 
                 // check if they are mutual best matches and satisfy the distance ratio test
-
                 if (lr_qdx == rl_tdx)
                 {
                     if(pmatches_12[i][0].distance/pmatches_12[i][1].distance < static_cast<float>(lc_paras.ratioMax))
                     {
                         common_pt++;
                         // save data for optimization
-                        //Vector3d P = kf0->lm_3d[lr_qdx];
-                        double d = kf0->lm_d[lr_qdx];
-                        Vector2d pl_map = kf0->lm_2d[lr_qdx];
-                        double x = (pl_map(0)-cx)/fx*d;
-                        double y = (pl_map(1)-cy)/fy*d;
-                        Vector3d P0(x,y,d);
+                        Vector3d P0 = kf0->lm_3d[lr_qdx];
+                        //                        double d = kf0->lm_depth[lr_qdx];
+                        //                        Vector2d pl_map = kf0->lm_2d[lr_qdx];
+                        //                        double x = (pl_map(0)-dc.cam0_cx)/dc.cam0_fx*d;
+                        //                        double y = (pl_map(1)-dc.cam0_cy)/dc.cam0_fy*d;
+                        //                        Vector3d P0(x,y,d);
                         Vector3f P = P0.cast<float>();
                         Vector2f pl_obs = kf1->lm_2d[lr_tdx].cast<float>();
                         cv::Point3f p3(P(0),P(1),P(2));
@@ -415,7 +297,7 @@ private:
             //SE3_to_rvec_tvec(kf0->T_c_w, r_ , t_ );
             //cout<<"start ransac"<<endl;
             if(p3d.size() < 5) return is_lc;
-            solvePnPRansac(p3d,p2d,cameraMatrix,distCoeffs,r_,t_,false,100,4.0,0.99,inliers,cv::SOLVEPNP_P3P);
+            solvePnPRansac(p3d,p2d,dc.K0_rect,dc.D0_rect,r_,t_,false,100,4.0,0.99,inliers,cv::SOLVEPNP_P3P);
             //    cout<<"selected points size: "<<p3d.size()<<" inliers size: "<<inliers.rows<<" unseletced size: "<<pmatches_12.size()<<endl;
 
             if(inliers.rows*1.0/p3d.size() < lc_paras.ratioRansac || inliers.rows < lc_paras.minPts ) //return is_lc;
@@ -425,16 +307,6 @@ private:
                 return is_lc;
             }
             //SE3 se_ij
-
-
-            //          SE3 se_iw = kf0->T_c_w;
-            //          SE3 se_jw = SE3_from_rvec_tvec(r_,t_);
-            //          SE3 se_jw_p = kf1->T_c_w;
-
-            //          se_ji = se_jw*se_iw.inverse();// i previous kf, j current kf, sji = sjw*swi; from prev to curr
-            //          //se_ij = se_ji.inverse();
-            //          SE3 se_j_correct = se_jw*se_jw_p.inverse();
-
             se_ji = SE3_from_rvec_tvec(r_,t_);
 
             if(se_ji.translation().norm() < 3 && se_ji.so3().log().norm() < 1.5) is_lc = true;
@@ -447,12 +319,10 @@ private:
     {
         size_t g_size = kfbv_map.size();
         sim_vec.resize(g_size);
-
         // sim matrix
         sim_matrix.resize(g_size);
         for (size_t i = 0; i < g_size; i++)
             sim_matrix[i].resize(g_size);
-
     }
 
 
@@ -634,111 +504,189 @@ private:
     {
         if(msg->command==KFMSG_CMD_RESET_LM)
             return;
-
-        tic_toc_ros unpack_tt;
         sim_vec.clear();
-        KeyFrameLC kf;
-        BowVector kf_bv;
-        SE3 loop_pose;
 
-        cv::Mat img_unpack, d_img_unpack;
+        //STEP1: Unpack and construct KeyFrameLC tructure
+        //STEP1.1 Unpack
+        // [1]kf.frame_id
+        // [2]kf.T_c_w_odom
+        // [3]kf.T_c_w_odom
+        KeyFrameLC kf;
+        cv::Mat img0_unpack, img1_unpack;
         vector<int64_t> lm_id_unpack;
         vector<Vec3> lm_3d_unpack;
         vector<Vec2> lm_2d_unpack;
         vector<cv::Mat>     lm_descriptor_unpack;
         int lm_count_unpack;
-
-
-        KeyFrameMsg::unpack(msg,kf.frame_id,img_unpack,d_img_unpack,lm_count_unpack,
+        KeyFrameMsg::unpack(msg,kf.frame_id,img0_unpack,img1_unpack,lm_count_unpack,
                             lm_id_unpack,lm_2d_unpack,lm_3d_unpack,lm_descriptor_unpack,kf.T_c_w_odom,kf.t);
-
+        SE3 T_map_odom;
+        Quaterniond q_tf;
+        Vec3        t_tf;
+        if(1)//Visualization and publish transformation between map and odom
+        {
+            path_lc_pub->pubPathT_c_w(kf.T_c_w,kf.t);
+            T_map_odom = T_odom_map.inverse();
+            q_tf = T_map_odom.so3().unit_quaternion();
+            t_tf = T_map_odom.translation();
+            transform.setOrigin(tf::Vector3(t_tf[0],t_tf[1],t_tf[2]));
+            transform.setRotation(tf::Quaternion(q_tf.x(),q_tf.y(),q_tf.z(),q_tf.w()));
+            br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "map", "odom"));
+        }
+        //STEP1.2 Construct KeyFrameLC
+        // [1]kf.T_c_w
+        // [2]kf.keyframe_id
+        BowVector kf_bv;
+        SE3 loop_pose;
         kf.T_c_w = kf.T_c_w_odom*T_odom_map;
         kf.keyframe_id = kf_id++;
 
-        path_lc_pub->pubPathT_c_w(kf.T_c_w,kf.t);
-
-
-
-        //cout<<"unpack cost: ";
-        //unpack_tt.toc();
-
-        //cout<<"send transform between map and odom: "<<endl;
-
-        SE3 T_map_odom = T_odom_map.inverse();
-
-        Quaterniond q_tf = T_map_odom.so3().unit_quaternion();
-        Vec3        t_tf = T_map_odom.translation();
-
-
-        transform.setOrigin(tf::Vector3(t_tf[0],t_tf[1],t_tf[2]));
-        transform.setRotation(tf::Quaternion(q_tf.x(),q_tf.y(),q_tf.z(),q_tf.w()));
-
-        br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "map", "odom"));
-
-        tic_toc_ros feature_tt;
-
-
+        //STEP1.3 Extract-Compute_descriptors
         vector<cv::KeyPoint> ORBFeatures;
-        vector<cv::Point2f>  kps;
         cv::Mat ORBDescriptorsL;
         vector<cv::Mat> ORBDescriptors;
-
-        kps.clear();
         ORBFeatures.clear();
         ORBDescriptors.clear();
-
         cv::Ptr<cv::ORB> orb = cv::ORB::create(500,1.2f,8,31,0,2, cv::ORB::HARRIS_SCORE,31,20);
-        orb->detectAndCompute(img_unpack,cv::Mat(),ORBFeatures,ORBDescriptorsL);
-
-        cv::KeyPoint::convert(ORBFeatures,kps);
-        descriptors_to_vMat(ORBDescriptorsL,ORBDescriptors);
-
-
-
+        orb->detectAndCompute(img0_unpack,cv::Mat(),ORBFeatures,ORBDescriptorsL);
+        descriptors_to_vecDesciptor(ORBDescriptorsL,ORBDescriptors);
         kf.lm_descriptor = ORBDescriptors;
 
-        //cout<<"descriptor numbers: "<<ORBDescriptors.size()<<endl;
-        // cout<<"feature cost: ";feature_tt.toc();
+        //STEP1.4 Construct KeyFrameLC
+        //Compute bow vector
+        // [1]kf.kf_bv
+        voc.transform(kf.lm_descriptor,kf_bv);
+        kf.kf_bv = kf_bv;
 
-
-        //pass feature and descriptor
+        //STEP1.5 Construct KeyFrameLC
+        //Recover 3d information
+        // [1]kf.kf_bv
+        vector<Vec3> lm_3d;
         vector<Vec2> lm_2d;
         vector<double> lm_d;
-        for(size_t i = 0; i<ORBFeatures.size();i++)
+        vector<bool> lm_3d_mask;
+        switch(dc.cam_type)
         {
-            cv::Point2f cvtmp = ORBFeatures[i].pt;
-            Vec2 tmp(cvtmp.x,cvtmp.y);
-            double d = (d_img_unpack.at<ushort>(cvtmp))/1000;
-            lm_2d.push_back(tmp);
-            lm_d.push_back(d);
+        case STEREO_RECT:
+        {
+            cout << "here" << endl;
+            //track to another image
+            std::vector<cv::Point2f> lm_img0, lm_img1;
+            vector<float>   err;
+            vector<unsigned char> status;
+            cv::KeyPoint::convert(ORBFeatures,lm_img0);
+            lm_img1 = lm_img0;
+            //cout << lm_img0.size() << endl;
+            cv::calcOpticalFlowPyrLK(img0_unpack, img1_unpack,
+                                     lm_img0, lm_img1,
+                                     status, err, cv::Size(31,31),5,
+                                     cv::TermCriteria(cv::TermCriteria::COUNT+cv::TermCriteria::EPS, 30, 0.001),
+                                     cv::OPTFLOW_USE_INITIAL_FLOW);
+
+            //triangulation
+            for(size_t i=0; i<status.size(); i++)
+            {
+                if(status.at(i)==1)
+                {
+                    Vec3 pt3d_c;
+                    if(Triangulation::trignaulationPtFromStereo(Vec2(lm_img0.at(i).x,lm_img0.at(i).y),
+                                                                Vec2(lm_img1.at(i).x,lm_img1.at(i).y),
+                                                                dc.P0_,
+                                                                dc.P1_,
+                                                                pt3d_c))
+                    {
+                        lm_2d.push_back(Vec2(lm_img0.at(i).x,lm_img0.at(i).y));
+                        lm_d.push_back(0.0);
+                        lm_3d.push_back(pt3d_c);
+                        lm_3d_mask.push_back(true);
+                        continue;
+                    }
+                    else
+                    {
+
+                        lm_2d.push_back(Vec2(0,0));
+                        lm_d.push_back(0.0);
+                        lm_3d.push_back(Vec3(0,0,0));
+                        lm_3d_mask.push_back(false);
+                        continue;
+                    }
+                }else
+                {
+                    lm_2d.push_back(Vec2(0,0));
+                    lm_d.push_back(0.0);
+                    lm_3d.push_back(Vec3(0,0,0));
+                    lm_3d_mask.push_back(false);
+                    continue;
+                }
+            }
+            break;
         }
+        case STEREO_UNRECT:
+        {
+            //track to another image
+            //go to undistor plane
+            //triangulation
+            break;
+        }
+        case DEPTH_D435:
+        {
+            for(size_t i = 0; i<ORBFeatures.size();i++)
+            {
+                cv::Point2f cvtmp = ORBFeatures[i].pt;
+                Vec2 tmp(cvtmp.x,cvtmp.y);
+                double d = (img1_unpack.at<ushort>(cvtmp))/1000;
+                if(d>=0.3&&d<=10)
+                {
+                    Vec3 p3d((tmp.x()-dc.cam0_cx)/dc.cam0_fx*d,
+                             (tmp.y()-dc.cam0_cy)/dc.cam0_fy*d,
+                             d);
+                    lm_2d.push_back(tmp);
+                    lm_d.push_back(d);
+                    lm_3d.push_back(p3d);
+                    lm_3d_mask.push_back(true);
+                }else
+                {
+                    lm_2d.push_back(Vec2(0,0));
+                    lm_d.push_back(0.0);
+                    lm_3d.push_back(Vec3(0,0,0));
+                    lm_3d_mask.push_back(false);
+                }
+            }
+            break;
+        }
+        }
+
+        //STEP1.6 Construct KeyFrameLC
+        // [1]kf.lm_2d
+        // [2]kf.lm_d
+        // [3]kf.lm_descriptor
+        // [4]kf.lm_count
+        //pass feature and descriptor
         kf.lm_2d = lm_2d;
-        kf.lm_d = lm_d;
-        kf.lm_count = static_cast<int>(lm_2d.size());
-        // cout<<"pass feature number: "<<kf.lm_count;
+        kf.lm_3d = lm_3d;
+        kf.lm_depth = lm_d;
+        for(int i=lm_3d_mask.size()-1; i>=0; i--)
+        {
+            if(lm_3d_mask.at(i)==false)
+            {
+                kf.lm_descriptor.erase(kf.lm_descriptor.begin()+i);
+                kf.lm_2d.erase(kf.lm_2d.begin()+i);
+                kf.lm_3d.erase(kf.lm_3d.begin()+i);
+            }
+        }
+        kf.lm_count = static_cast<int>(kf.lm_2d.size());
         lm_2d.clear();
+        lm_3d.clear();
         lm_d.clear();
 
 
-
-
-        tic_toc_ros bow_tt;
-
-        voc.transform(kf.lm_descriptor,kf_bv);
-        kf.kf_bv = kf_bv;
-        // cout<<"bow transfer cost: ";bow_tt.toc();
-
+        //STEP2 add kf to list
         shared_ptr<KeyFrameLC> kf_lc_ptr =std::make_shared<KeyFrameLC>(kf);
         kf_map_lc.push_back(kf_lc_ptr);
         kfbv_map.push_back(kf_bv);
         expandGraph();
 
-
-
-
-        tic_toc_ros bow_find_tt;
-
-
+        //STEP3 search similar image in the list
         for (uint64_t i = 0; i < kf_map_lc.size(); i++)
         {
             if(kf_map_lc[i] != nullptr)
@@ -752,7 +700,6 @@ private:
                 sim_matrix[kf_map_lc.size()-1][i] = 0;
                 sim_matrix[i][kf_map_lc.size()-1] = 0;
                 sim_vec[i] = 0;
-
             }
         }
         if(kf_map_lc.size()%10 == 0)
@@ -769,22 +716,13 @@ private:
             }
             sim_txt.close();
         }
-
-        //cout<<"bow find cost: ";
-        //bow_find_tt.toc();
-
         if(kf_id < 50)
         {
             //cout<<"KF number is less than 50. Return."<<endl;
             return;
         }
-
-
-
         uint64_t kf_prev_idx;
         bool is_lc_candidate = isLoopCandidate(kf_prev_idx);
-
-
         if(!is_lc_candidate)
         {
             //cout<<"no loop candidate."<<endl;
@@ -794,55 +732,39 @@ private:
         {
             //cout<<"has loop candidate."<<endl;
         }
-
-
         bool is_lc = false;
         uint64_t kf_curr_idx = kf_map_lc.size()-1;
-
-
-
         is_lc = isLoopClosureKF(kf_map_lc[kf_prev_idx], kf_map_lc[kf_curr_idx], loop_pose);
         if(!is_lc)
         {
             //cout<<"Geometry test fails."<<endl;
             return;
-
         }
         else {
             //cout<<"Pass geometry test."<<endl;
         }
         if(is_lc)
         {
-
             loop_ids.push_back(Vec3I(static_cast<int>(kf_prev_idx), static_cast<int>(kf_curr_idx), 1));
             loop_poses.push_back(loop_pose);
-
             int thre = static_cast<int>((static_cast<double>(kf_id)/100)*2);
-
             if(kf_curr_idx - static_cast<size_t>(last_pgo_id) < thre)
                 cout<<"Last loop is too close."<<endl;
-
             if(kf_curr_idx - static_cast<size_t>(last_pgo_id) > thre)
             {
                 path_lc_pub->clearPath();
                 tic_toc_ros pgo;
                 loopClosureOnCovGraphG2ONew();
                 last_pgo_id = static_cast<int>(kf_curr_idx);
-                //cout<<"pose graph takes: "<<endl;
-                //pgo.toc();
             }
         }
-
         kf_lc_ptr->T_c_w = kf_lc_ptr->T_c_w_odom*T_odom_map;
         T_map_odom = T_odom_map.inverse();
 
         q_tf = T_map_odom.so3().unit_quaternion();
         t_tf = T_map_odom.translation();
-
-
         transform.setOrigin(tf::Vector3(t_tf[0],t_tf[1],t_tf[2]));
         transform.setRotation(tf::Quaternion(q_tf.x(),q_tf.y(),q_tf.z(),q_tf.w()));
-
         br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "map", "odom"));
     }
 
@@ -853,8 +775,6 @@ private:
 
         string configFilePath;
         nh.getParam("/yamlconfigfile",   configFilePath);
-        int vi_type_from_yaml = getIntVariableFromYaml(configFilePath,"type_of_vi");
-        if(vi_type_from_yaml==0) cam_type=DEPTH_D435;
 
         lc_paras.lcKFStart    = getIntVariableFromYaml(configFilePath,"lcKFStart");
         lc_paras.lcKFDist     = getIntVariableFromYaml(configFilePath,"lcKFDist");
@@ -866,30 +786,137 @@ private:
         lc_paras.ratioRansac  = getDoubleVariableFromYaml(configFilePath,"ratioRansac");
         lc_paras.minScore     = getDoubleVariableFromYaml(configFilePath,"minScore");
 
-        if(cam_type==DEPTH_D435)
+        //#define VI_TYPE_D435I_DEPTH        (0)
+        //#define VI_TYPE_EUROC_MAV          (1)
+        //#define VI_TYPE_D435_DEPTH_PIXHAWK (2)
+        //#define VI_TYPE_D435I_STEREO       (3)
+        //#define VI_TYPE_KITTI_STEREO       (4)
+        int vi_type_from_yaml = getIntVariableFromYaml(configFilePath,"type_of_vi");
+
+        if(vi_type_from_yaml == VI_TYPE_D435I_DEPTH || vi_type_from_yaml == VI_TYPE_D435_DEPTH_PIXHAWK)
         {
-            cameraMatrix = cameraMatrixFromYamlIntrinsics(configFilePath,"cam0_intrinsics");
-            distCoeffs   = distCoeffsFromYaml(configFilePath,"cam0_distortion_coeffs");
-            fx = cameraMatrix.at<double>(0,0);
-            fy = cameraMatrix.at<double>(1,1);
-            cx = cameraMatrix.at<double>(0,2);
-            cy = cameraMatrix.at<double>(1,2);
+            int w = getIntVariableFromYaml(configFilePath,                    "image_width");
+            int h = getIntVariableFromYaml(configFilePath,                    "image_height");
+            cv::Mat K0_rect = cameraMatrixFromYamlIntrinsics(configFilePath,  "cam0_intrinsics");
+            double depth_factor = getDoubleVariableFromYaml(configFilePath,   "depth_factor");
+            Mat4x4 mat_imu_cam  = Mat44FromYaml(configFilePath,               "T_imu_cam0");
+            dc.setDepthCamInfo(w,
+                               h,
+                               K0_rect.at<double>(0,0),//fx
+                               K0_rect.at<double>(1,1),//fy
+                               K0_rect.at<double>(0,2),//cx
+                               K0_rect.at<double>(1,2),
+                               depth_factor,
+                               DEPTH_D435);
         }
-        image_width  = getIntVariableFromYaml(configFilePath,"image_width");
-        image_height = getIntVariableFromYaml(configFilePath,"image_height");
-        //        cameraMatrix = cameraMatrixFromYamlIntrinsics(configFilePath);
-        //        distCoeffs = distCoeffsFromYaml(configFilePath);
-        //        fx = cameraMatrix.at<double>(0,0);
-        //        fy = cameraMatrix.at<double>(1,1);
-        //        cx = cameraMatrix.at<double>(0,2);
-        //        cy = cameraMatrix.at<double>(1,2);
-        cout << "cameraMatrix:" << endl << cameraMatrix << endl
-             << "distCoeffs:" << endl << distCoeffs << endl
-             << "image_width: "  << image_width << " image_height: "  << image_height << endl
-             << "fx: "  << fx << " fy: "  << fy <<  " cx: "  << cx <<  " cy: "  << cy << endl;
+        if(vi_type_from_yaml == VI_TYPE_D435I_STEREO)
+        {
+            int w = getIntVariableFromYaml(configFilePath,             "image_width");
+            int h = getIntVariableFromYaml(configFilePath,             "image_height");
+            cv::Mat K0 = cameraMatrixFromYamlIntrinsics(configFilePath,"cam0_intrinsics");
+            cv::Mat D0 = distCoeffsFromYaml(configFilePath,            "cam0_distortion_coeffs");
+            cv::Mat K1 = cameraMatrixFromYamlIntrinsics(configFilePath,"cam1_intrinsics");
+            cv::Mat D1 = distCoeffsFromYaml(configFilePath,            "cam1_distortion_coeffs");
+            Mat4x4  mat_imu_cam  = Mat44FromYaml(configFilePath,       "T_imu_cam0");
+            Mat4x4  mat_cam0_cam1  = Mat44FromYaml(configFilePath,     "T_cam0_cam1");
+            SE3 T_i_c0 = SE3(mat_imu_cam.topLeftCorner(3,3),
+                             mat_imu_cam.topRightCorner(3,1));
+            SE3 T_c0_c1 = SE3(mat_cam0_cam1.topLeftCorner(3,3),
+                              mat_cam0_cam1.topRightCorner(3,1));
+            SE3 T_c1_c0 = T_c0_c1.inverse();
+            Mat3x3 R_ = T_c1_c0.rotation_matrix();
+            Vec3   T_ = T_c1_c0.translation();
+            cv::Mat R__ = (cv::Mat1d(3, 3) <<
+                           R_(0,0), R_(0,1), R_(0,2),
+                           R_(1,0), R_(1,1), R_(1,2),
+                           R_(2,0), R_(2,1), R_(2,2));
+            cv::Mat T__ = (cv::Mat1d(3, 1) << T_(0), T_(1), T_(2));
+            cv::Mat R0,R1,P0,P1,Q;
+            cv::stereoRectify(K0,D0,K1,D1,cv::Size(w,h),R__,T__,
+                              R0,R1,P0,P1,Q,
+                              cv::CALIB_ZERO_DISPARITY,0,cv::Size(w,h));
+            cv::Mat K0_rect = P0.rowRange(0,3).colRange(0,3);
+            cv::Mat K1_rect = P1.rowRange(0,3).colRange(0,3);
+            cv::Mat D0_rect,D1_rect;
+            D1_rect = D0_rect = (cv::Mat1d(4, 1) << 0,0,0,0);
+            dc.setSteroCamInfo(w,h,
+                               K0, D0, K0_rect, D0_rect, R0, P0,
+                               K1, D1, K1_rect, D1_rect, R1, P1,
+                               T_c0_c1,STEREO_RECT);
+        }
+        if(vi_type_from_yaml == VI_TYPE_EUROC_MAV)
+        {
+            int w = getIntVariableFromYaml(configFilePath,             "image_width");
+            int h = getIntVariableFromYaml(configFilePath,             "image_height");
+            cv::Mat K0 = cameraMatrixFromYamlIntrinsics(configFilePath,"cam0_intrinsics");
+            cv::Mat D0 = distCoeffsFromYaml(configFilePath,            "cam0_distortion_coeffs");
+            cv::Mat K1 = cameraMatrixFromYamlIntrinsics(configFilePath,"cam1_intrinsics");
+            cv::Mat D1 = distCoeffsFromYaml(configFilePath,            "cam1_distortion_coeffs");
+            Mat4x4  mat_mavimu_cam0  = Mat44FromYaml(configFilePath,   "T_mavimu_cam0");
+            Mat4x4  mat_mavimu_cam1  = Mat44FromYaml(configFilePath,   "T_mavimu_cam1");
+            Mat4x4  mat_i_mavimu  = Mat44FromYaml(configFilePath,      "T_imu_mavimu");
+            SE3 T_mavi_c0 = SE3(mat_mavimu_cam0.topLeftCorner(3,3),
+                                mat_mavimu_cam0.topRightCorner(3,1));
+            SE3 T_mavi_c1 = SE3(mat_mavimu_cam1.topLeftCorner(3,3),
+                                mat_mavimu_cam1.topRightCorner(3,1));
+            SE3 T_c0_c1 = T_mavi_c0.inverse()*T_mavi_c1;
+            SE3 T_c1_c0 = T_c0_c1.inverse();
+            SE3 T_i_mavi = SE3(mat_i_mavimu.topLeftCorner(3,3),mat_i_mavimu.topRightCorner(3,1));
+            SE3 T_i_c0 = T_i_mavi*T_mavi_c0;
+            Mat3x3 R_ = T_c1_c0.rotation_matrix();
+            Vec3   T_ = T_c1_c0.translation();
+            cv::Mat R__ = (cv::Mat1d(3, 3) <<
+                           R_(0,0), R_(0,1), R_(0,2),
+                           R_(1,0), R_(1,1), R_(1,2),
+                           R_(2,0), R_(2,1), R_(2,2));
+            cv::Mat T__ = (cv::Mat1d(3, 1) << T_(0), T_(1), T_(2));
+            cv::Mat R0,R1,P0,P1,Q;
+            cv::stereoRectify(K0,D0,K1,D1,cv::Size(w,h),R__,T__,
+                              R0,R1,P0,P1,Q,
+                              cv::CALIB_ZERO_DISPARITY,0,cv::Size(w,h));
+            cv::Mat K0_rect = P0.rowRange(0,3).colRange(0,3);
+            cv::Mat K1_rect = P1.rowRange(0,3).colRange(0,3);
+            cv::Mat D0_rect,D1_rect;
+            D1_rect = D0_rect = (cv::Mat1d(4, 1) << 0,0,0,0);
+            dc.setSteroCamInfo(w,h,
+                               K0, D0, K0_rect, D0_rect, R0, P0,
+                               K1, D1, K1_rect, D1_rect, R1, P1,
+                               T_c0_c1,STEREO_UNRECT);
+        }
+        if(vi_type_from_yaml == VI_TYPE_KITTI_STEREO)
+        {
+            int w = getIntVariableFromYaml(configFilePath,             "image_width");
+            int h = getIntVariableFromYaml(configFilePath,             "image_height");
+            Mat4x4  P0_ = Mat44FromYaml(configFilePath,"cam0_projection_matrix");
+            Mat4x4  P1_ = Mat44FromYaml(configFilePath,"cam1_projection_matrix");
+            Mat4x4  K_inverse;
+            K_inverse.fill(0);
+            Mat3x3 K = P0_.topLeftCorner(3,3);
+            K_inverse.topLeftCorner(3,3) = K.inverse();
+            cout << "K_inverse" << endl << K_inverse << endl;
+            Mat4x4 mat_T_c0_c1 = K_inverse*P1_;
+            mat_T_c0_c1.topLeftCorner(3,3).setIdentity();
+            SE3 T_c0_c1(mat_T_c0_c1.topLeftCorner(3,3),mat_T_c0_c1.topRightCorner(3,1));
+            cv::Mat P0 = (cv::Mat1d(3, 4) <<
+                          P0_(0,0), P0_(0,1), P0_(0,2), P0_(0,3),
+                          P0_(1,0), P0_(1,1), P0_(1,2), P0_(1,3),
+                          P0_(2,0), P0_(2,1), P0_(2,2), P0_(2,3));
+            cv::Mat P1 = (cv::Mat1d(3, 4) <<
+                          P1_(0,0), P1_(0,1), P1_(0,2), P1_(0,3),
+                          P1_(1,0), P1_(1,1), P1_(1,2), P1_(1,3),
+                          P1_(2,0), P1_(2,1), P1_(2,2), P1_(2,3));
+            cv::Mat K0,K1,K0_rect,K1_rect;
+            cv::Mat D0,D1,D0_rect,D1_rect;
+            D1_rect = D0_rect = D1 = D0 =(cv::Mat1d(4, 1) << 0,0,0,0);
+            K0 = K1 = K0_rect = P0.rowRange(0,3).colRange(0,3);
+            K1_rect = P1.rowRange(0,3).colRange(0,3);
+            dc.setSteroCamInfo(w,h,
+                               K0, D0, K0_rect, D0_rect, (cv::Mat1d(3, 3) << 1,0,0,0,1,0,0,0,1), P0,
+                               K1, D1, K1_rect, D1_rect, (cv::Mat1d(3, 3) << 1,0,0,0,1,0,0,0,1), P1,
+                               T_c0_c1,STEREO_RECT);
+        }
+
         string vocFile;
-
-
         nh.getParam("/voc", vocFile);
         Vocabulary vocTmp(vocFile);
         cout<<"voc begin: "<<endl;
@@ -897,9 +924,7 @@ private:
         kf_id = 0;
         Database dbTmp(voc, true, 0);
         db = dbTmp;
-
         path_lc_pub  = new RVIZPath(nh,"/vision_path_lc_all","map");
-
         sub_kf = nh.subscribe<flvis::KeyFrame>(
                     "/vo_kf",
                     10,

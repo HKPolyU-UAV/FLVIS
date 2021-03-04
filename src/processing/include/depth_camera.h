@@ -3,7 +3,6 @@
 
 #include "include/common.h"
 
-
 enum TYPEOFCAMERA{STEREO_RECT,  //rectified stereo images, suitable for d435 stereo mode, kitti dataset.
                   STEREO_UNRECT,//unrectified stereo images, suitable for euroc mav dataset.
                   DEPTH_D435    //depth images, suitable for d435 depth mode.
