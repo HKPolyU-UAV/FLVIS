@@ -1,13 +1,17 @@
 #type_of_vi:
-#0---d435i
+#0---d435i_depth
 #1---euroc mav dataset
 #2---d435+pixhawk
+#3---d435i_stereo
+#4---KITTI_stereo_mode
+
 type_of_vi: 0
 #depth image is aligned to left cam0
-image_width: 640
+image_width:  640
 image_height: 480
 cam0_intrinsics: [384.16455078125, 384.16455078125, 320.2144470214844, 238.94403076171875]#fx fy cx cy
 cam0_distortion_coeffs: [0.0, 0.0, 0.0, 0.0]#k1 k2 r1 r2
+depth_factor: 1000.0
 T_imu_cam0:
 [ 0.0,  0.0,  1.0,  0.0,
  -1.0,  0.0,  0.0,  0.0,
@@ -38,13 +42,13 @@ feature_para1: 15
 #min features in a grid
 feature_para2: 30
 #distance of features
-feature_para3: 5
+feature_para3: 3
 #goodFeaturesToTrack detector maxCorners
-feature_para4: 500
+feature_para4: 1000
 #goodFeaturesToTrack detector qualityLevel
-feature_para5: 0.001
+feature_para5: 0.0001
 #goodFeaturesToTrack detector minDistance
-feature_para6: 5
+feature_para6: 3
 
 
 #LocalMapThread
@@ -52,4 +56,21 @@ output_sparse_map: False
 window_size:       8
 
 #LoopClosureTheread
-
+#define lcKFStart
+lcKFStart: 25
+#define lcKFDist
+lcKFDist: 18
+#define lcKFMaxDist
+lcKFMaxDist: 50
+#define lcKFLast
+lcKFLast: 20
+#define lcNKFClosest
+lcNKFClosest: 2
+#define ratioMax
+ratioMax: 0.5
+#define ratioRansac
+ratioRansac: 0.5
+#define minPts
+minPts: 20
+#define minScore
+minScore: 0.12

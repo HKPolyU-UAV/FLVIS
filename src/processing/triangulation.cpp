@@ -43,7 +43,7 @@ bool Triangulation::trignaulationPtFromStereo(Vec2 pt0, Vec2 pt1,
                                               Vec3 &pt3d_c)
 {
     pt3d_c = triangulationPt(pt0,pt1,P0,P1);
-    if(pt3d_c[2]< 0 || pt3d_c[2]>25)
+    if(pt3d_c[2]< 0 || pt3d_c[2]>100)
     {
         return false;
     }else

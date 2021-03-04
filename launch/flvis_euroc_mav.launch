@@ -1,7 +1,8 @@
+<?xml version="1.0"?>
 <launch>
 <!--rosbag#####################################################################################################-->
     <param name="/use_sim_time" value="true" />
-    <node pkg="rosbag" type="play" name="rosbag" args="$(find flvis)/bag/MH_05_difficult.bag --clock" />
+    <node pkg="rosbag" type="play" name="rosbag" args="$(find flvis)/bag/EUROC/MH_05_difficult.bag --clock" />
     <!--    V1_01_easy     -->
     <!--    V1_02_medium   -->
     <!--    V1_03_difficult-->

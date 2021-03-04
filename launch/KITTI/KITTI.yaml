@@ -5,24 +5,26 @@
 #3---d435i_stereo
 #4---KITTI_stereo_mode
 
-type_of_vi: 3
-#depth image is aligned to left cam0
-image_width: 640
-image_height: 480
-cam0_intrinsics: [384.16455078125, 384.16455078125, 320.2144470214844, 238.94403076171875]#fx fy cx cy
+type_of_vi: 4
+
+image_width: 1241
+image_height: 376
+
+cam0_intrinsics: [718.856, 718.856, 607.1928, 185.2157]#fx fy cx cy
 cam0_distortion_coeffs: [0.0, 0.0, 0.0, 0.0]#k1 k2 r1 r2
-T_imu_cam0:
-[ 0.0,  0.0,  1.0,  0.0,
- -1.0,  0.0,  0.0,  0.0,
-  0.0, -1.0,  0.0,  0.0,
-  0.0,  0.0,  0.0,  1.0]
-cam1_intrinsics: [384.16455078125, 384.16455078125, 320.2144470214844, 238.94403076171875]#fx fy cx cy
+cam1_intrinsics: [718.856, 718.856, 607.1928, 185.2157]#fx fy cx cy
 cam1_distortion_coeffs: [0.0, 0.0, 0.0, 0.0]#k1 k2 r1 r2
-T_cam0_cam1:
-[ 1.0,  0.0,  0.0,  0.05,
-  0.0,  1.0,  0.0,  0.0,
-  0.0,  0.0,  1.0,  0.0,
-  0.0,  0.0,  0.0,  1.0]
+
+cam0_projection_matrix:
+[718.856, 0.0,     607.1928, 0.0,
+ 0.0,     718.856, 185.2157, 0.0,
+ 0.0,     0.0,     1.0,      0.0,
+ 0.0,     0.0,     0.0,      0.0]
+cam1_projection_matrix:
+[718.856, 0.0,     607.1928, -386.1448,
+ 0.0,     718.856, 185.2157, 0.0,
+ 0.0,     0.0,     1.0,      0.0,
+ 0.0,     0.0,     0.0,      0.0]
 
 is_lite_version:   False
 
@@ -43,22 +45,21 @@ vifusion_para6: 0.1
 
 #feature relate parameter
 #max features in a grid
-feature_para1: 15
+feature_para1: 60
 #min features in a grid
-feature_para2: 30
+feature_para2: 15
 #distance of features
-feature_para3: 5
+feature_para3: 3
 #goodFeaturesToTrack detector maxCorners
-feature_para4: 500
+feature_para4: 3000
 #goodFeaturesToTrack detector qualityLevel
-feature_para5: 0.001
+feature_para5: 0.0001
 #goodFeaturesToTrack detector minDistance
-feature_para6: 5
+feature_para6: 3
 
 
 #LocalMapThread
 output_sparse_map: False
-window_size:       8
+window_size:       10
 
 #LoopClosureTheread
-

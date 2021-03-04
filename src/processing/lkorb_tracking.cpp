@@ -10,8 +10,6 @@ bool LKORBTracking::tracking(CameraFrame& from,
                              CameraFrame& to,
                              SE3 T_c_w_guess,
                              bool use_guess,
-                             cv::Mat K0_rect,//cam0 rectified cameraMatrix;
-                             cv::Mat D0_rect,//cam0 rectified distCoeffs;
                              vector<cv::Point2f>& lm2d_from,
                              vector<cv::Point2f>& lm2d_to,
                              vector<cv::Point2f>& outlier)
@@ -52,8 +50,8 @@ bool LKORBTracking::tracking(CameraFrame& from,
                 tracked_p2d_plane.at(i) = cv::Point2f(reProj[0],reProj[1]);
             }
             break;
-        case STEREO_D435:
-        case STEREO_EuRoC_MAV:
+        case STEREO_RECT:
+        case STEREO_UNRECT:
             vector<cv::Point2f> project_to_to_img0_plane;
             cv::Mat r_,t_;
             SE3_to_rvec_tvec(T_c_w_guess,r_,t_);
@@ -65,14 +63,14 @@ bool LKORBTracking::tracking(CameraFrame& from,
         }
         cv::calcOpticalFlowPyrLK(from.img0, to.img0, from_p2d_plane, tracked_p2d_plane,
                                  mask_tracked, err, cv::Size(21,21), 5,
-                                 cv::TermCriteria((cv::TermCriteria::COUNT)+(cv::TermCriteria::EPS), 30, 0.01),
+                                 cv::TermCriteria((cv::TermCriteria::COUNT)+(cv::TermCriteria::EPS), 30, 0.001),
                                  cv::OPTFLOW_USE_INITIAL_FLOW);
     }else
     {
         cv::calcOpticalFlowPyrLK(from.img0, to.img0, from_p2d_plane, tracked_p2d_plane,
-                                 mask_tracked, err, cv::Size(31,31), 5,
-                                 cv::TermCriteria((cv::TermCriteria::COUNT)+(cv::TermCriteria::EPS), 30, 0.01),
-                                 0);
+                                 mask_tracked, err, cv::Size(31,31), 10,
+                                 cv::TermCriteria((cv::TermCriteria::COUNT)+(cv::TermCriteria::EPS), 30, 0.001),
+                                 cv::OPTFLOW_USE_INITIAL_FLOW);
     }
 
     switch(d_camera.cam_type)
@@ -81,8 +79,11 @@ bool LKORBTracking::tracking(CameraFrame& from,
         from_p2d_undistort = from_p2d_plane;
         tracked_p2d_undistort = tracked_p2d_plane;
         break;
-    case STEREO_D435:
-    case STEREO_EuRoC_MAV:
+    case STEREO_RECT:
+        from_p2d_undistort = from_p2d_plane;
+        tracked_p2d_undistort = tracked_p2d_plane;
+        break;
+    case STEREO_UNRECT:
         cv::undistortPoints(tracked_p2d_plane,tracked_p2d_undistort,
                             d_camera.K0,d_camera.D0,d_camera.R0,d_camera.P0);
         break;
@@ -91,8 +92,8 @@ bool LKORBTracking::tracking(CameraFrame& from,
 
     //Creat new frame with all successful Optical Flow result
     to.landmarks.clear();
-    int w=to.width-1;
-    int h=to.height-1;
+    int w = (to.d_camera.img_w-1);
+    int h = (to.d_camera.img_h-1);
     int of_inlier_cnt=0;
     for(int i=from.landmarks.size()-1; i>=0; i--)
     {
@@ -131,7 +132,7 @@ bool LKORBTracking::tracking(CameraFrame& from,
     //STEP2 F matrix check
     vector<unsigned char> mask_F_consistant;
     cv::findFundamentalMat(from_p2d_undistort, tracked_p2d_undistort,
-                           cv::FM_RANSAC, 3.0, 0.99, mask_F_consistant);
+                           cv::FM_RANSAC, 5.0, 0.99, mask_F_consistant);
     //F inconsistance point are mark as outlier
     int F_inlier_cnt=0;
     for(int i = 0; i < mask_F_consistant.size(); i++)
@@ -164,8 +165,8 @@ bool LKORBTracking::tracking(CameraFrame& from,
     vector<cv::Point2f> p2d;
     vector<cv::Point3f> p3d;
     to.get2dUndistort3dInlierPair_cvPf(p2d,p3d);
-    cv::solvePnPRansac(p3d,p2d,K0_rect,D0_rect,
-                       r_,t_,false,100,3.0,0.99,inliers,cv::SOLVEPNP_P3P);
+    cv::solvePnPRansac(p3d,p2d,this->d_camera.K0_rect,this->d_camera.D0_rect,
+                       r_,t_,false,100,5.0,0.99,inliers,cv::SOLVEPNP_P3P);
 //    if(use_guess){
 //        SE3_to_rvec_tvec(T_c_w_guess, r_ , t_ );
 //        cv::solvePnPRansac(p3d,p2d,K0_rect,D0_rect,

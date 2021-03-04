@@ -3,24 +3,39 @@
 DepthCamera::DepthCamera()
 {}
 
-void DepthCamera::setDepthCamInfo(double fx, double fy, double cx, double cy, double scale_factor)
+void DepthCamera::setDepthCamInfo(const int w_in, const int h_in,
+                                  const double fx,
+                                  const double fy,
+                                  const double cx,
+                                  const double cy,
+                                  const double scale_factor,
+                                  const enum TYPEOFCAMERA cam_type_in)
 {
+    this->img_w = w_in;
+    this->img_h = h_in;
     cam0_fx = fx;
     cam0_fy = fy;
     cam0_cx = cx;
     cam0_cy = cy;
     K0_ <<cam0_fx,0,cam0_cx,0,cam0_fy,cam0_cy,0,0,1;
+    K0_rect = (cv::Mat1d(3, 3) << fx, 0, cx, 0, fy, cy, 0, 0, 1);
+    D0_rect = (cv::Mat1d(4, 1) << 0,0,0,0);
     cam_scale_factor = scale_factor;
-    cam_type = DEPTH_D435;
+    cam_type = cam_type_in;
 }
 
-void DepthCamera::setSteroCamInfo(const cv::Mat K0_in,      const cv::Mat D0_in,
-                                  const cv::Mat K0_rect_in, const cv::Mat D0_rect_in, const cv::Mat R0_in, const cv::Mat P0_in,
+void DepthCamera::setSteroCamInfo(const int w_in, const int h_in,
+                                  const cv::Mat K0_in,      const cv::Mat D0_in,
+                                  const cv::Mat K0_rect_in, const cv::Mat D0_rect_in,
+                                  const cv::Mat R0_in, const cv::Mat P0_in,
                                   const cv::Mat K1_in,      const cv::Mat D1_in,
-                                  const cv::Mat K1_rect_in, const cv::Mat D1_rect_in, const cv::Mat R1_in, const cv::Mat P1_in,
+                                  const cv::Mat K1_rect_in, const cv::Mat D1_rect_in,
+                                  const cv::Mat R1_in, const cv::Mat P1_in,
                                   const SE3 T_c0_c1_in,
                                   const enum TYPEOFCAMERA cam_type_in)
 {
+    this->img_w = w_in;
+    this->img_h = h_in;
     this->K0=K0_in;
     this->D0=D0_in;
     this->K1=K1_in;
@@ -33,18 +48,18 @@ void DepthCamera::setSteroCamInfo(const cv::Mat K0_in,      const cv::Mat D0_in,
     this->R1=R1_in;
     this->P0=P0_in;
     this->P1=P1_in;
-    cout << "K0" << K0 << endl;
-    cout << "D0" << D0 << endl;
-    cout << "K1" << K1 << endl;
-    cout << "D1" << D0 << endl;
-    cout << "K0_rect" << K0_rect << endl;
-    cout << "K1_rect" << K1_rect << endl;
-    cout << "D0_rect" << D0_rect << endl;
-    cout << "D1_rect" << D1_rect << endl;
-    cout << "R0" << R0 << endl;
-    cout << "P0" << P0 << endl;
-    cout << "R1" << R1 << endl;
-    cout << "P1" << P1 << endl;
+//    cout << "K0" << K0 << endl;
+//    cout << "D0" << D0 << endl;
+//    cout << "K1" << K1 << endl;
+//    cout << "D1" << D0 << endl;
+//    cout << "K0_rect" << K0_rect << endl;
+//    cout << "K1_rect" << K1_rect << endl;
+//    cout << "D0_rect" << D0_rect << endl;
+//    cout << "D1_rect" << D1_rect << endl;
+//    cout << "R0" << R0 << endl;
+//    cout << "P0" << P0 << endl;
+//    cout << "R1" << R1 << endl;
+//    cout << "P1" << P1 << endl;
 
     T_cam0_cam1 = T_c0_c1_in;
     T_cam1_cam0 = T_cam0_cam1.inverse();

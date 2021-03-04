@@ -2,35 +2,39 @@
 <launch>
 
 <!--Input######################################################################################################-->
-    <include file="$(find flvis)/launch/d435i/d435i_depth.launch"/>
+    <param name="/dataset_pub_delay"      type="double"  value="3.0" />
+    <param name="/dataset_pub_rate"       type="int"     value="10" />
+    <param name="/publish_gt"                type="bool"    value="true" />
+    <param name="/dataset_folder_path"    type="string"  value="$(find flvis)/bag/KITTI/dataset/sequences/00/" />
+    <param name="/dataset_gt_file"        type="string"  value="$(find flvis)/bag/KITTI/dataset/poses/00.txt" />
+    <node pkg="flvis" type="kitti_publisher" name="kitti_publisher" output="screen"/>
 
 <!--FLVIS######################################################################################################-->
     <arg name="node_start_delay"  default="1.0" />
-    <param name="/yamlconfigfile" type="string" value="$(find flvis)/launch/d435i/sn943222072828_depth.yaml"/>
+    <param name="/yamlconfigfile" type="string" value="$(find flvis)/launch/KITTI/KITTI.yaml"/>
     <param name="/voc"            type="string" value="$(find flvis)/voc/voc_orb.dbow3"/>
-
 
     <!-- Manager -->
     <node pkg="nodelet" type="nodelet"
           name="flvis_nodelet_manager" args="manager" output="screen"
-          launch-prefix="bash -c 'sleep 0; $0 $@' ">
-          <param name="num_worker_threads" value="8" />
+          launch-prefix="bash -c 'sleep $(arg node_start_delay); $0 $@' ">
+          <param name="num_worker_threads" value="4" />
     </node>
 
     <!-- TrackingNode -->
+    <!-- D435i -->
     <node pkg="nodelet" type="nodelet" args="load flvis/TrackingNodeletClass flvis_nodelet_manager"
         name="TrackingNodeletClass_loader" output="screen"
         launch-prefix="bash -c 'sleep $(arg node_start_delay); $0 $@' ">
-        <!-- D435i -->
-        <remap from="/vo/input_image_0"  to="/camera/infra1/image_rect_raw"/>
-        <remap from="/vo/input_image_1"  to="/camera/aligned_depth_to_infra1/image_raw"/>
         <remap from="/imu"               to="/camera/imu"/>
     </node>
 
     <!-- LocalMapNode -->
+    <!--window_size: Num of keyframes in sliding window optimizer-->
 <!--    <node pkg="nodelet" type="nodelet" args="load flvis/LocalMapNodeletClass flvis_nodelet_manager"
           name="LocalMapNodeletClass_loader" output="screen"
           launch-prefix="bash -c 'sleep $(arg node_start_delay); $0 $@' ">
+        <param name="/window_size" type="int" value="8" />
     </node>-->
 
     <!-- LoopClosingNode -->
@@ -40,11 +44,4 @@
     </node>-->
 
 
-
 </launch>
-
-
-
-
-
-

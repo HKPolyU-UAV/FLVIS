@@ -1,7 +1,10 @@
 #type_of_vi:
-#0---d435i
+#0---d435i_depth
 #1---euroc mav dataset
 #2---d435+pixhawk
+#3---d435i_stereo
+#4---KITTI_stereo_mode
+
 type_of_vi: 2
 #depth image is aligned to left cam0
 image_width: 640

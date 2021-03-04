@@ -69,6 +69,7 @@ include_directories(
     ${YAML_CPP_INCLUDE_DIR}
     ${DBoW3_INCLUDE_DIR}
     "${CMAKE_CURRENT_SOURCE_DIR}/src/"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/processing/"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/backend/"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/frontend/"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/utils/"
@@ -88,30 +89,33 @@ SET(G2O_LIBS cholmod cxsparse -lg2o_cli -lg2o_core
 
 ## Declare a C++ library
 add_library(flvis
-    src/frontend/vo_tracking.cpp
-    src/frontend/f2f_tracking.cpp
-    src/frontend/feature_dem.cpp
-    src/frontend/depth_camera.cpp
-    src/frontend/landmark.cpp
-    src/frontend/camera_frame.cpp
-    src/frontend/triangulation.cpp
-    src/frontend/lkorb_tracking.cpp
-    src/frontend/imu_state.cpp
-    src/frontend/vi_motion.cpp
-    src/frontend/optimize_in_frame.cpp
-
-    src/backend/vo_localmap.cpp
-    src/backend/vo_loopclosing.cpp
-    src/backend/poselmbag.cpp
-
+    #processing
+    src/processing/feature_dem.cpp
+    src/processing/depth_camera.cpp
+    src/processing/landmark.cpp
+    src/processing/camera_frame.cpp
+    src/processing/triangulation.cpp
+    src/processing/lkorb_tracking.cpp
+    src/processing/imu_state.cpp
+    src/processing/vi_motion.cpp
+    src/processing/optimize_in_frame.cpp
+    #vis
     src/visualization/rviz_frame.cpp
     src/visualization/rviz_path.cpp
     src/visualization/rviz_pose.cpp
     src/visualization/rviz_odom.cpp
-
-
+    #msg
     src/utils/keyframe_msg.cpp
     src/utils/correction_inf_msg.cpp
+
+    #node tracking
+    src/frontend/vo_tracking.cpp
+    src/frontend/f2f_tracking.cpp
+    #node localmap
+    src/backend/vo_localmap.cpp
+    #node loop closing
+    src/backend/vo_loopclosing.cpp
+    src/backend/poselmbag.cpp
 
     #src/octofeeder/octomap_feeder.cpp
     )
@@ -140,3 +144,9 @@ add_executable(vo_repub_rec
 target_link_libraries(vo_repub_rec
     ${catkin_LIBRARIES})
 
+add_executable(kitti_publisher
+    src/independ_modules/kitti_publisher.cpp
+    src/visualization/rviz_path.cpp)
+target_link_libraries(kitti_publisher
+    ${catkin_LIBRARIES}
+    ${Sophus_LIBRARIES})

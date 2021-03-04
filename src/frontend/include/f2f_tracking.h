@@ -17,69 +17,59 @@ enum TRACKINGSTATE{UnInit,
                    TrackingFail};
 
 struct ID_POSE {
-    int    frame_id;
-    SE3    T_c_w;
+  int    frame_id;
+  SE3    T_c_w;
 };
 
 class F2FTracking
 {
 public:
-    enum TYPEOFCAMERA cam_type;
-    //Modules
-    FeatureDEM         *feature_dem;
-    LKORBTracking      *lkorb_tracker;
-    VIMOTION           *vimotion;
-    DepthCamera         d_camera;
+  enum TYPEOFCAMERA cam_type;
+  //Modules
+  FeatureDEM         *feature_dem;
+  LKORBTracking      *lkorb_tracker;
+  VIMOTION           *vimotion;
+  DepthCamera         d_camera;
 
-    //states:
-    bool has_imu;
-    bool has_localmap_feedback;
-    int  frameCount;
-    enum TRACKINGSTATE   vo_tracking_state;
+  //states:
+  bool has_imu;
+  bool has_localmap_feedback;
+  int  frameCount;
+  enum TRACKINGSTATE   vo_tracking_state;
+  int  skip_n_imgs;
+  bool need_equal_hist;
 
-    //varialbe
-    cv::Mat K0,D0,K1,D1;
-    cv::Mat K0_rect;//cam0 rectified cameraMatrix;
-    cv::Mat D0_rect;//cam0 rectified distCoeffs;
-    cv::Mat K1_rect;//cam1 rectified cameraMatrix;
-    cv::Mat D1_rect;//cam1 rectified distCoeffs;
-    cv::Mat c0_RM[2];
-    cv::Mat c1_RM[2];
+  //varialbe
+  CorrectionInfStruct correction_inf;
+  SE3 T_c_w_last_keyframe;
+  deque<ID_POSE> pose_records;
+  CameraFrame::Ptr curr_frame,last_frame;
 
-    CorrectionInfStruct correction_inf;
-    SE3 T_c_w_last_keyframe;
-    deque<ID_POSE> pose_records;
-    CameraFrame::Ptr curr_frame,last_frame;
+  void init(const DepthCamera dc_in,
+            const SE3 T_i_c0_in,
+            const Vec6 feature_para,
+            const Vec6 vi_para,
+            const int skip_first_n_imgs_in,
+            const bool need_equal_hist_in
+            );
 
-    void init(const int w, const int h,
-              const Mat c0_cameraMatrix_in,
-              const Mat c0_distCoeffs_in,
-              const SE3 T_i_c0_in,
-              const Vec6 feature_para,
-              const Vec6 vi_para,
-              const TYPEOFCAMERA cam_type_in=DEPTH_D435,
-              const double cam_scale_in=1000.0,
-              const Mat c1_cameraMatrix_in=Mat1d(3, 3),
-              const Mat c1_distCoeffs_in=Mat1d(4, 1),
-              const SE3 T_c0_c1=SE3());
+  void correction_feed(const double time, const CorrectionInfStruct corr);
 
-    void correction_feed(const double time, const CorrectionInfStruct corr);
+  void imu_feed(const double time,
+                const Vec3 acc,
+                const Vec3 gyro,
+                Quaterniond& q_w_i,
+                Vec3& pos_w_i,
+                Vec3& vel_w_i);
 
-    void imu_feed(const double time,
-                  const Vec3 acc,
-                  const Vec3 gyro,
-                  Quaterniond& q_w_i,
-                  Vec3& pos_w_i,
-                  Vec3& vel_w_i);
-
-    void image_feed(const double time,
-                    const cv::Mat img0_in,
-                    const cv::Mat img1_in,
-                    bool &new_keyframe,
-                    bool &reset_cmd);
+  void image_feed(const double time,
+                  const cv::Mat img0_in,
+                  const cv::Mat img1_in,
+                  bool &new_keyframe,
+                  bool &reset_cmd);
 
 private:
-    bool init_frame(void);
+  bool init_frame(void);
 
 };//class F2FTracking
 

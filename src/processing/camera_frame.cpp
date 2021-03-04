@@ -123,7 +123,7 @@ void CameraFrame::recover3DPts_c_FromStereo(vector<Vec3> &pt3ds,
     cv::calcOpticalFlowPyrLK(this->img0, this->img1,
                              pt2d_0_plane, pt2d_1_plane,
                              status, err, cv::Size(31,31),5,
-                             cv::TermCriteria(cv::TermCriteria::COUNT+cv::TermCriteria::EPS, 30, 0.01),
+                             cv::TermCriteria(cv::TermCriteria::COUNT+cv::TermCriteria::EPS, 30, 0.001),
                              cv::OPTFLOW_USE_INITIAL_FLOW);
 
     cv::undistortPoints(pt2d_1_plane,pt2d_1_undistort,
@@ -275,7 +275,7 @@ void CameraFrame::depthInnovation(const bool apply_iir)
 
     if(this->d_camera.cam_type==DEPTH_D435){
         this->recover3DPts_c_FromDepthImg(pts3d_c_cam_measure,cam_measure_mask);
-    }else if(this->d_camera.cam_type==STEREO_EuRoC_MAV || this->d_camera.cam_type==STEREO_D435){
+    }else if(this->d_camera.cam_type==STEREO_UNRECT || this->d_camera.cam_type==STEREO_RECT){
         this->recover3DPts_c_FromStereo(pts3d_c_cam_measure,cam_measure_mask);
     }
 
@@ -283,7 +283,7 @@ void CameraFrame::depthInnovation(const bool apply_iir)
         Vec3 lm_c_measure;
         if(cam_measure_mask.at(i)==false && triangulation_mask.at(i)==false)
         {
-            if(this->d_camera.cam_type==STEREO_EuRoC_MAV || this->d_camera.cam_type==STEREO_D435)
+            if(this->d_camera.cam_type==STEREO_UNRECT || this->d_camera.cam_type==STEREO_RECT)
             {
                 if(!landmarks.at(i).hasDepthInf())
                 {

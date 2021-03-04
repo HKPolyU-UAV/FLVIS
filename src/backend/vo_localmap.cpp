@@ -387,10 +387,10 @@ private:
         nh.getParam("/yamlconfigfile",   configFilePath);
         int vi_type_from_yaml = getIntVariableFromYaml(configFilePath,"type_of_vi");
         if(vi_type_from_yaml==0) cam_type=DEPTH_D435;
-        if(vi_type_from_yaml==1) cam_type=STEREO_EuRoC_MAV;
+        if(vi_type_from_yaml==1) cam_type=STEREO_UNRECT;
         if(vi_type_from_yaml==2) cam_type=DEPTH_D435;
-        if(vi_type_from_yaml==3) cam_type=STEREO_D435;
-        if(cam_type==DEPTH_D435 || STEREO_D435)
+        if(vi_type_from_yaml==3) cam_type=STEREO_RECT;
+        if(cam_type==DEPTH_D435 || STEREO_RECT)
         {
             cv::Mat K0 = cameraMatrixFromYamlIntrinsics(configFilePath,"cam0_intrinsics");
             cv::Mat D0   = distCoeffsFromYaml(configFilePath,"cam0_distortion_coeffs");
@@ -399,7 +399,7 @@ private:
             cx = K0.at<double>(0,2);
             cy = K0.at<double>(1,2);
         }
-        if(cam_type==STEREO_EuRoC_MAV)
+        if(cam_type==STEREO_UNRECT)
         {
             int w  = getIntVariableFromYaml(configFilePath,"image_width");
             int h = getIntVariableFromYaml(configFilePath,"image_height");

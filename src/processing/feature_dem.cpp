@@ -164,7 +164,6 @@ void FeatureDEM::redetect(const cv::Mat& img,
         regionKeyPts_prepare[i].clear();
     }
     fillIntoRegion(img,features,regionKeyPts_prepare,false);
-
     //pith up new features
     for(size_t i=0; i<16; i++)
     {

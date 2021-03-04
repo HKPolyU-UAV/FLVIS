@@ -20,8 +20,8 @@ public:
     cv::Mat d_img;
 
 
-    int width;
-    int height;
+//    int width;
+//    int height;
     DepthCamera  d_camera;
 
     vector<LandMarkInFrame> landmarks;
