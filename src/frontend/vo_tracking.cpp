@@ -82,8 +82,8 @@ private:
     //cv::startWindowThread(); //Bug report https://github.com/ros-perception/image_pipeline/issues/201
 
     //Publisher
-    vision_path_pub = new RVIZPath(nh,"/vision_path","map",1,3000);
-    path_lc_pub     = new RVIZPath(nh,"/vision_path_lc","map",1,3000);
+    vision_path_pub = new RVIZPath(nh,"/vision_path","map",1,10000);
+    path_lc_pub     = new RVIZPath(nh,"/vision_path_lc","map",1,10000);
     imu_path_pub    = new RVIZPath(nh,"/imu_path","map",1,400);
     frame_pub       = new RVIZFrame(nh,"/vo_camera_pose","map","/vo_curr_frame","map");
     pose_imu_pub    = new RVIZPose(nh,"/imu_pose","map");

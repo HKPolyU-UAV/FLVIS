@@ -468,6 +468,8 @@ private:
         optimizer.optimize(100);
 
         // recover pose and update map
+        for(int i = 0; i < kf_prev_idx; i++)
+          path_lc_pub->pubPathT_w_c(kf_map_lc[i]->T_c_w.inverse(), kf_map_lc[i]->t);
 
         for (auto kf_it = kf_list.begin(); kf_it != kf_list.end(); kf_it++)
         {
@@ -506,6 +508,8 @@ private:
             return;
         sim_vec.clear();
 
+
+
         //STEP1: Unpack and construct KeyFrameLC tructure
         //STEP1.1 Unpack
         // [1]kf.frame_id
@@ -525,7 +529,7 @@ private:
         Vec3        t_tf;
         if(1)//Visualization and publish transformation between map and odom
         {
-            path_lc_pub->pubPathT_c_w(kf.T_c_w,kf.t);
+
             T_map_odom = T_odom_map.inverse();
             q_tf = T_map_odom.so3().unit_quaternion();
             t_tf = T_map_odom.translation();
@@ -540,6 +544,7 @@ private:
         SE3 loop_pose;
         kf.T_c_w = kf.T_c_w_odom*T_odom_map;
         kf.keyframe_id = kf_id++;
+        path_lc_pub->pubPathT_c_w(kf.T_c_w,kf.t);
 
         //STEP1.3 Extract-Compute_descriptors
         vector<cv::KeyPoint> ORBFeatures;
@@ -569,7 +574,7 @@ private:
         {
         case STEREO_RECT:
         {
-            cout << "here" << endl;
+            //cout << "here" << endl;
             //track to another image
             std::vector<cv::Point2f> lm_img0, lm_img1;
             vector<float>   err;
