@@ -327,7 +327,7 @@ void F2FTracking::image_feed(const double time,
       new_keyframe = true;
       T_c_w_last_keyframe = curr_frame->T_c_w;
     }
-    if(t_norm>= 0.5 || r_norm>=0.5)
+    if(t_norm>=0.03 || r_norm>=0.2)
     {
       new_keyframe = true;
       T_c_w_last_keyframe = curr_frame->T_c_w;
