@@ -43,5 +43,20 @@
         launch-prefix="bash -c 'sleep $(arg node_start_delay); $0 $@' ">
     </node>
 
+<node pkg="flvis" type="vo_repub_rec" name="lc2file" output="screen">
+    <!--Sub Support Type:-->
+    <param name="sub_type" type="string" value="NavPath" />
+    <param name="sub_topic" type="string" value="/vision_path_lc_all" />
+
+    <!--Support Type:-->
+    <!--"0" disable the republish function -->
+    <!--"Path"-->
+    <!--"PoseStamped"-->
+    <param name="repub_type" type="string" value="0" />
+    <param name="repub_topic" type="string" value="/republish_path" />
+    <!--output_file_path = "0" disable the file output function-->
+    <param name="output_file_path" type="string" value="$(find flvis)/results/kitti_lc.txt" />
+</node>
+
 
 </launch>

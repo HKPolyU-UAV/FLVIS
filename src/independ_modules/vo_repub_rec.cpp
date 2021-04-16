@@ -22,6 +22,8 @@ std::string repub_topic;
 std::string repub_type;
 nav_msgs::Path path;
 int frame_id_path = 0;
+int last_pose_n = -2;
+int cur_pose_n = -1;
 
 static void republishtopic(ros::Time stamp, double x, double y, double z,
                            double qw, double qx, double qy, double qz)
@@ -122,6 +124,28 @@ void Odometry_callback(const nav_msgs::OdometryConstPtr msg)
 }
 
 
+void NavPath_callback(const nav_msgs::PathConstPtr msg)
+{
+    // The pose is saved in TUM format and can be transferred ro KITTI using EVO, by running evo_traj tum kitti_lc.txt --save_as_kitti
+    // We wll read the poses from the path, if no new pose is added.
+    // I have tested it by changing if(cur_pose_n == last_pose_n) to if(cur_pose_n != last_pose_n), and it can output file.
+    // But I don't know if it can scucess at the end of the bag.
+    cur_pose_n = msg->poses.size();
+    if(cur_pose_n == last_pose_n) // If no new pose is added to path, read the poses from the path.
+
+    {
+      for(size_t i = 0; i< cur_pose_n; i++)
+      {
+        geometry_msgs::PoseStamped pose_msg = msg->poses[i];
+        process(pose_msg.header.stamp,
+                pose_msg.pose.position.x, pose_msg.pose.position.y, pose_msg.pose.position.z,
+                pose_msg.pose.orientation.w, pose_msg.pose.orientation.x, pose_msg.pose.orientation.y, pose_msg.pose.orientation.z);
+      }
+    }
+    else
+      last_pose_n = cur_pose_n;
+}
+
 int main(int argc, char **argv)
 {
   ros::init(argc, argv, "repub_rec");
@@ -173,6 +197,12 @@ int main(int argc, char **argv)
   if(sub_type=="Odometry")
   {
     sub = nh.subscribe(sub_topic, 2, Odometry_callback);
+  }
+
+
+  if(sub_type=="NavPath")
+  {
+    sub = nh.subscribe(sub_topic, 2, NavPath_callback);
   }
 
   ros::spin();
