@@ -89,8 +89,7 @@ private:
     pose_imu_pub    = new RVIZPose(nh,"/imu_pose","map");
     odom_imu_pub    = new RVIZOdom(nh,"/imu_odom","map");
     kf_pub          = new KeyFrameMsg(nh,"/vo_kf");
-    //        octomap_pub  = new OctomapFeeder(nh,"/vo_octo_tracking","vo_local",1);
-    //        octomap_pub->d_camera=curr_frame->d_camera;
+
     image_transport::ImageTransport it(nh);
     img0_pub = it.advertise("/vo_img0", 1);
     img1_pub = it.advertise("/vo_img1", 1);
@@ -99,12 +98,12 @@ private:
     //Load Parameter
     string configFilePath;
     nh.getParam("/yamlconfigfile",   configFilePath);
+    cout << configFilePath << endl;
     is_lite_version = false;
     is_lite_version = getBoolVariableFromYaml(configFilePath,"is_lite_version");
-    if(is_lite_version)
-      cout << "flvis run in lite version" << endl;
-
-    cout << configFilePath << endl;
+    if(is_lite_version){
+        cout << "flvis run in lite version" << endl;
+    }
 
     int vi_type_from_yaml = getIntVariableFromYaml(configFilePath,"type_of_vi");
 
@@ -127,6 +126,12 @@ private:
     Vec6 f_para;//feature related parameters
     f_para.head(3)=f_para1;
     f_para.tail(3)=f_para2;
+
+    //depth recover parameters
+    Vec3 dr_para = Vec3(getDoubleVariableFromYaml(configFilePath,"dr_para1"),//IIR ratio
+                        getDoubleVariableFromYaml(configFilePath,"dr_para2"),//range
+                        getDoubleVariableFromYaml(configFilePath,"dr_para3"));//enable dummy depth
+
 
     if(vi_type_from_yaml==VI_TYPE_D435I_DEPTH)        {cam_type=DEPTH_D435;    imu_type=D435I;}
     if(vi_type_from_yaml==VI_TYPE_EUROC_MAV)          {cam_type=STEREO_UNRECT; imu_type=EuRoC_MAV;}
@@ -155,6 +160,7 @@ private:
                         SE3(mat_imu_cam.topLeftCorner(3,3),mat_imu_cam.topRightCorner(3,1)),
                         f_para,
                         vi_para,
+                        dr_para,
                         50,
                         false);
     }
@@ -197,6 +203,7 @@ private:
                         T_i_c0,
                         f_para,
                         vi_para,
+                        dr_para,
                         50,
                         false);
     }
@@ -243,6 +250,7 @@ private:
                         T_i_c0,
                         f_para,
                         vi_para,
+                        dr_para,
                         0,
                         true);
     }
@@ -283,6 +291,7 @@ private:
                         SE3(),//dummy parameter
                         f_para,
                         vi_para,
+                        dr_para,
                         0,
                         false);
 

@@ -55,6 +55,12 @@ feature_para5: 0.001
 #goodFeaturesToTrack detector minDistance
 feature_para6: 5
 
+#IIR filter ratio
+dr_para1: 0.9
+#triangulate range
+dr_para2: 20
+#Dummy depth enable 1.0, enable 0.0,disable
+dr_para3: 1.0
 
 #LocalMapThread
 output_sparse_map: False

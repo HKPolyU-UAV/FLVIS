@@ -45,12 +45,15 @@ public:
     void eraseReprjOutlier();
     void updateLMT_c_w();
     void recover3DPts_c_FromDepthImg(vector<Vec3>& pt3ds,
-                                     vector<bool>& maskHas3DInf);
+                                     vector<bool>& maskHas3DInf,
+                                     float range);
     void recover3DPts_c_FromStereo(vector<Vec3>& pt3ds,
-                                   vector<bool>& maskHas3DInf);
+                                   vector<bool>& maskHas3DInf,
+                                   float range);
     void recover3DPts_c_FromTriangulation(vector<Vec3>& pt3ds,
-                                          vector<bool>& maskHas3DInf);
-    void depthInnovation(const bool apply_iir=true);
+                                          vector<bool>& maskHas3DInf,
+                                          float range);
+    void depthInnovation(const float iir_ratio, const float range, const bool dummy_depth);
     void eraseNoDepthPoint(void);
     void correctLMP3DWByLMP3DCandT(void);//correct lm_3d_w by lm_3d_w and T_c_w
     void forceCorrectLM3DW(const int& cnt, const vector<int64_t>& ids, const vector<Vec3>& lms_3d);

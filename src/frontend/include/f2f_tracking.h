@@ -30,6 +30,9 @@ public:
   LKORBTracking      *lkorb_tracker;
   VIMOTION           *vimotion;
   DepthCamera         d_camera;
+  float iir_ratio;
+  float range;
+  bool  enable_dummy;
 
   //states:
   bool has_imu;
@@ -49,6 +52,7 @@ public:
             const SE3 T_i_c0_in,
             const Vec6 feature_para,
             const Vec6 vi_para,
+            const Vec3 dr_para,
             const int skip_first_n_imgs_in,
             const bool need_equal_hist_in
             );

@@ -54,7 +54,7 @@ void CameraFrame::calReprjInlierOutlier(double &mean_prjerr, vector<Vec2> &outli
         double distance = err.norm();
         //double relativeDist = sqrt(pow(lm2d(0)-reProj(0),2)+pow(lm2d(1)-reProj(1),2));
         distances.push_back(distance);
-        if(distance<5.0){
+        if(distance<3.0){
             valid_distances.push_back(distance);
         }
     }
@@ -75,7 +75,7 @@ void CameraFrame::calReprjInlierOutlier(double &mean_prjerr, vector<Vec2> &outli
     int half=floor(valid_distances.size()/2);
     double sh = sh_over_med * valid_distances.at(half);
 
-    if(sh>=5.0) sh=5.0;
+    if(sh>=3.0) sh=3.0;
     //    if(sh<=3.0) sh=3.0;
     for(int i=this->landmarks.size()-1; i>=0; i--)
     {
@@ -91,7 +91,8 @@ void CameraFrame::calReprjInlierOutlier(double &mean_prjerr, vector<Vec2> &outli
 }
 
 void CameraFrame::recover3DPts_c_FromStereo(vector<Vec3> &pt3ds,
-                                            vector<bool> &maskHas3DInf)
+                                            vector<bool> &maskHas3DInf,
+                                            float range)
 {
     pt3ds.clear();
     maskHas3DInf.clear();
@@ -131,14 +132,15 @@ void CameraFrame::recover3DPts_c_FromStereo(vector<Vec3> &pt3ds,
 
     for(size_t i=0; i<status.size(); i++)
     {
-        if(status.at(i)==1)
+        if(status.at(i)==1)//LK success
         {
             Vec3 pt3d_c;
             if(Triangulation::trignaulationPtFromStereo(Vec2(pt2d_0_undistort.at(i).x,pt2d_0_undistort.at(i).y),
                                                         Vec2(pt2d_1_undistort.at(i).x,pt2d_1_undistort.at(i).y),
                                                         this->d_camera.P0_,
                                                         this->d_camera.P1_,
-                                                        pt3d_c))
+                                                        pt3d_c,
+                                                        range))
             {
                 pt3ds.push_back(pt3d_c);
                 maskHas3DInf.push_back(true);
@@ -159,7 +161,7 @@ void CameraFrame::recover3DPts_c_FromStereo(vector<Vec3> &pt3ds,
                 maskHas3DInf.push_back(false);
                 continue;
             }
-        }else
+        }else//LK fail
         {
             Vec3 pt3d_c;
             float d_rand;
@@ -178,7 +180,8 @@ void CameraFrame::recover3DPts_c_FromStereo(vector<Vec3> &pt3ds,
 }
 
 void CameraFrame::recover3DPts_c_FromDepthImg(vector<Vec3>& pt3ds,
-                                              vector<bool>& maskHas3DInf)
+                                              vector<bool>& maskHas3DInf,
+                                              float range)
 {
     pt3ds.clear();
     maskHas3DInf.clear();
@@ -190,22 +193,22 @@ void CameraFrame::recover3DPts_c_FromDepthImg(vector<Vec3>& pt3ds,
         //CV_16UC1 = Z16 16-Bit unsigned int
         if(isnan(d_img.at<ushort>(pt)))
         {
-          Vec3 pt3d_c;
-          float d_rand;
-          d_rand = 0.3 + static_cast<float>(rand())/(static_cast<float>(RAND_MAX/(0.4)));
-          pt3d_c = DepthCamera::pixel2camera(Vec2(landmarks.at(i).lm_2d_plane[0],landmarks.at(i).lm_2d_plane[1]),
-                                             this->d_camera.cam0_fx,
-                                             this->d_camera.cam0_fy,
-                                             this->d_camera.cam0_cx,
-                                             this->d_camera.cam0_cy,
-                                             d_rand);
-          pt3ds.push_back(pt3d_c);
-          maskHas3DInf.push_back(false);
+            Vec3 pt3d_c;
+            float d_rand;
+            d_rand = 0.3 + static_cast<float>(rand())/(static_cast<float>(RAND_MAX/(0.4)));
+            pt3d_c = DepthCamera::pixel2camera(Vec2(landmarks.at(i).lm_2d_plane[0],landmarks.at(i).lm_2d_plane[1]),
+                    this->d_camera.cam0_fx,
+                    this->d_camera.cam0_fy,
+                    this->d_camera.cam0_cx,
+                    this->d_camera.cam0_cy,
+                    d_rand);
+            pt3ds.push_back(pt3d_c);
+            maskHas3DInf.push_back(false);
         }
         else
         {
             float z = (d_img.at<ushort>(pt))/d_camera.cam_scale_factor;
-            if(z>=0.3&&z<=20.0)
+            if(z>=0.3&&z<=range)
             {
                 pt3d[2] = z;
                 pt3d[0] = (pt.x - d_camera.cam0_cx) * z / d_camera.cam0_fx;
@@ -214,23 +217,23 @@ void CameraFrame::recover3DPts_c_FromDepthImg(vector<Vec3>& pt3ds,
                 maskHas3DInf.push_back(true);
             }else
             {
-              Vec3 pt3d_c;
-              float d_rand;
-              d_rand = 0.3 + static_cast<float>(rand())/(static_cast<float>(RAND_MAX/(0.4)));
-              pt3d_c = DepthCamera::pixel2camera(Vec2(landmarks.at(i).lm_2d_plane[0],landmarks.at(i).lm_2d_plane[1]),
-                                                 this->d_camera.cam0_fx,
-                                                 this->d_camera.cam0_fy,
-                                                 this->d_camera.cam0_cx,
-                                                 this->d_camera.cam0_cy,
-                                                 d_rand);
-              pt3ds.push_back(pt3d_c);
-              maskHas3DInf.push_back(false);
+                Vec3 pt3d_c;
+                float d_rand;
+                d_rand = 0.3 + static_cast<float>(rand())/(static_cast<float>(RAND_MAX/(0.4)));
+                pt3d_c = DepthCamera::pixel2camera(Vec2(landmarks.at(i).lm_2d_plane[0],landmarks.at(i).lm_2d_plane[1]),
+                        this->d_camera.cam0_fx,
+                        this->d_camera.cam0_fy,
+                        this->d_camera.cam0_cx,
+                        this->d_camera.cam0_cy,
+                        d_rand);
+                pt3ds.push_back(pt3d_c);
+                maskHas3DInf.push_back(false);
             }
         }
     }
 }
 
-void CameraFrame::recover3DPts_c_FromTriangulation(vector<Vec3> &pt3ds, vector<bool> &maskHas3DInf)
+void CameraFrame::recover3DPts_c_FromTriangulation(vector<Vec3> &pt3ds, vector<bool> &maskHas3DInf, float range)
 {
     pt3ds.clear();
     maskHas3DInf.clear();
@@ -247,7 +250,7 @@ void CameraFrame::recover3DPts_c_FromTriangulation(vector<Vec3> &pt3ds, vector<b
                                                          d_camera.cam0_cx,
                                                          d_camera.cam0_cy);
             Vec3 pt3d_c = DepthCamera::world2cameraT_c_w(pt3d_w,T_c_w);
-            if(pt3d_c[2]>=0.5 && pt3d_c[2]<=15)
+            if(pt3d_c[2]>=0.5 && pt3d_c[2]<=range)
             {
                 pt3ds.push_back(pt3d_c);
                 maskHas3DInf.push_back(true);
@@ -265,18 +268,18 @@ void CameraFrame::recover3DPts_c_FromTriangulation(vector<Vec3> &pt3ds, vector<b
         }
     }
 }
-void CameraFrame::depthInnovation(const bool apply_iir)
+void CameraFrame::depthInnovation(const float iir_ratio, const float range, const bool dummy_depth)
 {
     vector<Vec3> pts3d_c_cam_measure;
     vector<bool> cam_measure_mask;
     vector<Vec3> pts3d_c_triangulation;
     vector<bool> triangulation_mask;
-    this->recover3DPts_c_FromTriangulation(pts3d_c_triangulation,triangulation_mask);
+    this->recover3DPts_c_FromTriangulation(pts3d_c_triangulation,triangulation_mask,range);
 
     if(this->d_camera.cam_type==DEPTH_D435){
-        this->recover3DPts_c_FromDepthImg(pts3d_c_cam_measure,cam_measure_mask);
+        this->recover3DPts_c_FromDepthImg(pts3d_c_cam_measure,cam_measure_mask,range);
     }else if(this->d_camera.cam_type==STEREO_UNRECT || this->d_camera.cam_type==STEREO_RECT){
-        this->recover3DPts_c_FromStereo(pts3d_c_cam_measure,cam_measure_mask);
+        this->recover3DPts_c_FromStereo(pts3d_c_cam_measure,cam_measure_mask,range);
     }
 
     for(size_t i=0; i<landmarks.size(); i++){
@@ -287,11 +290,14 @@ void CameraFrame::depthInnovation(const bool apply_iir)
             {
                 if(!landmarks.at(i).hasDepthInf())
                 {
-                    lm_c_measure = pts3d_c_cam_measure.at(i);
-                    Vec3 pt3d_w = DepthCamera::camera2worldT_c_w(lm_c_measure,this->T_c_w);
-                    landmarks.at(i).lm_3d_c = lm_c_measure;
-                    landmarks.at(i).lm_3d_w = pt3d_w;
-                    landmarks.at(i).has_3d = true;
+                    if(dummy_depth)
+                    {
+                        lm_c_measure = pts3d_c_cam_measure.at(i);
+                        Vec3 pt3d_w = DepthCamera::camera2worldT_c_w(lm_c_measure,this->T_c_w);
+                        landmarks.at(i).lm_3d_c = lm_c_measure;
+                        landmarks.at(i).lm_3d_w = pt3d_w;
+                        landmarks.at(i).has_3d = true;
+                    }
                 }
                 continue;
             }
@@ -301,22 +307,24 @@ void CameraFrame::depthInnovation(const bool apply_iir)
         else
             lm_c_measure = pts3d_c_triangulation.at(i);
 
-        if(apply_iir && landmarks.at(i).hasDepthInf())
+        if(landmarks.at(i).hasDepthInf())
         {
             //transfor to Camera frame
             Vec3 lm_c = DepthCamera::world2cameraT_c_w(landmarks.at(i).lm_3d_w,this->T_c_w);
             //apply IIR Filter
-            Vec3 lm_c_update = lm_c*0.9+lm_c_measure*0.1;
+            Vec3 lm_c_update = lm_c*iir_ratio+lm_c_measure*(1-iir_ratio);
             //update to world frame
             landmarks.at(i).lm_3d_c = lm_c_update;
             landmarks.at(i).lm_3d_w = DepthCamera::camera2worldT_c_w(lm_c_update,this->T_c_w);
         }
         else//Do not have position
         {
+
             Vec3 pt3d_w = DepthCamera::camera2worldT_c_w(lm_c_measure,this->T_c_w);
             landmarks.at(i).lm_3d_c = lm_c_measure;
             landmarks.at(i).lm_3d_w = pt3d_w;
             landmarks.at(i).has_3d = true;
+
         }
     }
 }
@@ -513,9 +521,9 @@ void CameraFrame::getKeyFrameInf(vector<int64_t> &lm_id, vector<Vec2> &lm_2d, ve
     {
         if(lm.hasDepthInf() && lm.is_tracking_inlier==true)
         {
-          lm_3d.push_back(lm.lm_3d_w);
-          lm_2d.push_back(lm.lm_2d_undistort);
-          lm_id.push_back(lm.lm_id);
+            lm_3d.push_back(lm.lm_3d_w);
+            lm_2d.push_back(lm.lm_2d_undistort);
+            lm_id.push_back(lm.lm_id);
         }
     }
 }

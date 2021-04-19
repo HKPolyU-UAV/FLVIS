@@ -67,6 +67,14 @@ feature_para5: 0.001
 feature_para6: 10
 
 
+#depth recovery
+#IIR filter ratio
+dr_para1: 0.90
+#triangulate range
+dr_para2: 50
+#Dummy depth enable 1.0, enable 0.0,disable
+dr_para3: 1.0
+
 #LocalMapThread
 output_sparse_map: True
 window_size:       10

@@ -598,7 +598,8 @@ private:
                                                                 Vec2(lm_img1.at(i).x,lm_img1.at(i).y),
                                                                 dc.P0_,
                                                                 dc.P1_,
-                                                                pt3d_c))
+                                                                pt3d_c,
+                                                                300.0))
                     {
                         lm_2d.push_back(Vec2(lm_img0.at(i).x,lm_img0.at(i).y));
                         lm_d.push_back(0.0);

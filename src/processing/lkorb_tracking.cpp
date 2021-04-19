@@ -62,7 +62,7 @@ bool LKORBTracking::tracking(CameraFrame& from,
             break;
         }
         cv::calcOpticalFlowPyrLK(from.img0, to.img0, from_p2d_plane, tracked_p2d_plane,
-                                 mask_tracked, err, cv::Size(21,21), 5,
+                                 mask_tracked, err, cv::Size(31,31), 10,
                                  cv::TermCriteria((cv::TermCriteria::COUNT)+(cv::TermCriteria::EPS), 30, 0.001),
                                  cv::OPTFLOW_USE_INITIAL_FLOW);
     }else
@@ -165,16 +165,16 @@ bool LKORBTracking::tracking(CameraFrame& from,
     vector<cv::Point2f> p2d;
     vector<cv::Point3f> p3d;
     to.get2dUndistort3dInlierPair_cvPf(p2d,p3d);
-    cv::solvePnPRansac(p3d,p2d,this->d_camera.K0_rect,this->d_camera.D0_rect,
-                       r_,t_,false,100,5.0,0.99,inliers,cv::SOLVEPNP_P3P);
-//    if(use_guess){
-//        SE3_to_rvec_tvec(T_c_w_guess, r_ , t_ );
-//        cv::solvePnPRansac(p3d,p2d,K0_rect,D0_rect,
-//                           r_,t_,false,100,3.0,0.99,inliers,cv::SOLVEPNP_P3P);
-//    }else{
-//        cv::solvePnPRansac(p3d,p2d,K0_rect,D0_rect,
-//                           r_,t_,false,100,3.0,0.99,inliers,cv::SOLVEPNP_P3P);
-//    }
+//    cv::solvePnPRansac(p3d,p2d,this->d_camera.K0_rect,this->d_camera.D0_rect,
+//                       r_,t_,false,300,3.0,0.99,inliers,cv::SOLVEPNP_P3P);
+    if(use_guess){
+        SE3_to_rvec_tvec(T_c_w_guess, r_ , t_ );
+        cv::solvePnPRansac(p3d,p2d,this->d_camera.K0_rect,this->d_camera.D0_rect,
+                           r_,t_,false,100,3.0,0.99,inliers,cv::SOLVEPNP_ITERATIVE);
+    }else{
+        cv::solvePnPRansac(p3d,p2d,this->d_camera.K0_rect,this->d_camera.D0_rect,
+                           r_,t_,false,100,3.0,0.99,inliers,cv::SOLVEPNP_P3P);
+    }
     //inlier masks
     int pnp_inlier_cnt=0;
     for (int i = 0; i < (int)p2d.size(); i++){

@@ -6,6 +6,7 @@ void F2FTracking::init(const DepthCamera dc_in,
                        const SE3 T_i_c0_in,
                        const Vec6 feature_para,
                        const Vec6 vi_para,
+                       const Vec3 dc_para,
                        const int skip_first_n_imgs_in,
                        const bool need_equal_hist_in
                        )
@@ -18,11 +19,19 @@ void F2FTracking::init(const DepthCamera dc_in,
                                      vi_para[0], vi_para[1],  vi_para[2], vi_para[3]);
   curr_frame = std::make_shared<CameraFrame>();
   last_frame = std::make_shared<CameraFrame>();
-//  curr_frame->height = last_frame->height = dc_in.img_h;
-//  curr_frame->width = last_frame->width = dc_in.img_w;
   this->cam_type = dc_in.cam_type;
-
   d_camera = lkorb_tracker->d_camera = curr_frame->d_camera = last_frame->d_camera = dc_in;
+
+  this->iir_ratio = static_cast<float>(dc_para(0));
+  this->range = static_cast<float>(dc_para(1));
+  if(dc_para(2)<0.5)
+  {
+      this->enable_dummy = false;
+  }else
+  {
+      this->enable_dummy = true;
+  }
+
   this->frameCount = 0;
   this->vo_tracking_state = UnInit;
   this->has_localmap_feedback = false;
@@ -248,6 +257,7 @@ void F2FTracking::image_feed(const double time,
       }
       break;
     }
+
     vector<Vec2> outlier_reproject;
     double mean_reprojection_error;
     curr_frame->calReprjInlierOutlier(mean_reprojection_error,outlier_reproject,1.5);
@@ -300,10 +310,10 @@ void F2FTracking::image_feed(const double time,
     }
 
     //STEP6: Depth Innovation and Update Landmarks(IIR)
-    bool applyiir=true;
-    if(mean_reprojection_error>1.0)
-      applyiir = false;
-    curr_frame->depthInnovation(applyiir);
+//    bool applyiir=true;
+//    if(mean_reprojection_error>1.0)
+//      applyiir = false;
+    curr_frame->depthInnovation(this->iir_ratio,this->range,this->enable_dummy);
     curr_frame->eraseNoDepthPoint();
 
     //STEP7: Record Pose
@@ -417,7 +427,7 @@ bool F2FTracking::init_frame()
     break;
 
   }
-  curr_frame->depthInnovation();
+  curr_frame->depthInnovation(this->iir_ratio,this->range,this->enable_dummy);
   curr_frame->eraseNoDepthPoint();
   if(curr_frame->validLMCount()>30)
   {

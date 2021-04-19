@@ -31,14 +31,17 @@ find_package(catkin REQUIRED COMPONENTS
     nodelet
     roscpp
     rostime
-    sensor_msgs
     std_msgs
+    sensor_msgs
     geometry_msgs
+    nav_msgs
+    pcl_ros
+    tf
+    visualization_msgs
+    image_transport
     cv_bridge
     message_generation
     message_filters
-    image_transport
-    tf
     )
 
 add_message_files(
@@ -52,6 +55,8 @@ generate_messages(
     std_msgs
     sensor_msgs
     geometry_msgs
+    nav_msgs
+    visualization_msgs
     )
 
 ## Declare a catkin package
