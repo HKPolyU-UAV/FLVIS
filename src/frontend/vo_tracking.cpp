@@ -297,11 +297,11 @@ private:
 
     }
 
-    img0_sub.subscribe(nh, "/vo/input_image_0", 1);
-    img1_sub.subscribe(nh, "/vo/input_image_1", 1);
+    img0_sub.subscribe(nh, "/vo/input_image_0", 3);
+    img1_sub.subscribe(nh, "/vo/input_image_1", 3);
     correction_inf_sub = nh.subscribe<flvis::CorrectionInf>(
           "/vo_localmap_feedback",
-          1,
+          2,
           boost::bind(&TrackingNodeletClass::correction_feedback_callback, this, _1));
     imu_sub = nh.subscribe<sensor_msgs::Imu>(
           "/imu",
@@ -378,6 +378,9 @@ private:
                             const sensor_msgs::ImageConstPtr & img1_Ptr)
   {
     //tic_toc_ros tt_cb;
+    static int count=1;
+    cout << "image input count " << count << endl;
+    count ++;
     ros::Time tstamp = img0_Ptr->header.stamp;
 
     cv_bridge::CvImagePtr cvbridge_img0  = cv_bridge::toCvCopy(img0_Ptr, img0_Ptr->encoding);
@@ -389,7 +392,10 @@ private:
                                   cvbridge_img1->image,
                                   newkf,
                                   reset_cmd);
-    if(newkf) kf_pub->pub(*cam_tracker->curr_frame,tstamp);
+
+    //if(newkf) kf_pub->pub(*cam_tracker->curr_frame,tstamp);
+    kf_pub->pub(*cam_tracker->curr_frame,tstamp);
+    cout << "published" << endl;
     if(reset_cmd) kf_pub->cmdLMResetPub(ros::Time(tstamp));
     frame_pub->pubFramePtsPoseT_c_w(this->cam_tracker->curr_frame->getValid3dPts(),
                                     this->cam_tracker->curr_frame->T_c_w,

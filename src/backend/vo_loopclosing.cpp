@@ -182,9 +182,9 @@ private:
             double score_i = sim_matrix[i][g_size-1];
             if (score_i < lc_min_score && score_i > 0.001) lc_min_score = score_i;
         }
-        cout << "lc_min_score is " << lc_min_score << endl;
+        //cout << "lc_min_score is " << lc_min_score << endl;
         lc_min_score = min(lc_min_score, 0.4);
-        cout<< "max sim score is: "<< max_sim_mat[0](1)<<endl;
+        //cout<< "max sim score is: "<< max_sim_mat[0](1)<<endl;
         if( max_sim_mat[0](1) < max(lc_paras.minScore, lc_min_score)) return is_lc_candidate;
 
         int idx_max = int(max_sim_mat[0](0));
@@ -209,13 +209,13 @@ private:
         }
 
         // ****************************************************************** //
-        cout << endl
-             << "lc_min_score: " << lc_min_score;
-        cout << endl
-             << "Nkf_closest:  " << nkf_closest;
-        cout << endl
-             << "idx_max:  " << idx_max << endl;
-        cout << "max score of previous kfs: "<<max_sim_mat[0](1)<<endl;
+//        cout << endl
+//             << "lc_min_score: " << lc_min_score;
+//        cout << endl
+//             << "Nkf_closest:  " << nkf_closest;
+//        cout << endl
+//             << "idx_max:  " << idx_max << endl;
+//        cout << "max score of previous kfs: "<<max_sim_mat[0](1)<<endl;
         return is_lc_candidate;
     }
 
@@ -504,12 +504,16 @@ private:
 
     void frame_callback(const flvis::KeyFrameConstPtr& msg)
     {
+        static int count=1;
+        cout << "loopclosing count "  << count << endl;
+        count++;
         if(msg->command==KFMSG_CMD_RESET_LM)
+        {
+            cout << "reset command" << endl;
             return;
+        }
+
         sim_vec.clear();
-
-
-
         //STEP1: Unpack and construct KeyFrameLC tructure
         //STEP1.1 Unpack
         // [1]kf.frame_id
@@ -724,30 +728,30 @@ private:
         }
         if(kf_id < 50)
         {
-            //cout<<"KF number is less than 50. Return."<<endl;
+            cout<<"KF number is less than 50. Return."<<endl;
             return;
         }
         uint64_t kf_prev_idx;
         bool is_lc_candidate = isLoopCandidate(kf_prev_idx);
         if(!is_lc_candidate)
         {
-            //cout<<"no loop candidate."<<endl;
+            cout<<"no loop candidate."<<endl;
             return;
         }
         else
         {
-            //cout<<"has loop candidate."<<endl;
+            cout<<"has loop candidate."<<endl;
         }
         bool is_lc = false;
         uint64_t kf_curr_idx = kf_map_lc.size()-1;
         is_lc = isLoopClosureKF(kf_map_lc[kf_prev_idx], kf_map_lc[kf_curr_idx], loop_pose);
         if(!is_lc)
         {
-            //cout<<"Geometry test fails."<<endl;
+            cout<<"Geometry test fails."<<endl;
             return;
         }
         else {
-            //cout<<"Pass geometry test."<<endl;
+            cout<<"Pass geometry test."<<endl;
         }
         if(is_lc)
         {
@@ -755,7 +759,10 @@ private:
             loop_poses.push_back(loop_pose);
             int thre = static_cast<int>((static_cast<double>(kf_id)/100)*2);
             if(kf_curr_idx - static_cast<size_t>(last_pgo_id) < thre)
+            {
                 cout<<"Last loop is too close."<<endl;
+            }
+
             if(kf_curr_idx - static_cast<size_t>(last_pgo_id) > thre)
             {
                 path_lc_pub->clearPath();
@@ -933,7 +940,7 @@ private:
         path_lc_pub  = new RVIZPath(nh,"/vision_path_lc_all","map");
         sub_kf = nh.subscribe<flvis::KeyFrame>(
                     "/vo_kf",
-                    10,
+                    3000,
                     boost::bind(&LoopClosingNodeletClass::frame_callback, this, _1));
 
     }
