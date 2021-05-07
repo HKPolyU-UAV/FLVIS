@@ -8,7 +8,7 @@
 #include "stdio.h"
 #include <fstream>
 #include <signal.h>
-
+#include "include/common.h"
 
 
 using namespace  std;
@@ -97,32 +97,28 @@ static void process(ros::Time stamp, double x, double y, double z,
     }
 }
 
-static void writetofile(ros::Time stamp, double x, double y, double z,
-                        double qw, double qx, double qy, double qz)
+static void writetokittifile(ros::Time stamp, double x, double y, double z,
+                             double qw, double qx, double qy, double qz)
 {
 
     if(enable_output_file)
     {
-        fd << setprecision(6)
-           << stamp << " "
-           << setprecision(9)
-           << x << " "
-           << y << " "
-           << z << " "
-           << qw << " "
-           << qx << " "
-           << qy << " "
-           << qz << std::endl;
-//        cout << setprecision(6)
-//             << stamp << " "
-//             << setprecision(9)
-//             << x << " "
-//             << y << " "
-//             << z << " "
-//             << qw << " "
-//             << qx << " "
-//             << qy << " "
-//             << qz << std::endl;
+        Vec3 t(x,y,z);
+        Quaterniond q(qw,qx,qy,qz);
+        Mat3x3 R_ = q.toRotationMatrix();
+        fd << setprecision(6) << R_(0,0) << " " << R_(0,1) << " " << R_(0,2) << " " << t[0] << " ";
+        fd << setprecision(6) << R_(1,0) << " " << R_(1,1) << " " << R_(1,2) << " " << t[1] << " ";
+        fd << setprecision(6) << R_(2,0) << " " << R_(2,1) << " " << R_(2,2) << " " << t[2] << std::endl;
+//        fd << setprecision(6)
+//           << stamp << " "
+//           << setprecision(9)
+//           << x << " "
+//           << y << " "
+//           << z << " "
+//           << qw << " "
+//           << qx << " "
+//           << qy << " "
+//           << qz << std::endl;
     }
 
 }
@@ -142,9 +138,9 @@ void mySigintHandler(int sig)
             for(size_t i = 0; i< record_path.poses.size(); i++)
             {
                 geometry_msgs::PoseStamped pose_msg = record_path.poses[i];
-                writetofile(pose_msg.header.stamp,
-                            pose_msg.pose.position.x, pose_msg.pose.position.y, pose_msg.pose.position.z,
-                            pose_msg.pose.orientation.w, pose_msg.pose.orientation.x, pose_msg.pose.orientation.y, pose_msg.pose.orientation.z);
+                writetokittifile(pose_msg.header.stamp,
+                                 pose_msg.pose.position.x, pose_msg.pose.position.y, pose_msg.pose.position.z,
+                                 pose_msg.pose.orientation.w, pose_msg.pose.orientation.x, pose_msg.pose.orientation.y, pose_msg.pose.orientation.z);
             }
             fd.close();
             cout << "close file" << endl;
@@ -187,10 +183,10 @@ void Odometry_callback(const nav_msgs::OdometryConstPtr msg)
 
 void NavPath_callback(const nav_msgs::PathConstPtr msg)
 {
-//    static int count = 1;
-//    cout << "record nav count" << count << endl;
+    //    static int count = 1;
+    //    cout << "record nav count" << count << endl;
     record_path = nav_msgs::Path(*msg);
-//    count ++;
+    //    count ++;
 }
 
 int main(int argc, char **argv)
