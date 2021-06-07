@@ -145,7 +145,8 @@ void F2FTracking::image_feed(const double time,
     // 0  0  1
     //-1  0  0
     // 0 -1  0
-    R_w_c << 0, 0, 1, -1, 0, 0, 0,-1, 0;
+    //R_w_c << 0, 0, 1, -1, 0, 0, 0,-1, 0;
+    R_w_c << 1, 0, 0, 0, 1, 0, 0, 0, 1;
     Vec3   t_w_c=Vec3(0,0,0);
     SE3    T_w_c(R_w_c,t_w_c);
     curr_frame->T_c_w=T_w_c.inverse();//Tcw = (Twc)^-1

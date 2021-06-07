@@ -88,17 +88,17 @@ feature_para2: 15
 #distance of features
 feature_para3: 10
 #goodFeaturesToTrack detector maxCorners
-feature_para4: 3000
+feature_para4: 2000
 #goodFeaturesToTrack detector qualityLevel
-feature_para5: 0.001
+feature_para5: 0.0001
 #goodFeaturesToTrack detector minDistance
-feature_para6: 3
+feature_para6: 10
 
 #depth recovery
 #IIR filter ratio
-dr_para1: 0.97
+dr_para1: 0.8
 #triangulate range
-dr_para2: 200
+dr_para2: 1000
 #Dummy depth enable 1.0, enable 0.0,disable
 dr_para3: 0.0
 

@@ -147,7 +147,8 @@ target_link_libraries(flvis
 add_executable(vo_repub_rec
     src/independ_modules/vo_repub_rec.cpp)
 target_link_libraries(vo_repub_rec
-    ${catkin_LIBRARIES})
+    ${catkin_LIBRARIES}
+    ${Sophus_LIBRARIES})
 
 add_executable(kitti_publisher
     src/independ_modules/kitti_publisher.cpp
