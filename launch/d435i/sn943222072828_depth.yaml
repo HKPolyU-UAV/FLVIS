@@ -25,13 +25,13 @@ is_lite_version:   False
 #Madgwick beta
 vifusion_para1: 0.1
 #proportion of vision feedforware(roll and pich)
-vifusion_para2: 0.03
+vifusion_para2: 0.01
 #acc-bias feedback parameter
-vifusion_para3: 0.003
+vifusion_para3: 0.001
 #gyro-bias feedback parameter
-vifusion_para4: 0.01
+vifusion_para4: 0.001
 #acc saturation level
-vifusion_para5: 0.5
+vifusion_para5: 0.1
 #gyro saturation level
 vifusion_para6: 0.1
 
@@ -42,19 +42,19 @@ feature_para1: 15
 #min features in a grid
 feature_para2: 30
 #distance of features
-feature_para3: 3
+feature_para3: 5
 #goodFeaturesToTrack detector maxCorners
 feature_para4: 1000
 #goodFeaturesToTrack detector qualityLevel
-feature_para5: 0.0001
+feature_para5: 0.01
 #goodFeaturesToTrack detector minDistance
-feature_para6: 3
+feature_para6: 5
 
 #depth recovery
 #IIR filter ratio
-dr_para1: 0.9
+dr_para1: 0.98
 #triangulate range
-dr_para2: 20
+dr_para2: 40
 #Dummy depth enable 1.0, enable 0.0,disable
 dr_para3: 1.0
 

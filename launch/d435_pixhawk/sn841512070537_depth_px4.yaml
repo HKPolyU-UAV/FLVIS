@@ -60,4 +60,22 @@ output_sparse_map: False
 window_size:       8
 
 #LoopClosureTheread
+#define lcKFStart
+lcKFStart: 25
+#define lcKFDist
+lcKFDist: 18
+#define lcKFMaxDist
+lcKFMaxDist: 50
+#define lcKFLast
+lcKFLast: 20
+#define lcNKFClosest
+lcNKFClosest: 2
+#define ratioMax
+ratioMax: 0.5
+#define ratioRansac
+ratioRansac: 0.5
+#define minPts
+minPts: 20
+#define minScore
+minScore: 0.12
 

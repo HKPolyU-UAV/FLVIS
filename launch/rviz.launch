@@ -1,4 +1,0 @@
-<?xml version="1.0"?>
-<launch>
-    <node type="rviz" name="rviz" pkg="rviz" args="-d $(find flvis)/rviz/kitti.rviz" />
-</launch>

@@ -2,7 +2,7 @@
 <launch>
 
 <!--Input######################################################################################################-->
-    <node pkg="rosbag" type="play" name="rosbag" args="$(find flvis)/bag/melab_sn943222072828.bag -s3"/>
+    <node pkg="rosbag" type="play" name="rosbag" args="$(find flvis)/bag/melab_sn943222072828.bag -s3 -r 2.0"/>
 
 <!--FLVIS######################################################################################################-->
     <arg name="node_start_delay"  default="1.0" />

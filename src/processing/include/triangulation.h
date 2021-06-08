@@ -21,7 +21,7 @@ public:
     static bool trignaulationPtFromStereo(Vec2 pt0, Vec2 pt1,
                                           Mat3x4 P0, Mat3x4 P1,
                                           Vec3 &pt3d_c,
-                                          float range);
+                                          float range=100.0);
     static Vec3 triangulationPt(Vec2 pt1,
                                 Vec2 pt2,
                                 Mat3x4 projection_matrix1,

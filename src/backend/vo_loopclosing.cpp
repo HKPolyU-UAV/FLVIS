@@ -17,9 +17,11 @@
 #include <tf/transform_broadcaster.h>
 #include <tf2_ros/transform_broadcaster.h>
 #include <tf2/LinearMath/Quaternion.h>
+#include <image_transport/image_transport.h>
 
 //FLVIS
 #include <include/yamlRead.h>
+#include <include/triangulation.h>
 #include <include/keyframe_msg.h>
 #include <flvis/KeyFrame.h>
 #include <include/camera_frame.h>
@@ -133,6 +135,13 @@ private:
     //vector<shared_ptr<KeyFrameStruct>> kf_map;
     vector<BowVector> kfbv_map;
     vector<shared_ptr<KeyFrameLC>> kf_map_lc;
+    vector<cv::Mat> kf_img_lc;
+    vector<cv::DMatch> select_match;
+    image_transport::Publisher loop_closure_pub;
+    uint64_t kf_curr_idx_;
+    uint64_t kf_prev_idx_;
+
+
     //loop info
     vector<Vec3I> loop_ids;
     vector<SE3> loop_poses;
@@ -184,7 +193,7 @@ private:
         }
         //cout << "lc_min_score is " << lc_min_score << endl;
         lc_min_score = min(lc_min_score, 0.4);
-        //cout<< "max sim score is: "<< max_sim_mat[0](1)<<endl;
+        ///cout<< "max sim score is: "<< max_sim_mat[0](1)<<endl;
         if( max_sim_mat[0](1) < max(lc_paras.minScore, lc_min_score)) return is_lc_candidate;
 
         int idx_max = int(max_sim_mat[0](0));
@@ -209,13 +218,13 @@ private:
         }
 
         // ****************************************************************** //
-//        cout << endl
-//             << "lc_min_score: " << lc_min_score;
-//        cout << endl
-//             << "Nkf_closest:  " << nkf_closest;
-//        cout << endl
-//             << "idx_max:  " << idx_max << endl;
-//        cout << "max score of previous kfs: "<<max_sim_mat[0](1)<<endl;
+        cout << endl
+             << "lc_min_score: " << lc_min_score;
+        cout << endl
+             << "Nkf_closest:  " << nkf_closest;
+        cout << endl
+             << "idx_max:  " << idx_max << endl;
+        cout << "max score of previous kfs: "<<max_sim_mat[0](1)<<endl;
         return is_lc_candidate;
     }
 
@@ -224,25 +233,22 @@ private:
         //kf0 previous kf, kf1 current kf,
         bool is_lc = false;
         int common_pt = 0;
-        //  cout<<"kf1 des size: "<<kf1->lm_descriptor.size()<<"kf 0 des size: "<<kf0->lm_descriptor.size()<<endl;
+
+        vector<cv::DMatch> selected_matches_;
 
         if (!(kf1->lm_descriptor.size() == 0) && !(kf0->lm_descriptor.size() == 0))
         {
-            //  cout<<"feature ,matching:"<<endl;
+
 
             cv::BFMatcher *bfm = new cv::BFMatcher(cv::NORM_HAMMING, false); // cross-check
-            //          Mat pdesc_l1= Mat::zeros(Size(32,kf0->lm_descriptor.size()),CV_8U);
-            //          Mat pdesc_l2= Mat::zeros(Size(32,kf1->lm_descriptor.size()),CV_8U);
+
             cv::Mat pdesc_l1= cv::Mat::zeros(cv::Size(32,static_cast<int>(kf0->lm_descriptor.size())),CV_8U);
             cv::Mat pdesc_l2= cv::Mat::zeros(cv::Size(32,static_cast<int>(kf1->lm_descriptor.size())),CV_8U);
             vector<vector<cv::DMatch>> pmatches_12, pmatches_21;
             // 12 and 21 matches
             vecDesciptor_to_descriptors(kf0->lm_descriptor,pdesc_l1);
             vecDesciptor_to_descriptors(kf1->lm_descriptor,pdesc_l2);
-            //            vMat_to_descriptors(pdesc_l1,kf0->lm_descriptor);
-            //            vMat_to_descriptors(pdesc_l2,kf1->lm_descriptor);
-            // cout<<"size: "<<pdesc_l1.size().height<<" "<<pdesc_l1.size().width<<endl;
-            // cout<<"size: "<<pdesc_l2.size().height<<" "<<pdesc_l2.size().width<<endl;
+
             bfm->knnMatch(pdesc_l1, pdesc_l2, pmatches_12, 2);
             bfm->knnMatch(pdesc_l2, pdesc_l1, pmatches_21, 2);
 
@@ -270,7 +276,7 @@ private:
                 // check if they are mutual best matches and satisfy the distance ratio test
                 if (lr_qdx == rl_tdx)
                 {
-                    if(pmatches_12[i][0].distance/pmatches_12[i][1].distance < static_cast<float>(lc_paras.ratioMax))
+                    if(pmatches_12[i][0].distance * 1.0/pmatches_12[i][1].distance < static_cast<float>(lc_paras.ratioMax))
                     {
                         common_pt++;
                         // save data for optimization
@@ -286,6 +292,7 @@ private:
                         cv::Point2f p2(pl_obs(0),pl_obs(1));
                         p3d.push_back(p3);
                         p2d.push_back(p2);
+                        selected_matches_.push_back(pmatches_12[i][0]);
                     }
 
                 }
@@ -297,19 +304,63 @@ private:
             //SE3_to_rvec_tvec(kf0->T_c_w, r_ , t_ );
             //cout<<"start ransac"<<endl;
             if(p3d.size() < 5) return is_lc;
-            solvePnPRansac(p3d,p2d,dc.K0_rect,dc.D0_rect,r_,t_,false,100,4.0,0.99,inliers,cv::SOLVEPNP_P3P);
+            cv::solvePnPRansac(p3d,p2d,dc.K0_rect,dc.D0_rect,r_,t_,false,100,2.0,0.99,inliers,cv::SOLVEPNP_P3P);
+
+            for( int i = 0; i < inliers.rows; i++){
+                int n = inliers.at<int>(i);
+                select_match.push_back(selected_matches_[n]);
+            }
             //    cout<<"selected points size: "<<p3d.size()<<" inliers size: "<<inliers.rows<<" unseletced size: "<<pmatches_12.size()<<endl;
 
             if(inliers.rows*1.0/p3d.size() < lc_paras.ratioRansac || inliers.rows < lc_paras.minPts ) //return is_lc;
             {
-                //cout<<"reject loop after geometry check "<<endl;
-                // cout<<"ratio test: "<<static_cast<double>(inliers.rows)/static_cast<double>(p3d.size())<<" "<<"number test "<<inliers.rows<<endl;
+
                 return is_lc;
             }
             //SE3 se_ij
             se_ji = SE3_from_rvec_tvec(r_,t_);
 
             if(se_ji.translation().norm() < 3 && se_ji.so3().log().norm() < 1.5) is_lc = true;
+
+            if(is_lc)
+            {
+              //publish loop closure frame.
+              cv::Mat img_1 = kf_img_lc[kf_prev_idx_];
+              cv::Mat img_2 = kf_img_lc[kf_curr_idx_];
+              cv::cvtColor(img_1, img_1, CV_GRAY2RGB);
+              cv::cvtColor(img_2, img_2, CV_GRAY2RGB);
+
+              /* check how many rows are necessary for output matrix */
+              int totalRows = img_1.rows >= img_2.rows ? img_1.rows : img_2.rows;
+              cv::Mat outImg = cv::Mat::zeros( totalRows, img_1.cols + img_2.cols, CV_8UC3 );
+              //cv::Mat outImg;// = cv::Mat::zeros( img_1.rows, img_1.cols + img_2.cols, img_1.type() );
+              cv::Mat roi_left( outImg, cv::Rect( 0, 0, img_1.cols, img_1.rows ) );
+              cv::Mat roi_right( outImg, cv::Rect( img_1.cols, 0, img_2.cols, img_2.rows ) );
+              img_1.copyTo( roi_left );
+              img_2.copyTo( roi_right );
+              int offset = img_1.cols;
+
+
+              for ( size_t counter = 0; counter < select_match.size(); counter++ )
+              {
+                size_t lr_qdx = static_cast<size_t>(select_match[counter].queryIdx);
+                size_t lr_tdx = static_cast<size_t>(select_match[counter].trainIdx);
+                cv::Scalar matchColorRGB;
+                matchColorRGB = cv::Scalar( 255, 0, 0 );
+                Vector2f P_left  = kf0->lm_2d[lr_qdx].cast<float>();
+                Vector2f P_right = kf1->lm_2d[lr_tdx].cast<float>();
+                cv::Point2f p_left(P_left(0),P_left(1));
+                cv::Point2f p_right(P_right(0) + offset,P_right(1));
+                cv::line( outImg, p_left, p_right, matchColorRGB, 2 );
+
+              }
+              sensor_msgs::ImagePtr lc_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", outImg).toImageMsg();
+              loop_closure_pub.publish(lc_msg);
+
+
+
+            }
+
         }
         return is_lc;
     }
@@ -504,16 +555,11 @@ private:
 
     void frame_callback(const flvis::KeyFrameConstPtr& msg)
     {
-        static int count=1;
-        cout << "loopclosing count "  << count << endl;
-        count++;
         if(msg->command==KFMSG_CMD_RESET_LM)
-        {
-            cout << "reset command" << endl;
             return;
-        }
-
         sim_vec.clear();
+        select_match.clear();
+
         //STEP1: Unpack and construct KeyFrameLC tructure
         //STEP1.1 Unpack
         // [1]kf.frame_id
@@ -544,6 +590,7 @@ private:
         //STEP1.2 Construct KeyFrameLC
         // [1]kf.T_c_w
         // [2]kf.keyframe_id
+        kf_img_lc.push_back(img0_unpack);
         BowVector kf_bv;
         SE3 loop_pose;
         kf.T_c_w = kf.T_c_w_odom*T_odom_map;
@@ -602,8 +649,7 @@ private:
                                                                 Vec2(lm_img1.at(i).x,lm_img1.at(i).y),
                                                                 dc.P0_,
                                                                 dc.P1_,
-                                                                pt3d_c,
-                                                                300.0))
+                                                                pt3d_c))
                     {
                         lm_2d.push_back(Vec2(lm_img0.at(i).x,lm_img0.at(i).y));
                         lm_d.push_back(0.0);
@@ -728,41 +774,41 @@ private:
         }
         if(kf_id < 50)
         {
-            cout<<"KF number is less than 50. Return."<<endl;
+            //cout<<"KF number is less than 50. Return."<<endl;
             return;
         }
         uint64_t kf_prev_idx;
         bool is_lc_candidate = isLoopCandidate(kf_prev_idx);
         if(!is_lc_candidate)
         {
-            cout<<"no loop candidate."<<endl;
+            //cout<<"no loop candidate."<<endl;
             return;
         }
         else
         {
-            cout<<"has loop candidate."<<endl;
+            //cout<<"has loop candidate."<<endl;
         }
         bool is_lc = false;
         uint64_t kf_curr_idx = kf_map_lc.size()-1;
+        kf_prev_idx_ = kf_prev_idx;
+        kf_curr_idx_ = kf_curr_idx;
         is_lc = isLoopClosureKF(kf_map_lc[kf_prev_idx], kf_map_lc[kf_curr_idx], loop_pose);
         if(!is_lc)
         {
-            cout<<"Geometry test fails."<<endl;
+            //cout<<"Geometry test fails."<<endl;
             return;
         }
         else {
-            cout<<"Pass geometry test."<<endl;
+            //cout<<"Pass geometry test."<<endl;
         }
+
         if(is_lc)
         {
             loop_ids.push_back(Vec3I(static_cast<int>(kf_prev_idx), static_cast<int>(kf_curr_idx), 1));
             loop_poses.push_back(loop_pose);
             int thre = static_cast<int>((static_cast<double>(kf_id)/100)*2);
             if(kf_curr_idx - static_cast<size_t>(last_pgo_id) < thre)
-            {
                 cout<<"Last loop is too close."<<endl;
-            }
-
             if(kf_curr_idx - static_cast<size_t>(last_pgo_id) > thre)
             {
                 path_lc_pub->clearPath();
@@ -938,9 +984,11 @@ private:
         Database dbTmp(voc, true, 0);
         db = dbTmp;
         path_lc_pub  = new RVIZPath(nh,"/vision_path_lc_all","map");
+        image_transport::ImageTransport it(nh);
+        loop_closure_pub = it.advertise("/loop_closure_img",1);
         sub_kf = nh.subscribe<flvis::KeyFrame>(
                     "/vo_kf",
-                    3000,
+                    2,
                     boost::bind(&LoopClosingNodeletClass::frame_callback, this, _1));
 
     }

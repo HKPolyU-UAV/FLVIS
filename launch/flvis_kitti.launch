@@ -3,9 +3,10 @@
 
 <!--Input######################################################################################################-->
     <param name="/dataset_pub_delay"      type="double"  value="5.0" />
-    <param name="/dataset_pub_rate"       type="int"     value="10" />
-    <param name="/publish_gt"             type="bool"    value="false" />
-    <param name="/dataset_folder_path"    type="string"  value="$(find flvis)/bag/KITTI/dataset/sequences/12/" />
+    <param name="/dataset_pub_rate"       type="int"     value="30" />
+
+    <param name="/publish_gt"             type="bool"    value="true" />
+    <param name="/dataset_folder_path"    type="string"  value="$(find flvis)/bag/KITTI/dataset/sequences/00/" />
     <param name="/dataset_gt_file"        type="string"  value="$(find flvis)/bag/KITTI/dataset/poses/00.txt" />
     <node pkg="flvis" type="kitti_publisher" name="kitti_publisher" output="screen"/>
 

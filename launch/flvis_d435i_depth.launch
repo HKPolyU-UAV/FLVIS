@@ -27,6 +27,7 @@
         <remap from="/imu"               to="/camera/imu"/>
     </node>
 
+
     <!-- LocalMapNode -->
 <!--    <node pkg="nodelet" type="nodelet" args="load flvis/LocalMapNodeletClass flvis_nodelet_manager"
           name="LocalMapNodeletClass_loader" output="screen"

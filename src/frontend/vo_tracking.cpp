@@ -379,7 +379,7 @@ private:
   {
     //tic_toc_ros tt_cb;
     static int count=1;
-    cout << "image input count " << count << endl;
+    //cout << "image input count " << count << endl;
     count ++;
     ros::Time tstamp = img0_Ptr->header.stamp;
 
@@ -393,9 +393,8 @@ private:
                                   newkf,
                                   reset_cmd);
 
-    //if(newkf) kf_pub->pub(*cam_tracker->curr_frame,tstamp);
-    kf_pub->pub(*cam_tracker->curr_frame,tstamp);
-    cout << "published" << endl;
+    if(newkf) kf_pub->pub(*cam_tracker->curr_frame,tstamp);
+    //kf_pub->pub(*cam_tracker->curr_frame,tstamp);
     if(reset_cmd) kf_pub->cmdLMResetPub(ros::Time(tstamp));
     frame_pub->pubFramePtsPoseT_c_w(this->cam_tracker->curr_frame->getValid3dPts(),
                                     this->cam_tracker->curr_frame->T_c_w,

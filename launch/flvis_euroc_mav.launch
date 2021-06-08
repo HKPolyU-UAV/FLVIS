@@ -3,11 +3,17 @@
 <!--rosbag#####################################################################################################-->
     <param name="/use_sim_time" value="true" />
     <node pkg="rosbag" type="play" name="rosbag" args="$(find flvis)/bag/EUROC/MH_05_difficult.bag --clock" />
-    <!--    V1_01_easy     -->
-    <!--    V1_02_medium   -->
-    <!--    V1_03_difficult-->
-    <!--    MH_02_easy     -->
-    <!--    MH_05_difficult-->
+    <!--    V1_01_easy      -->
+    <!--    V1_02_medium    -->
+    <!--    V1_03_difficult -->
+    <!--    V2_01_easy      -->
+    <!--    V2_02_medium    -->
+    <!--    V2_03_difficult -->
+    <!--    MH_01_easy      -->
+    <!--    MH_02_easy      -->
+    <!--    MH_03_medium    -->
+    <!--    MH_04_difficult -->
+    <!--    MH_05_difficult -->
 
 
 <!--FLVIS######################################################################################################-->

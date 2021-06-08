@@ -145,8 +145,8 @@ void F2FTracking::image_feed(const double time,
     // 0  0  1
     //-1  0  0
     // 0 -1  0
-    //R_w_c << 0, 0, 1, -1, 0, 0, 0,-1, 0;
-    R_w_c << 1, 0, 0, 0, 1, 0, 0, 0, 1;
+    R_w_c << 0, 0, 1, -1, 0, 0, 0,-1, 0;
+    //R_w_c << 1, 0, 0, 0, 1, 0, 0, 0, 1;//If you want to submit it to kitti please uncommen this line
     Vec3   t_w_c=Vec3(0,0,0);
     SE3    T_w_c(R_w_c,t_w_c);
     curr_frame->T_c_w=T_w_c.inverse();//Tcw = (Twc)^-1
@@ -333,12 +333,12 @@ void F2FTracking::image_feed(const double time,
     double t_norm = fabs(t[0]) + fabs(t[1]) + fabs(t[2]);
     double r_norm = fabs(r[0]) + fabs(r[1]) + fabs(r[2]);
 
-    if(frameCount<40 && (frameCount%3)==0)
+    if(frameCount<40 && (frameCount%5)==0)
     {
       new_keyframe = true;
       T_c_w_last_keyframe = curr_frame->T_c_w;
     }
-    if(t_norm>=0.03 || r_norm>=0.2)
+    if(t_norm>=0.05 || r_norm>=0.2)
     {
       new_keyframe = true;
       T_c_w_last_keyframe = curr_frame->T_c_w;
