@@ -2,7 +2,7 @@
 ## Feedback Loop Based Visual Inertial SLAM
 
 ### 1-Video
-<a href="https://www.youtube.com/embed/ljZWb2x6CRQ" target="_blank"><img src="http://img.youtube.com/vi/ljZWb2x6CRQ/0.jpg" 
+<a href="https://www.youtube.com/embed/U1GmOICc1Ac" target="_blank"><img src="http://img.youtube.com/vi/ljZWb2x6CRQ/0.jpg" 
 alt="cla" width="480" height="300" border="1" /></a>
 
 | EuRoC DataSet MH_05    | Handheld Test in Lab   | FlVIS on UAV Platform  |
@@ -20,7 +20,7 @@ Ubuntu 16.04 + ROS Kinetic <br />
 Ubuntu 18.04 + ROS melodic <br />
 Clone the repository to the catkin work space eg. /catkin_ws/src
 ````
-git clone https://github.com/Ttoto/FLVIS.git
+git clone https://github.com/HKPolyU-UAV/FLVIS.git
 ````
 Install 3rd Part library
 ````
@@ -33,6 +33,7 @@ cd ~/catkin_ws
 catkin_make
 ````
 ### 5-Verification
+Support Platform D435i(Depth/Stereo Mode), EuRoC Dataset, KITTI Dataset
 #### 5.1 D435i Camera Depth Mode
 ##### 5.1.1 Use our recorded rosbag 
 Download the dataset [Link-melab_sn943222072828.bag](https://drive.google.com/file/d/1kfOkQTt-i-Hd2M0FZa8Dia4_BweE-ttf/view?usp=sharing) to /bag folder <br />
@@ -99,8 +100,25 @@ Edit the corresponding bag name in flvis_euroc_mav.launch file:
 ````
 run the following launch files:
 ````
-roslaunch flvis rviz.launch
+roslaunch flvis rviz_euroc.launch
 roslaunch flvis flvis_euroc_mav.launch
+````
+
+#### 5.3 EuRoC MAV Dataset
+Download the dataset into the bag folder:
+
+<img src="https://github.com/Ttoto/img_bed/blob/main/FLVIS/kitti_sc.png" width="250"> 
+
+Edit the corresponding bag name in flvis_kitti.launch file:
+````
+<param name="/publish_gt"             type="bool"    value="true" />
+<param name="/dataset_folder_path"    type="string"  value="$(find flvis)/bag/KITTI/dataset/sequences/00/" />
+<param name="/dataset_gt_file"        type="string"  value="$(find flvis)/bag/KITTI/dataset/poses/00.txt" />
+````
+run the following launch files:
+````
+roslaunch flvis rviz_kitti.launch
+roslaunch flvis flvis_kitti.launch
 ````
 
 
