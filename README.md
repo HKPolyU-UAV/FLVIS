@@ -43,7 +43,7 @@ rosbag decompress melab_sn943222072828.bag
 ````
 run the following launch files:
 ````
-roslaunch flvis rviz.launch
+roslaunch flvis rviz_bag.launch
 roslaunch flvis flvis_bag.launch
 ````
 ##### 5.1.2 Use your own camera:
@@ -69,7 +69,7 @@ In the launch file "flvis_d435i.launch", make sure "/yamlconfigfile" is point to
 ````
 run the following launch files:
 ````
-roslaunch flvis rviz.launch
+roslaunch flvis rviz_bag.launch
 roslaunch flvis flvis_d435i_depth.launch
 ````
 #### 5.2 D435i Camera Stero Mode
