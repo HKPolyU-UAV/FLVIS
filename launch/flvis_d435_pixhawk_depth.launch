@@ -2,8 +2,8 @@
 <launch>
 
 <!--Input######################################################################################################-->
-    <include file="$(find flvis)/launch/d435_pixhawk/d435.launch"/>
-    <include file="$(find flvis)/launch/d435_pixhawk/px4.launch"/>
+<!--    <include file="$(find flvis)/launch/d435_pixhawk/d435_depth.launch"/>
+    <include file="$(find flvis)/launch/d435_pixhawk/px4.launch"/>-->
 
 <!--FLVIS######################################################################################################-->
     <arg name="node_start_delay"  default="5.0" />
