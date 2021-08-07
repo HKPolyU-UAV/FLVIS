@@ -104,7 +104,7 @@ roslaunch flvis rviz_euroc.launch
 roslaunch flvis flvis_euroc_mav.launch
 ````
 
-#### 5.3 EuRoC MAV Dataset
+#### 5.4 KITTI Dataset
 Download the dataset into the bag folder:
 
 <img src="https://github.com/Ttoto/img_bed/blob/main/FLVIS/kitti_sc.png" width="250"> 
