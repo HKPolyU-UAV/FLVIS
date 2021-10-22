@@ -1,5 +1,5 @@
 #  FLVIS
-## Feedback Loop Based Visual Inertial SLAM
+The implementation of Feedforward-feedback Loop-based Visual Inertial System. If you want to use FLVIS with GPU acceleration, try this [repo](https://github.com/JazzyFeng/FLVIS-gpu).
 
 ### 1-Video
 <a href="https://www.youtube.com/embed/U1GmOICc1Ac" target="_blank"><img src="http://img.youtube.com/vi/ljZWb2x6CRQ/0.jpg" 
