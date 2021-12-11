@@ -72,33 +72,42 @@ void F2FTracking::image_feed(const double time,
   curr_frame->frame_id = frameCount;
   curr_frame->frame_time = time;
   bool mbRGB = 0;
+  cv::Mat img0_out;
+  cv::Mat img1_out;
+  
+  if(img0_in.channels() == 1){
+    img0_out = img0_in;
+  }
+  if(img1_in.channels() == 1){
+    img1_out = img1_in;
+  }
   if(img0_in.channels()==3)
   {
     if(mbRGB)
-      cvtColor(img0_in,img0_in,CV_RGB2GRAY);
+      cvtColor(img0_in,img0_out,CV_RGB2GRAY);
     else
-      cvtColor(img0_in,img0_in,CV_BGR2GRAY);
+      cvtColor(img0_in,img0_out,CV_BGR2GRAY);
   }
   else if(img0_in.channels()==4)
   {
     if(mbRGB)
-      cvtColor(img0_in,img0_in,CV_RGBA2GRAY);
+      cvtColor(img0_in,img0_out,CV_RGBA2GRAY);
     else
-      cvtColor(img0_in,img0_in,CV_BGRA2GRAY);
+      cvtColor(img0_in,img0_out,CV_BGRA2GRAY);
   }
   if(img1_in.channels()==3)
   {
     if(mbRGB)
-      cvtColor(img1_in,img1_in,CV_RGB2GRAY);
+      cvtColor(img1_in,img1_out,CV_RGB2GRAY);
     else
-      cvtColor(img1_in,img1_in,CV_BGR2GRAY);
+      cvtColor(img1_in,img1_out,CV_BGR2GRAY);
   }
   else if(img1_in.channels()==4)
   {
     if(mbRGB)
-      cvtColor(img1_in,img1_in,CV_RGBA2GRAY);
+      cvtColor(img1_in,img1_out,CV_RGBA2GRAY);
     else
-      cvtColor(img1_in,img1_in,CV_BGRA2GRAY);
+      cvtColor(img1_in,img1_out,CV_BGRA2GRAY);
   }
 
 
@@ -106,8 +115,8 @@ void F2FTracking::image_feed(const double time,
   {
   case DEPTH_D435:
   {
-    curr_frame->img0=img0_in;
-    curr_frame->d_img=img1_in;
+    curr_frame->img0=img0_out;
+    curr_frame->d_img=img1_out;
     if(skip_n_imgs>0)
     {
       skip_n_imgs--;
@@ -122,8 +131,8 @@ void F2FTracking::image_feed(const double time,
   case STEREO_RECT:
   case STEREO_UNRECT:
   {
-    curr_frame->img0=img0_in;
-    curr_frame->img1=img1_in;
+    curr_frame->img0=img0_out;
+    curr_frame->img1=img1_out;
     if(skip_n_imgs>0)
     {
       skip_n_imgs--;
