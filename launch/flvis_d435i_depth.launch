@@ -23,7 +23,7 @@
         launch-prefix="bash -c 'sleep $(arg node_start_delay); $0 $@' ">
         <!-- D435i -->
         <remap from="/vo/input_image_0"  to="/camera/infra1/image_rect_raw"/>
-        <remap from="/vo/input_image_1"  to="/camera/aligned_depth_to_infra1/image_raw"/>
+        <remap from="/vo/input_image_1"  to="/camera/depth/image_rect_raw"/>
         <remap from="/imu"               to="/camera/imu"/>
     </node>
 
