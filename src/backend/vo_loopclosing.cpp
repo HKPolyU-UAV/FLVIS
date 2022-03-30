@@ -814,6 +814,7 @@ private:
                 path_lc_pub->clearPath();
                 tic_toc_ros pgo;
                 loopClosureOnCovGraphG2ONew();
+                printf("\033[1;31m optimize time: %lf \033[0m ", pgo.dT_ms());
                 last_pgo_id = static_cast<int>(kf_curr_idx);
             }
         }
