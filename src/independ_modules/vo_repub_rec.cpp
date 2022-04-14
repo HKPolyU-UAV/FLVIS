@@ -183,10 +183,10 @@ void Odometry_callback(const nav_msgs::OdometryConstPtr msg)
 
 void NavPath_callback(const nav_msgs::PathConstPtr msg)
 {
-    //    static int count = 1;
-    //    cout << "record nav count" << count << endl;
+    static int count = 1;
+    //cout << "record nav count" << count << endl;
     record_path = nav_msgs::Path(*msg);
-    //    count ++;
+    count ++;
 }
 
 int main(int argc, char **argv)

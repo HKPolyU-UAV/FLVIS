@@ -57,6 +57,12 @@ private:
   ros::Subscriber imu_sub;
   ros::Subscriber correction_inf_sub;
 
+  //buffer and thread
+  queue<sensor_msgs::ImageConstPtr> img0_buf;
+  queue<sensor_msgs::ImageConstPtr> img1_buf;
+  std::mutex m_buf;
+  boost::shared_ptr <boost::thread> process_thread;
+
   //Octomap
   //OctomapFeeder* octomap_pub;
   //Visualization
@@ -309,6 +315,8 @@ private:
           boost::bind(&TrackingNodeletClass::imu_callback, this, _1));
     exactSync_ = new message_filters::Synchronizer<MyExactSyncPolicy>(MyExactSyncPolicy(2), img0_sub, img1_sub);
     exactSync_->registerCallback(boost::bind(&TrackingNodeletClass::image_input_callback, this, _1, _2));
+    process_thread = boost::shared_ptr<boost::thread>
+            (new boost::thread(boost::bind(&TrackingNodeletClass::process, this)));
     cout << "start tracking thread" << endl;
   }
 
@@ -377,68 +385,100 @@ private:
   void image_input_callback(const sensor_msgs::ImageConstPtr & img0_Ptr,
                             const sensor_msgs::ImageConstPtr & img1_Ptr)
   {
-    //tic_toc_ros tt_cb;
-    static int count=1;
-    //cout << "image input count " << count << endl;
-    count ++;
-    ros::Time tstamp = img0_Ptr->header.stamp;
+     m_buf.lock();
+     img0_buf.push(img0_Ptr);
+     img1_buf.push(img1_Ptr);
+     m_buf.unlock();
 
-    cv_bridge::CvImagePtr cvbridge_img0  = cv_bridge::toCvCopy(img0_Ptr, img0_Ptr->encoding);
-    cv_bridge::CvImagePtr cvbridge_img1  = cv_bridge::toCvCopy(img1_Ptr, img1_Ptr->encoding);
-    bool newkf;//new key frame
-    bool reset_cmd;//reset command to localmap node
-    this->cam_tracker->image_feed(tstamp.toSec(),
-                                  cvbridge_img0->image,
-                                  cvbridge_img1->image,
-                                  newkf,
-                                  reset_cmd);
+  }
+  void process()
+  {
+      while(true)
+      {
+          m_buf.lock();
+          sensor_msgs::ImageConstPtr img0_Ptr;
+          sensor_msgs::ImageConstPtr img1_Ptr;
+          if(!img0_buf.empty() && !img1_buf.empty())
+          {
+              img0_Ptr = img0_buf.front();
+              img0_buf.pop();
+              img1_Ptr = img1_buf.front();
+              img1_buf.pop();
 
-    if(newkf) kf_pub->pub(*cam_tracker->curr_frame,tstamp);
-    //kf_pub->pub(*cam_tracker->curr_frame,tstamp);
-    if(reset_cmd) kf_pub->cmdLMResetPub(ros::Time(tstamp));
-    frame_pub->pubFramePtsPoseT_c_w(this->cam_tracker->curr_frame->getValid3dPts(),
-                                    this->cam_tracker->curr_frame->T_c_w,
-                                    tstamp);
-    vision_path_pub->pubPathT_c_w(this->cam_tracker->curr_frame->T_c_w,tstamp);
-    SE3 T_map_c =SE3();
-    try{
-      listenerOdomMap.lookupTransform("map","odom",ros::Time(0), tranOdomMap);
-      tf::Vector3 tf_t= tranOdomMap.getOrigin();
-      tf::Quaternion tf_q = tranOdomMap.getRotation();
-      SE3 T_map_odom(Quaterniond(tf_q.w(),tf_q.x(),tf_q.y(),tf_q.z()),
-                     Vec3(tf_t.x(),tf_t.y(),tf_t.z()));
-      T_map_c = T_map_odom*this->cam_tracker->curr_frame->T_c_w.inverse();
-      path_lc_pub->pubPathT_w_c(T_map_c,tstamp);
-    }
-    catch (tf::TransformException ex)
-    {
-      //cout<<"no transform between map and odom yet."<<endl;
-    }
-    if(!is_lite_version)
-    {
-      cvtColor(cam_tracker->curr_frame->img0,img0_vis,CV_GRAY2BGR);
-      if(cam_type==DEPTH_D435)
-      {
-        drawFrame(img0_vis,*this->cam_tracker->curr_frame,1,6);
-        visualizeDepthImg(img1_vis,*this->cam_tracker->curr_frame);
+          }
+          m_buf.unlock();
+          if(img0_Ptr && img1_Ptr)
+          {
+              //tic_toc_ros tt_cb;
+              static int count=1;
+              //cout << "image input count " << count << endl;
+              count ++;
+              ros::Time tstamp = img0_Ptr->header.stamp;
+              cv_bridge::CvImagePtr cvbridge_img0  = cv_bridge::toCvCopy(img0_Ptr, img0_Ptr->encoding);
+              cv_bridge::CvImagePtr cvbridge_img1  = cv_bridge::toCvCopy(img1_Ptr, img1_Ptr->encoding);
+              bool newkf;//new key frame
+              bool reset_cmd;//reset command to localmap node
+              this->cam_tracker->image_feed(tstamp.toSec(),
+                                            cvbridge_img0->image,
+                                            cvbridge_img1->image,
+                                            newkf,
+                                            reset_cmd);
+
+              if(newkf) kf_pub->pub(*cam_tracker->curr_frame,tstamp);
+              //kf_pub->pub(*cam_tracker->curr_frame,tstamp);
+              if(reset_cmd) kf_pub->cmdLMResetPub(ros::Time(tstamp));
+              frame_pub->pubFramePtsPoseT_c_w(this->cam_tracker->curr_frame->getValid3dPts(),
+                                              this->cam_tracker->curr_frame->T_c_w,
+                                              tstamp);
+              vision_path_pub->pubPathT_c_w(this->cam_tracker->curr_frame->T_c_w,tstamp);
+              SE3 T_map_c =SE3();
+              try{
+                listenerOdomMap.lookupTransform("map","odom",ros::Time(0), tranOdomMap);
+                tf::Vector3 tf_t= tranOdomMap.getOrigin();
+                tf::Quaternion tf_q = tranOdomMap.getRotation();
+                SE3 T_map_odom(Quaterniond(tf_q.w(),tf_q.x(),tf_q.y(),tf_q.z()),
+                               Vec3(tf_t.x(),tf_t.y(),tf_t.z()));
+                T_map_c = T_map_odom*this->cam_tracker->curr_frame->T_c_w.inverse();
+                path_lc_pub->pubPathT_w_c(T_map_c,tstamp);
+              }
+              catch (tf::TransformException ex)
+              {
+                //cout<<"no transform between map and odom yet."<<endl;
+              }
+              if(!is_lite_version)
+              {
+                cvtColor(cam_tracker->curr_frame->img0,img0_vis,CV_GRAY2BGR);
+                if(cam_type==DEPTH_D435)
+                {
+                  drawFrame(img0_vis,*this->cam_tracker->curr_frame,1,6);
+                  visualizeDepthImg(img1_vis,*this->cam_tracker->curr_frame);
+                }
+                if(cam_type==STEREO_UNRECT || cam_type==STEREO_RECT)
+                {
+                  drawFrame(img0_vis,*this->cam_tracker->curr_frame,1,11);
+                  cvtColor(cam_tracker->curr_frame->img1,img1_vis,CV_GRAY2BGR);
+                  drawFlow(img0_vis,
+                           this->cam_tracker->curr_frame->flow_last,
+                           this->cam_tracker->curr_frame->flow_curr);
+                  drawFlow(img1_vis,
+                           this->cam_tracker->curr_frame->flow_0,
+                           this->cam_tracker->curr_frame->flow_1);
+                }
+                sensor_msgs::ImagePtr img0_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", img0_vis).toImageMsg();
+                sensor_msgs::ImagePtr img1_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", img1_vis).toImageMsg();
+                img0_pub.publish(img0_msg);
+                img1_pub.publish(img1_msg);
+              }
+
+
+          }
+          boost::this_thread::sleep_for(boost::chrono::milliseconds(2));
+
+
       }
-      if(cam_type==STEREO_UNRECT || cam_type==STEREO_RECT)
-      {
-        drawFrame(img0_vis,*this->cam_tracker->curr_frame,1,11);
-        cvtColor(cam_tracker->curr_frame->img1,img1_vis,CV_GRAY2BGR);
-        drawFlow(img0_vis,
-                 this->cam_tracker->curr_frame->flow_last,
-                 this->cam_tracker->curr_frame->flow_curr);
-        drawFlow(img1_vis,
-                 this->cam_tracker->curr_frame->flow_0,
-                 this->cam_tracker->curr_frame->flow_1);
-      }
-      sensor_msgs::ImagePtr img0_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", img0_vis).toImageMsg();
-      sensor_msgs::ImagePtr img1_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", img1_vis).toImageMsg();
-      img0_pub.publish(img0_msg);
-      img1_pub.publish(img1_msg);
-    }
-  }//image_input_callback(const sensor_msgs::ImageConstPtr & imgPtr, const sensor_msgs::ImageConstPtr & depthImgPtr)
+
+  }
+
 
 };//class TrackingNodeletClass
 }//namespace flvis_ns

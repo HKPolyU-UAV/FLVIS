@@ -42,7 +42,7 @@
     <node pkg="nodelet" type="nodelet" args="load flvis/LoopClosingNodeletClass flvis_nodelet_manager"
         name="LoopClosingNodeletClass_loader" output="screen"
         launch-prefix="bash -c 'sleep $(arg node_start_delay); $0 $@' ">
-    </node>
+    </node> -->
 
 <node pkg="flvis" type="vo_repub_rec" name="lc2file" output="screen">
     <!--Sub Support Type:-->

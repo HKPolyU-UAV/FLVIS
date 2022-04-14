@@ -1,0 +1,83 @@
+#type_of_vi:
+#0---d435i_depth
+#1---euroc mav dataset
+#2---d435+pixhawk
+#3---d435i_stereo
+#4---KITTI_stereo_mode
+
+type_of_vi: 0
+#depth image is aligned to left cam0
+image_width:  640
+image_height: 480
+cam0_intrinsics: [382.7080383300781, 382.7080383300781, 321.650634765625, 239.45480346679688]#fx fy cx cy
+cam0_distortion_coeffs: [0.0, 0.0, 0.0, 0.0]#k1 k2 r1 r2
+depth_factor: 1000.0
+T_imu_cam0:
+[ 0.0,  0.0,  1.0,  0.0,
+ -1.0,  0.0,  0.0,  0.0,
+  0.0, -1.0,  0.0,  0.0,
+  0.0,  0.0,  0.0,  1.0]
+
+
+is_lite_version:   False
+
+##vifusion parameter
+#Madgwick beta
+vifusion_para1: 0.1
+#proportion of vision feedforware(roll and pich)
+vifusion_para2: 0.01
+#acc-bias feedback parameter
+vifusion_para3: 0.001
+#gyro-bias feedback parameter
+vifusion_para4: 0.001
+#acc saturation level
+vifusion_para5: 0.1
+#gyro saturation level
+vifusion_para6: 0.1
+
+
+#feature relate parameter
+#max features in a grid
+feature_para1: 15
+#min features in a grid
+feature_para2: 30
+#distance of features
+feature_para3: 5
+#goodFeaturesToTrack detector maxCorners
+feature_para4: 1000
+#goodFeaturesToTrack detector qualityLevel
+feature_para5: 0.01
+#goodFeaturesToTrack detector minDistance
+feature_para6: 5
+
+#depth recovery
+#IIR filter ratio
+dr_para1: 0.98
+#triangulate range
+dr_para2: 40
+#Dummy depth enable 1.0, enable 0.0,disable
+dr_para3: 1.0
+
+#LocalMapThread
+output_sparse_map: False
+window_size:       8
+
+#LoopClosureTheread
+#define lcKFStart
+lcKFStart: 25
+#define lcKFDist
+lcKFDist: 18
+#define lcKFMaxDist
+lcKFMaxDist: 50
+#define lcKFLast
+lcKFLast: 20
+#define lcNKFClosest
+lcNKFClosest: 2
+#define ratioMax
+ratioMax: 0.5
+#define ratioRansac
+ratioRansac: 0.5
+#define minPts
+minPts: 20
+#define minScore
+minScore: 0.12

@@ -133,8 +133,10 @@ private:
     vector<double> sim_vec;
     //KF database
     //vector<shared_ptr<KeyFrameStruct>> kf_map;
+    queue<flvis::KeyFrameConstPtr> kf_queue;
     vector<BowVector> kfbv_map;
     vector<shared_ptr<KeyFrameLC>> kf_map_lc;
+    vector<shared_ptr<KeyFrameLC>> kf_lc_tmp;
     vector<cv::Mat> kf_img_lc;
     vector<cv::DMatch> select_match;
     image_transport::Publisher loop_closure_pub;
@@ -157,12 +159,371 @@ private:
     //last loop id
     int64_t last_pgo_id = -5000;
 
+    bool pgo_running_;
+    boost::shared_ptr <boost::thread> pgothread_;
+    boost::shared_ptr <boost::thread> kfmsgthread_;
+    boost::shared_ptr <boost::thread> lcthread_;
+    std::mutex m_buf;
+    std::mutex m_graph;
+    std::mutex m_vector;
+    std::mutex m_process;
+    std::mutex m_drift;
+
+
+    void frame_callback(const flvis::KeyFrameConstPtr& msg)
+    {
+        m_buf.lock();
+        kf_queue.push(msg);
+        m_buf.unlock();
+
+    }
+
+    void kfmsgProcess()
+    {
+        while(1)
+        {
+            flvis::KeyFrameConstPtr msg;
+
+            m_buf.lock();
+            if(!kf_queue.empty())
+            {
+                msg = kf_queue.front();
+                kf_queue.pop();
+            }
+            m_buf.unlock();
+
+            if(msg)
+            {
+
+                tic_toc_ros msg_tic;
+                if(msg->command==KFMSG_CMD_RESET_LM)
+                    continue;
+
+                //STEP1: Unpack and construct KeyFrameLC tructure
+                //STEP1.1 Unpack
+                // [1]kf.frame_id
+                // [2]kf.T_c_w_odom
+                // [3]kf.T_c_w_odom
+                KeyFrameLC kf;
+                cv::Mat img0_unpack, img1_unpack;
+                vector<int64_t> lm_id_unpack;
+                vector<Vec3> lm_3d_unpack;
+                vector<Vec2> lm_2d_unpack;
+                vector<cv::Mat>     lm_descriptor_unpack;
+                int lm_count_unpack;
+                KeyFrameMsg::unpack(msg,kf.frame_id,img0_unpack,img1_unpack,lm_count_unpack,
+                                    lm_id_unpack,lm_2d_unpack,lm_3d_unpack,lm_descriptor_unpack,kf.T_c_w_odom,kf.t);
+                SE3 T_map_odom;
+                Quaterniond q_tf;
+                Vec3        t_tf;
+                if(1)//Visualization and publish transformation between map and odom
+                {
+
+                    T_map_odom = T_odom_map.inverse();
+                    q_tf = T_map_odom.so3().unit_quaternion();
+                    t_tf = T_map_odom.translation();
+                    transform.setOrigin(tf::Vector3(t_tf[0],t_tf[1],t_tf[2]));
+                    transform.setRotation(tf::Quaternion(q_tf.x(),q_tf.y(),q_tf.z(),q_tf.w()));
+                    br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "map", "odom"));
+                }
+                //STEP1.2 Construct KeyFrameLC
+                // [1]kf.T_c_w
+                // [2]kf.keyframe_id
+                kf_img_lc.push_back(img0_unpack);
+
+                kf.keyframe_id = kf_id++;
+                //path_lc_pub->pubPathT_c_w(kf.T_c_w,kf.t);
+
+                //STEP1.3 Extract-Compute_descriptors
+                vector<cv::KeyPoint> ORBFeatures;
+                cv::Mat ORBDescriptorsL;
+                vector<cv::Mat> ORBDescriptors;
+                ORBFeatures.clear();
+                ORBDescriptors.clear();
+                cv::Ptr<cv::ORB> orb = cv::ORB::create(500,1.2f,8,31,0,2, cv::ORB::HARRIS_SCORE,31,20);
+                orb->detectAndCompute(img0_unpack,cv::Mat(),ORBFeatures,ORBDescriptorsL);
+                descriptors_to_vecDesciptor(ORBDescriptorsL,ORBDescriptors);
+                kf.lm_descriptor = ORBDescriptors;
+
+                //STEP1.4 Construct KeyFrameLC
+                //Compute bow vector
+                // [1]kf.kf_bv
+                BowVector kf_bv;
+                voc.transform(kf.lm_descriptor,kf_bv);
+                kf.kf_bv = kf_bv;
+
+                //STEP1.5 Construct KeyFrameLC
+                //Recover 3d information
+                // [1]kf.kf_bv
+                vector<Vec3> lm_3d;
+                vector<Vec2> lm_2d;
+                vector<double> lm_d;
+                vector<bool> lm_3d_mask;
+                switch(dc.cam_type)
+                {
+                case STEREO_RECT:
+                {
+
+                    //track to another image
+                    std::vector<cv::Point2f> lm_img0, lm_img1;
+                    vector<float>   err;
+                    vector<unsigned char> status;
+                    cv::KeyPoint::convert(ORBFeatures,lm_img0);
+                    lm_img1 = lm_img0;
+
+                    cv::calcOpticalFlowPyrLK(img0_unpack, img1_unpack,
+                                             lm_img0, lm_img1,
+                                             status, err, cv::Size(31,31),5,
+                                             cv::TermCriteria(cv::TermCriteria::COUNT+cv::TermCriteria::EPS, 30, 0.001),
+                                             cv::OPTFLOW_USE_INITIAL_FLOW);
+
+                    //triangulation
+                    for(size_t i=0; i<status.size(); i++)
+                    {
+                        if(status.at(i)==1)
+                        {
+                            Vec3 pt3d_c;
+                            if(Triangulation::trignaulationPtFromStereo(Vec2(lm_img0.at(i).x,lm_img0.at(i).y),
+                                                                        Vec2(lm_img1.at(i).x,lm_img1.at(i).y),
+                                                                        dc.P0_,
+                                                                        dc.P1_,
+                                                                        pt3d_c))
+                            {
+                                lm_2d.push_back(Vec2(lm_img0.at(i).x,lm_img0.at(i).y));
+                                lm_d.push_back(0.0);
+                                lm_3d.push_back(pt3d_c);
+                                lm_3d_mask.push_back(true);
+                                continue;
+                            }
+                            else
+                            {
+
+                                lm_2d.push_back(Vec2(0,0));
+                                lm_d.push_back(0.0);
+                                lm_3d.push_back(Vec3(0,0,0));
+                                lm_3d_mask.push_back(false);
+                                continue;
+                            }
+                        }else
+                        {
+                            lm_2d.push_back(Vec2(0,0));
+                            lm_d.push_back(0.0);
+                            lm_3d.push_back(Vec3(0,0,0));
+                            lm_3d_mask.push_back(false);
+                            continue;
+                        }
+                    }
+                    break;
+                }
+                case STEREO_UNRECT:
+                {
+                    //track to another image
+                    //go to undistor plane
+                    //triangulation
+                    break;
+                }
+                case DEPTH_D435:
+                {
+                    for(size_t i = 0; i<ORBFeatures.size();i++)
+                    {
+                        cv::Point2f cvtmp = ORBFeatures[i].pt;
+                        Vec2 tmp(cvtmp.x,cvtmp.y);
+                        double d = (img1_unpack.at<ushort>(cvtmp))/1000;
+                        if(d>=0.3&&d<=10)
+                        {
+                            Vec3 p3d((tmp.x()-dc.cam0_cx)/dc.cam0_fx*d,
+                                     (tmp.y()-dc.cam0_cy)/dc.cam0_fy*d,
+                                     d);
+                            lm_2d.push_back(tmp);
+                            lm_d.push_back(d);
+                            lm_3d.push_back(p3d);
+                            lm_3d_mask.push_back(true);
+                        }else
+                        {
+                            lm_2d.push_back(Vec2(0,0));
+                            lm_d.push_back(0.0);
+                            lm_3d.push_back(Vec3(0,0,0));
+                            lm_3d_mask.push_back(false);
+                        }
+                    }
+                    break;
+                }
+                }
+
+                //STEP1.6 Construct KeyFrameLC
+                // [1]kf.lm_2d
+                // [2]kf.lm_d
+                // [3]kf.lm_descriptor
+                // [4]kf.lm_count
+                //pass feature and descriptor
+                kf.lm_2d = lm_2d;
+                kf.lm_3d = lm_3d;
+                kf.lm_depth = lm_d;
+                for(int i=lm_3d_mask.size()-1; i>=0; i--)
+                {
+                    if(lm_3d_mask.at(i)==false)
+                    {
+                        kf.lm_descriptor.erase(kf.lm_descriptor.begin()+i);
+                        kf.lm_2d.erase(kf.lm_2d.begin()+i);
+                        kf.lm_3d.erase(kf.lm_3d.begin()+i);
+                    }
+                }
+                kf.lm_count = static_cast<int>(kf.lm_2d.size());
+                lm_2d.clear();
+                lm_3d.clear();
+                lm_d.clear();
+
+                //STEP2 add kf to list
+                m_vector.lock();
+                kf.T_c_w = kf.T_c_w_odom*T_odom_map;
+                shared_ptr<KeyFrameLC> kf_lc_ptr =std::make_shared<KeyFrameLC>(kf);
+                kf_map_lc.push_back(kf_lc_ptr);
+                kfbv_map.push_back(kf_bv);
+                path_lc_pub->pubPathT_c_w(kf_lc_ptr->T_c_w,kf_lc_ptr->t);
+
+                m_vector.unlock();
+
+                //printf("\033[1;31m msg time: %lf \033[0m \n", msg_tic.dT_ms());
+
+            }
+
+        }
+
+    }
+    void pgoProcess()
+    {
+        while(pgo_running_)
+        {
+            m_vector.lock();
+
+            vector<BowVector> kfbv_map_tmp = kfbv_map;
+            kf_lc_tmp = kf_map_lc;
+            m_vector.unlock();
+
+            shared_ptr<KeyFrameLC> kf_lc_ptr;
+            BowVector kf_bv;
+            if(!kf_lc_tmp.empty() && !kfbv_map_tmp.empty())
+            {
+                //cout << " kf_lc_tmp size: " << kf_lc_tmp.size() << endl;
+                size_t g_size = kfbv_map_tmp.size();
+                sim_matrix.resize(g_size);
+                for (size_t i = 0; i < g_size; i++)
+                    sim_matrix[i].resize(g_size);
+
+                kf_lc_ptr = kf_lc_tmp.back();
+                kf_bv =  kfbv_map_tmp.back();
+                SE3 loop_pose;
+
+                if(kf_lc_ptr!=nullptr)
+                {
+                    tic_toc_ros simgraph_tic;
+                    //STEP3 search similar image in the list
+                    for (uint64_t i = 0; i < kf_lc_tmp.size(); i++)
+                    {
+                        if(kf_lc_tmp[i] != nullptr)
+                        {
+                            double score = voc.score(kf_bv,kf_lc_tmp[i]->kf_bv);
+                            sim_matrix[kf_lc_tmp.size()-1][i] = score;
+                            sim_matrix[i][kf_lc_tmp.size()-1] = score;
+
+                        }
+                        else
+                        {
+                            sim_matrix[kf_lc_tmp.size()-1][i] = 0;
+                            sim_matrix[i][kf_lc_tmp.size()-1] = 0;
+
+                        }
+                    }
+                    //printf("\033[1;32m sim graph time: %lf \033[0m \n", simgraph_tic.dT_ms());
+
+                    if(kf_lc_tmp.size()%10 == 0)
+                    {
+                        ofstream sim_txt("/home/yurong/sim_mat.txt");
+                        sim_txt.precision(5);
+                        for(uint64_t i = 0; i < kf_lc_tmp.size(); i++)
+                        {
+                            for(uint64_t j = 0; j < kf_lc_tmp.size(); j++)
+                            {
+                                sim_txt<<sim_matrix[i][j]<<" ";
+                            }
+                            sim_txt<<endl;
+                        }
+                        sim_txt.close();
+                    }
+
+                    if(kf_lc_tmp.size() < 50)
+                    {
+//                        cout << "KF number is less than 50. Return."<<endl;
+                        continue;
+                    }
+
+
+                    uint64_t kf_prev_idx;
+                    bool is_lc_candidate = isLoopCandidate(kf_prev_idx);
+                    if(!is_lc_candidate)
+                    {
+                        //cout<<"no loop candidate."<<endl;
+                        continue;
+                    }
+                    else
+                    {
+
+                    }
+                    bool is_lc = false;
+                    uint64_t kf_curr_idx = kf_lc_tmp.size()-1;
+                    kf_prev_idx_ = kf_prev_idx;
+                    kf_curr_idx_ = kf_curr_idx;
+                    is_lc = isLoopClosureKF(kf_lc_tmp[kf_prev_idx], kf_lc_tmp[kf_curr_idx], loop_pose);
+                    if(!is_lc)
+                    {
+                        //cout<<"Geometry test fails."<<endl;
+                        continue;
+                    }
+
+                    if(is_lc)
+                    {
+                        loop_ids.push_back(Vec3I(static_cast<int>(kf_prev_idx), static_cast<int>(kf_curr_idx), 1));
+                        loop_poses.push_back(loop_pose);
+                        int thre = static_cast<int>((static_cast<double>(kf_lc_tmp.size())/100)*2);
+                        if(kf_curr_idx - static_cast<size_t>(last_pgo_id) < thre)
+                            cout<<"Last loop is too close."<<endl;
+                        if(kf_curr_idx - static_cast<size_t>(last_pgo_id) > thre)
+                        {
+                            tic_toc_ros pgo;
+                            loopClosureOnCovGraphG2ONew();
+                            printf("\033[1;31m optimize time: %lf \033[0m \n", pgo.dT_ms());
+                            last_pgo_id = static_cast<int>(kf_curr_idx);
+                        }
+                    }
+
+
+                    //kf_lc_ptr->T_c_w = kf_lc_ptr->T_c_w_odom*T_odom_map;
+                    SE3 T_map_odom;
+                    Quaterniond q_tf;
+                    Vec3        t_tf;
+                    T_map_odom = T_odom_map.inverse();
+                    q_tf = T_map_odom.so3().unit_quaternion();
+                    t_tf = T_map_odom.translation();
+                    transform.setOrigin(tf::Vector3(t_tf[0],t_tf[1],t_tf[2]));
+                    transform.setRotation(tf::Quaternion(q_tf.x(),q_tf.y(),q_tf.z(),q_tf.w()));
+                    br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "map", "odom"));
+
+                }
+            }
+
+            //boost::this_thread::sleep_for(boost::chrono::milliseconds(2000));
+        }
+
+
+    }
+
     bool isLoopCandidate( uint64_t &kf_prev_idx)
     {
         //cout<<"start to find loop candidate."<<endl;
+
         bool is_lc_candidate = false;
-        size_t g_size = kf_map_lc.size();
-        //cout<<"kf size: "<<g_size<<endl;
+        size_t g_size = kf_lc_tmp.size();
+
         vector<Vector2d> max_sim_mat;
         if(g_size < 40) return is_lc_candidate;
         uint64_t sort_index;
@@ -172,7 +533,7 @@ private:
             sort_index = 0;
         for (uint64_t i = sort_index; i < static_cast<uint64_t>(g_size - lc_paras.lcKFDist); i++)
         {
-            if (kf_map_lc[i] != nullptr)
+            if (kf_lc_tmp[i] != nullptr)
             {
                 Vector2d aux;
                 aux(0) = i;
@@ -182,7 +543,6 @@ private:
         }
 
         sort(max_sim_mat.begin(), max_sim_mat.end(), sort_simmat_by_score());
-
 
         // find the minimum score in the covisibility graph (and/or 3 previous keyframes)
         double lc_min_score = 1.0;
@@ -233,7 +593,7 @@ private:
         //kf0 previous kf, kf1 current kf,
         bool is_lc = false;
         int common_pt = 0;
-
+        select_match.clear();
         vector<cv::DMatch> selected_matches_;
 
         if (!(kf1->lm_descriptor.size() == 0) && !(kf0->lm_descriptor.size() == 0))
@@ -324,38 +684,38 @@ private:
 
             if(is_lc)
             {
-              //publish loop closure frame.
-              cv::Mat img_1 = kf_img_lc[kf_prev_idx_];
-              cv::Mat img_2 = kf_img_lc[kf_curr_idx_];
-              cv::cvtColor(img_1, img_1, CV_GRAY2RGB);
-              cv::cvtColor(img_2, img_2, CV_GRAY2RGB);
+                //publish loop closure frame.
+                cv::Mat img_1 = kf_img_lc[kf_prev_idx_];
+                cv::Mat img_2 = kf_img_lc[kf_curr_idx_];
+                cv::cvtColor(img_1, img_1, CV_GRAY2RGB);
+                cv::cvtColor(img_2, img_2, CV_GRAY2RGB);
 
-              /* check how many rows are necessary for output matrix */
-              int totalRows = img_1.rows >= img_2.rows ? img_1.rows : img_2.rows;
-              cv::Mat outImg = cv::Mat::zeros( totalRows, img_1.cols + img_2.cols, CV_8UC3 );
-              //cv::Mat outImg;// = cv::Mat::zeros( img_1.rows, img_1.cols + img_2.cols, img_1.type() );
-              cv::Mat roi_left( outImg, cv::Rect( 0, 0, img_1.cols, img_1.rows ) );
-              cv::Mat roi_right( outImg, cv::Rect( img_1.cols, 0, img_2.cols, img_2.rows ) );
-              img_1.copyTo( roi_left );
-              img_2.copyTo( roi_right );
-              int offset = img_1.cols;
+                /* check how many rows are necessary for output matrix */
+                int totalRows = img_1.rows >= img_2.rows ? img_1.rows : img_2.rows;
+                cv::Mat outImg = cv::Mat::zeros( totalRows, img_1.cols + img_2.cols, CV_8UC3 );
+                //cv::Mat outImg;// = cv::Mat::zeros( img_1.rows, img_1.cols + img_2.cols, img_1.type() );
+                cv::Mat roi_left( outImg, cv::Rect( 0, 0, img_1.cols, img_1.rows ) );
+                cv::Mat roi_right( outImg, cv::Rect( img_1.cols, 0, img_2.cols, img_2.rows ) );
+                img_1.copyTo( roi_left );
+                img_2.copyTo( roi_right );
+                int offset = img_1.cols;
 
 
-              for ( size_t counter = 0; counter < select_match.size(); counter++ )
-              {
-                size_t lr_qdx = static_cast<size_t>(select_match[counter].queryIdx);
-                size_t lr_tdx = static_cast<size_t>(select_match[counter].trainIdx);
-                cv::Scalar matchColorRGB;
-                matchColorRGB = cv::Scalar( 255, 0, 0 );
-                Vector2f P_left  = kf0->lm_2d[lr_qdx].cast<float>();
-                Vector2f P_right = kf1->lm_2d[lr_tdx].cast<float>();
-                cv::Point2f p_left(P_left(0),P_left(1));
-                cv::Point2f p_right(P_right(0) + offset,P_right(1));
-                cv::line( outImg, p_left, p_right, matchColorRGB, 2 );
+                for ( size_t counter = 0; counter < select_match.size(); counter++ )
+                {
+                    size_t lr_qdx = static_cast<size_t>(select_match[counter].queryIdx);
+                    size_t lr_tdx = static_cast<size_t>(select_match[counter].trainIdx);
+                    cv::Scalar matchColorRGB;
+                    matchColorRGB = cv::Scalar( 255, 0, 0 );
+                    Vector2f P_left  = kf0->lm_2d[lr_qdx].cast<float>();
+                    Vector2f P_right = kf1->lm_2d[lr_tdx].cast<float>();
+                    cv::Point2f p_left(P_left(0),P_left(1));
+                    cv::Point2f p_right(P_right(0) + offset,P_right(1));
+                    cv::line( outImg, p_left, p_right, matchColorRGB, 2 );
 
-              }
-              sensor_msgs::ImagePtr lc_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", outImg).toImageMsg();
-              loop_closure_pub.publish(lc_msg);
+                }
+                sensor_msgs::ImagePtr lc_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", outImg).toImageMsg();
+                loop_closure_pub.publish(lc_msg);
 
 
 
@@ -369,7 +729,6 @@ private:
     void expandGraph()
     {
         size_t g_size = kfbv_map.size();
-        sim_vec.resize(g_size);
         // sim matrix
         sim_matrix.resize(g_size);
         for (size_t i = 0; i < g_size; i++)
@@ -379,6 +738,9 @@ private:
 
     void loopClosureOnCovGraphG2ONew()
     {
+        tic_toc_ros init_clock;
+        m_vector.lock();
+        //cout << "init kf_map_lc size: " << kf_map_lc.size() << endl;
         uint64_t kf_prev_idx = 2 * kf_map_lc.size();
         uint64_t kf_curr_idx = 0;
         for(size_t i = 0; i < loop_ids.size(); i++)
@@ -392,7 +754,7 @@ private:
 
 
         g2o::SparseOptimizer optimizer;
-        optimizer.setVerbose(false);
+        optimizer.setVerbose(true);
 
 
         std::unique_ptr<g2o::BlockSolver_6_3::LinearSolverType> linearSolver(new g2o::LinearSolverCholmod<g2o::BlockSolver_6_3::PoseMatrixType>());
@@ -508,9 +870,10 @@ private:
             e_se3->setRobustKernel(new g2o::RobustKernelCauchy());
             optimizer.addEdge(e_se3);
         }
+        m_vector.unlock();
+        //printf("\033[1;32m init time: %lf \033[0m \n", init_clock.dT_ms());
 
-        //optimizer.edges();
-
+        optimizer.save("/home/yurong/before.g2o");
         cout<<"start to optimize "<<endl;
         // optimize graph
         optimizer.initializeOptimization();
@@ -518,12 +881,14 @@ private:
         optimizer.computeActiveErrors();
         optimizer.optimize(100);
 
-        // recover pose and update map
-        for(int i = 0; i < kf_prev_idx; i++)
-          path_lc_pub->pubPathT_w_c(kf_map_lc[i]->T_c_w.inverse(), kf_map_lc[i]->t);
+        optimizer.save("/home/yurong/after.g2o");
 
+        tic_toc_ros update_clock;
+        m_vector.lock();
+        cout << "update kf_map_lc size: " << kf_map_lc.size() << endl;
         for (auto kf_it = kf_list.begin(); kf_it != kf_list.end(); kf_it++)
         {
+            //cout << "kf_it: " << static_cast<size_t>(*kf_it) << endl;
             g2o::VertexSE3 *v_se3 = static_cast<g2o::VertexSE3 *>(optimizer.vertex((*kf_it)));
             g2o::SE3Quat Twc_g2o = v_se3->estimateAsSE3Quat();
             SE3 Tcw1 = kf_map_lc[static_cast<size_t>(*kf_it)]->T_c_w;
@@ -533,15 +898,17 @@ private:
             SE3 Tw1_w2 = Tw2_w1.inverse();
 
             kf_map_lc[static_cast<size_t>(*kf_it)]->T_c_w = Tw2c.inverse();
-            path_lc_pub->pubPathT_w_c(Tw2c,kf_map_lc[static_cast<size_t>(*kf_it)]->t);
+            //path_lc_pub->pubPathT_w_c(Tw2c,kf_map_lc[static_cast<size_t>(*kf_it)]->t);
             //cout<<"after g2o pgo: ";
             //cout<<Tcw_corr<<endl;
             if(kf_it == kf_list.end()-1)
             {
-
+                cout << "last kf: " << static_cast<size_t>(*kf_it) << endl;
                 T_prevmap_map = Tw1_w2;
                 // cout<<"from w2 to w1: "<<Tw1_w2.so3()<<" "<<Tw1_w2.translation()<<endl;
+                m_drift.lock();
                 T_odom_map = T_odom_map*Tw1_w2;
+                m_drift.unlock();
                 // cout<<"from w2 to w0: "<<T_odom_map.so3()<<" "<<T_odom_map.translation()<<endl;
                 vmap_correct.push_back(Tw1_w2);
                 //  cout<<"did match initial ? "<<Tw2c.inverse().so3()<<" "<<Tw2c.inverse().translation()<<endl;
@@ -549,289 +916,35 @@ private:
             }
 
         }
+        m_vector.unlock();
+
+        //printf("\033[1;32m update time: %lf \033[0m \n", update_clock.dT_ms());
+        m_vector.lock();
+        //cout << "pub kf_map_lc size: " << kf_map_lc.size() << endl;
+
+        // clear old path
+        path_lc_pub->clearPath();
+        m_drift.lock();
+        for(int i = kf_list.back()+1; i < kf_map_lc.size(); i++)
+        {
+            kf_map_lc[i]->T_c_w = kf_map_lc[i]->T_c_w_odom * T_odom_map;
+        }
+        // recover pose and update map
+        for(int i = 0; i < kf_map_lc.size(); i++)
+        {
+            path_lc_pub->pubPathT_w_c(kf_map_lc[i]->T_c_w.inverse(), kf_map_lc[i]->t);
+        }
+        m_drift.unlock();
+        m_vector.unlock();
+        //printf("\033[1;32m pub time: %lf \033[0m \n", update_clock.dT_ms());
 
     }
 
-
-    void frame_callback(const flvis::KeyFrameConstPtr& msg)
-    {
-        if(msg->command==KFMSG_CMD_RESET_LM)
-            return;
-        sim_vec.clear();
-        select_match.clear();
-
-        //STEP1: Unpack and construct KeyFrameLC tructure
-        //STEP1.1 Unpack
-        // [1]kf.frame_id
-        // [2]kf.T_c_w_odom
-        // [3]kf.T_c_w_odom
-        KeyFrameLC kf;
-        cv::Mat img0_unpack, img1_unpack;
-        vector<int64_t> lm_id_unpack;
-        vector<Vec3> lm_3d_unpack;
-        vector<Vec2> lm_2d_unpack;
-        vector<cv::Mat>     lm_descriptor_unpack;
-        int lm_count_unpack;
-        KeyFrameMsg::unpack(msg,kf.frame_id,img0_unpack,img1_unpack,lm_count_unpack,
-                            lm_id_unpack,lm_2d_unpack,lm_3d_unpack,lm_descriptor_unpack,kf.T_c_w_odom,kf.t);
-        SE3 T_map_odom;
-        Quaterniond q_tf;
-        Vec3        t_tf;
-        if(1)//Visualization and publish transformation between map and odom
-        {
-
-            T_map_odom = T_odom_map.inverse();
-            q_tf = T_map_odom.so3().unit_quaternion();
-            t_tf = T_map_odom.translation();
-            transform.setOrigin(tf::Vector3(t_tf[0],t_tf[1],t_tf[2]));
-            transform.setRotation(tf::Quaternion(q_tf.x(),q_tf.y(),q_tf.z(),q_tf.w()));
-            br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "map", "odom"));
-        }
-        //STEP1.2 Construct KeyFrameLC
-        // [1]kf.T_c_w
-        // [2]kf.keyframe_id
-        kf_img_lc.push_back(img0_unpack);
-        BowVector kf_bv;
-        SE3 loop_pose;
-        kf.T_c_w = kf.T_c_w_odom*T_odom_map;
-        kf.keyframe_id = kf_id++;
-        path_lc_pub->pubPathT_c_w(kf.T_c_w,kf.t);
-
-        //STEP1.3 Extract-Compute_descriptors
-        vector<cv::KeyPoint> ORBFeatures;
-        cv::Mat ORBDescriptorsL;
-        vector<cv::Mat> ORBDescriptors;
-        ORBFeatures.clear();
-        ORBDescriptors.clear();
-        cv::Ptr<cv::ORB> orb = cv::ORB::create(500,1.2f,8,31,0,2, cv::ORB::HARRIS_SCORE,31,20);
-        orb->detectAndCompute(img0_unpack,cv::Mat(),ORBFeatures,ORBDescriptorsL);
-        descriptors_to_vecDesciptor(ORBDescriptorsL,ORBDescriptors);
-        kf.lm_descriptor = ORBDescriptors;
-
-        //STEP1.4 Construct KeyFrameLC
-        //Compute bow vector
-        // [1]kf.kf_bv
-        voc.transform(kf.lm_descriptor,kf_bv);
-        kf.kf_bv = kf_bv;
-
-        //STEP1.5 Construct KeyFrameLC
-        //Recover 3d information
-        // [1]kf.kf_bv
-        vector<Vec3> lm_3d;
-        vector<Vec2> lm_2d;
-        vector<double> lm_d;
-        vector<bool> lm_3d_mask;
-        switch(dc.cam_type)
-        {
-        case STEREO_RECT:
-        {
-            //cout << "here" << endl;
-            //track to another image
-            std::vector<cv::Point2f> lm_img0, lm_img1;
-            vector<float>   err;
-            vector<unsigned char> status;
-            cv::KeyPoint::convert(ORBFeatures,lm_img0);
-            lm_img1 = lm_img0;
-            //cout << lm_img0.size() << endl;
-            cv::calcOpticalFlowPyrLK(img0_unpack, img1_unpack,
-                                     lm_img0, lm_img1,
-                                     status, err, cv::Size(31,31),5,
-                                     cv::TermCriteria(cv::TermCriteria::COUNT+cv::TermCriteria::EPS, 30, 0.001),
-                                     cv::OPTFLOW_USE_INITIAL_FLOW);
-
-            //triangulation
-            for(size_t i=0; i<status.size(); i++)
-            {
-                if(status.at(i)==1)
-                {
-                    Vec3 pt3d_c;
-                    if(Triangulation::trignaulationPtFromStereo(Vec2(lm_img0.at(i).x,lm_img0.at(i).y),
-                                                                Vec2(lm_img1.at(i).x,lm_img1.at(i).y),
-                                                                dc.P0_,
-                                                                dc.P1_,
-                                                                pt3d_c))
-                    {
-                        lm_2d.push_back(Vec2(lm_img0.at(i).x,lm_img0.at(i).y));
-                        lm_d.push_back(0.0);
-                        lm_3d.push_back(pt3d_c);
-                        lm_3d_mask.push_back(true);
-                        continue;
-                    }
-                    else
-                    {
-
-                        lm_2d.push_back(Vec2(0,0));
-                        lm_d.push_back(0.0);
-                        lm_3d.push_back(Vec3(0,0,0));
-                        lm_3d_mask.push_back(false);
-                        continue;
-                    }
-                }else
-                {
-                    lm_2d.push_back(Vec2(0,0));
-                    lm_d.push_back(0.0);
-                    lm_3d.push_back(Vec3(0,0,0));
-                    lm_3d_mask.push_back(false);
-                    continue;
-                }
-            }
-            break;
-        }
-        case STEREO_UNRECT:
-        {
-            //track to another image
-            //go to undistor plane
-            //triangulation
-            break;
-        }
-        case DEPTH_D435:
-        {
-            for(size_t i = 0; i<ORBFeatures.size();i++)
-            {
-                cv::Point2f cvtmp = ORBFeatures[i].pt;
-                Vec2 tmp(cvtmp.x,cvtmp.y);
-                double d = (img1_unpack.at<ushort>(cvtmp))/1000;
-                if(d>=0.3&&d<=10)
-                {
-                    Vec3 p3d((tmp.x()-dc.cam0_cx)/dc.cam0_fx*d,
-                             (tmp.y()-dc.cam0_cy)/dc.cam0_fy*d,
-                             d);
-                    lm_2d.push_back(tmp);
-                    lm_d.push_back(d);
-                    lm_3d.push_back(p3d);
-                    lm_3d_mask.push_back(true);
-                }else
-                {
-                    lm_2d.push_back(Vec2(0,0));
-                    lm_d.push_back(0.0);
-                    lm_3d.push_back(Vec3(0,0,0));
-                    lm_3d_mask.push_back(false);
-                }
-            }
-            break;
-        }
-        }
-
-        //STEP1.6 Construct KeyFrameLC
-        // [1]kf.lm_2d
-        // [2]kf.lm_d
-        // [3]kf.lm_descriptor
-        // [4]kf.lm_count
-        //pass feature and descriptor
-        kf.lm_2d = lm_2d;
-        kf.lm_3d = lm_3d;
-        kf.lm_depth = lm_d;
-        for(int i=lm_3d_mask.size()-1; i>=0; i--)
-        {
-            if(lm_3d_mask.at(i)==false)
-            {
-                kf.lm_descriptor.erase(kf.lm_descriptor.begin()+i);
-                kf.lm_2d.erase(kf.lm_2d.begin()+i);
-                kf.lm_3d.erase(kf.lm_3d.begin()+i);
-            }
-        }
-        kf.lm_count = static_cast<int>(kf.lm_2d.size());
-        lm_2d.clear();
-        lm_3d.clear();
-        lm_d.clear();
-
-
-        //STEP2 add kf to list
-        shared_ptr<KeyFrameLC> kf_lc_ptr =std::make_shared<KeyFrameLC>(kf);
-        kf_map_lc.push_back(kf_lc_ptr);
-        kfbv_map.push_back(kf_bv);
-        expandGraph();
-
-        //STEP3 search similar image in the list
-        for (uint64_t i = 0; i < kf_map_lc.size(); i++)
-        {
-            if(kf_map_lc[i] != nullptr)
-            {
-                double score = voc.score(kf_bv,kf_map_lc[i]->kf_bv);
-                sim_matrix[kf_map_lc.size()-1][i] = score;
-                sim_matrix[i][kf_map_lc.size()-1] = score;
-                sim_vec[i] = score;
-            }
-            else {
-                sim_matrix[kf_map_lc.size()-1][i] = 0;
-                sim_matrix[i][kf_map_lc.size()-1] = 0;
-                sim_vec[i] = 0;
-            }
-        }
-        if(kf_map_lc.size()%10 == 0)
-        {
-            ofstream sim_txt("/home/lsgi/out/sim_mat.txt");
-            sim_txt.precision(5);
-            for(uint64_t i = 0; i < kf_map_lc.size(); i++)
-            {
-                for(uint64_t j = 0; j < kf_map_lc.size(); j++)
-                {
-                    sim_txt<<sim_matrix[i][j]<<" ";
-                }
-                sim_txt<<endl;
-            }
-            sim_txt.close();
-        }
-        if(kf_id < 50)
-        {
-            //cout<<"KF number is less than 50. Return."<<endl;
-            return;
-        }
-        uint64_t kf_prev_idx;
-        bool is_lc_candidate = isLoopCandidate(kf_prev_idx);
-        if(!is_lc_candidate)
-        {
-            //cout<<"no loop candidate."<<endl;
-            return;
-        }
-        else
-        {
-            //cout<<"has loop candidate."<<endl;
-        }
-        bool is_lc = false;
-        uint64_t kf_curr_idx = kf_map_lc.size()-1;
-        kf_prev_idx_ = kf_prev_idx;
-        kf_curr_idx_ = kf_curr_idx;
-        is_lc = isLoopClosureKF(kf_map_lc[kf_prev_idx], kf_map_lc[kf_curr_idx], loop_pose);
-        if(!is_lc)
-        {
-            //cout<<"Geometry test fails."<<endl;
-            return;
-        }
-        else {
-            //cout<<"Pass geometry test."<<endl;
-        }
-
-        if(is_lc)
-        {
-            loop_ids.push_back(Vec3I(static_cast<int>(kf_prev_idx), static_cast<int>(kf_curr_idx), 1));
-            loop_poses.push_back(loop_pose);
-            int thre = static_cast<int>((static_cast<double>(kf_id)/100)*2);
-            if(kf_curr_idx - static_cast<size_t>(last_pgo_id) < thre)
-                cout<<"Last loop is too close."<<endl;
-            if(kf_curr_idx - static_cast<size_t>(last_pgo_id) > thre)
-            {
-                path_lc_pub->clearPath();
-                tic_toc_ros pgo;
-                loopClosureOnCovGraphG2ONew();
-                printf("\033[1;31m optimize time: %lf \033[0m ", pgo.dT_ms());
-                last_pgo_id = static_cast<int>(kf_curr_idx);
-            }
-        }
-        kf_lc_ptr->T_c_w = kf_lc_ptr->T_c_w_odom*T_odom_map;
-        T_map_odom = T_odom_map.inverse();
-
-        q_tf = T_map_odom.so3().unit_quaternion();
-        t_tf = T_map_odom.translation();
-        transform.setOrigin(tf::Vector3(t_tf[0],t_tf[1],t_tf[2]));
-        transform.setRotation(tf::Quaternion(q_tf.x(),q_tf.y(),q_tf.z(),q_tf.w()));
-        br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "map", "odom"));
-    }
 
     virtual void onInit()
     {
 
-        ros::NodeHandle nh = getNodeHandle();
+        ros::NodeHandle nh = getPrivateNodeHandle();
 
         string configFilePath;
         nh.getParam("/yamlconfigfile",   configFilePath);
@@ -989,10 +1102,19 @@ private:
         loop_closure_pub = it.advertise("/loop_closure_img",1);
         sub_kf = nh.subscribe<flvis::KeyFrame>(
                     "/vo_kf",
-                    2,
+                    1000,
                     boost::bind(&LoopClosingNodeletClass::frame_callback, this, _1));
 
+        // kfmsg thread
+        kfmsgthread_ = boost::shared_ptr<boost::thread>
+                (new boost::thread(boost::bind(&LoopClosingNodeletClass::kfmsgProcess, this)));
+        // spawn pgo thread
+        pgo_running_ = true;
+        pgothread_ = boost::shared_ptr<boost::thread>
+                (new boost::thread(boost::bind(&LoopClosingNodeletClass::pgoProcess, this)));
+
     }
+
 
 
 

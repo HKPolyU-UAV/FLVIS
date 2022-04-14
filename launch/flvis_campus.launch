@@ -2,11 +2,11 @@
 <launch>
 
 <!--Input######################################################################################################-->
-    <node pkg="rosbag" type="play" name="rosbag" args="$(find flvis)/bag/melab_sn943222072828.bag -s33 -r 2.0"/>
+    <node pkg="rosbag" type="play" name="rosbag" args="$(find flvis)/bag/campus_1.bag -s2 -r 2.0"/>
 
 <!--FLVIS######################################################################################################-->
     <arg name="node_start_delay"  default="1.0" />
-    <param name="/yamlconfigfile" type="string" value="$(find flvis)/launch/d435i/sn943222072828_depth.yaml"/>
+    <param name="/yamlconfigfile" type="string" value="$(find flvis)/launch/d435i/campus_1.yaml"/>
     <param name="/voc"            type="string" value="$(find flvis)/voc/voc_orb.dbow3"/>
 
     <!-- Manager -->
@@ -22,7 +22,7 @@
         launch-prefix="bash -c 'sleep $(arg node_start_delay); $0 $@' ">
         <!-- D435i -->
         <remap from="/vo/input_image_0"  to="/camera/infra1/image_rect_raw"/>
-        <remap from="/vo/input_image_1"  to="/camera/aligned_depth_to_infra1/image_raw"/>
+        <remap from="/vo/input_image_1"  to="/camera/depth/image_rect_raw"/>
         <remap from="/imu"               to="/camera/imu"/>
     </node>
 

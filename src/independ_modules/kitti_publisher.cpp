@@ -125,7 +125,7 @@ int main(int argc, char **argv)
         sensor_msgs::ImagePtr img0_msg = cv_bridge::CvImage(std_msgs::Header(), "mono8", img0).toImageMsg();
         sensor_msgs::ImagePtr img1_msg = cv_bridge::CvImage(std_msgs::Header(), "mono8", img1).toImageMsg();
         img0_msg->header.seq= img_cnt;
-        img0_msg->header.seq= img_cnt;
+        img1_msg->header.seq= img_cnt;
         img0_msg->header.stamp = ros::Time::now();
         img1_msg->header = img0_msg->header;
         img0_pub.publish(img0_msg);

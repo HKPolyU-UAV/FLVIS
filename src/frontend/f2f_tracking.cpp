@@ -234,6 +234,11 @@ void F2FTracking::image_feed(const double time,
     static int continus_tracking_fail_cnt = 0;
     if(!tracking_success)
     {//cv tracking failed
+      std::string path_from, path_to;
+      path_from = "/home/yurong/FailLK/" + to_string(continus_tracking_fail_cnt) + to_string(last_frame->frame_id) + ".png";
+      path_to = "/home/yurong/FailLK/" + to_string(continus_tracking_fail_cnt) + to_string(curr_frame->frame_id) + ".png";
+      cv::imwrite(path_from, last_frame->img0);
+      cv::imwrite(path_to, curr_frame->img0);
       continus_tracking_fail_cnt++;
       cout << "[Critical Warning] Tracking Fail-no enough lm pairs" << endl;
       last_frame.swap(curr_frame);//dummy swap, escape this frame
@@ -360,7 +365,7 @@ void F2FTracking::image_feed(const double time,
     cnt++;
     if((cnt%3)==0)
     {
-      cout << "vision tracking fail, IMU motion only" << endl << "Tring to recover~" << endl;
+      cout << "vision tracking fail, IMU motion only" << endl << "Trying to recover~" << endl;
       if(this->vimotion->viGetCorrFrameState(curr_frame->frame_time,curr_frame->T_c_w))
       {
         if(this->init_frame())
