@@ -87,6 +87,21 @@ T_cam0_cam1:
   0.0,  0.0,  0.0,  1.0]
 
 ```
+#### 5.3 D435i Camera Depth/Stereo + Pixhawk IMU Mode
+We also support fusing any Inertial Measurement Unit (IMU), and stereo camera or depth camera. For example, a very common application is running VIO on quadrotors to estimate its own pose by IMU readings from Pixhawk. We need to config the `catkin_ws/FLVIS/launch/d435_pixhawk/sn841512070537_depth_px4.yaml` or `catkin_ws/FLVIS/launch/d435_pixhawk/sn943222072828_stereo_px4.yaml` <br />
+run the following launch files:
+````
+roslaunch flvis flvis_d435_pixhawk_depth.launch
+````
+or
+````
+roslaunch flvis flvis_d435_pixhawk_stereo.launch
+````
+
+Then open a new terminal, and
+````
+rostopic echo /mavros/local_position/pose
+````
 
 #### 5.3 EuRoC MAV Dataset
 Download the dataset(say MH_05_difficult) into the bag folder:
