@@ -106,7 +106,7 @@ If IMU response normally, then open a new terminal, and check by:
 rostopic echo /mavros/local_position/pose
 ````
 
-#### 5.3 EuRoC MAV Dataset
+#### 5.4 EuRoC MAV Dataset
 Download the dataset(say MH_05_difficult) into the bag folder:
 ````
 roscd flvis/bag/
@@ -122,7 +122,7 @@ roslaunch flvis rviz_euroc.launch
 roslaunch flvis flvis_euroc_mav.launch
 ````
 
-#### 5.4 KITTI Dataset
+#### 5.5 KITTI Dataset
 Download the dataset into the bag folder:
 
 <img src="https://github.com/Ttoto/img_bed/blob/main/FLVIS/kitti_sc.png" width="250"> 
