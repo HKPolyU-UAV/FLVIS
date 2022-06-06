@@ -2,12 +2,12 @@
 <launch>
 
 <!--Input######################################################################################################-->
-    <include file="$(find flvis)/launch/d435_pixhawk/d435_depth.launch"/>
+    <include file="$(find flvis)/launch/d435_pixhawk/d435_stereo.launch"/>
     <include file="$(find flvis)/launch/d435_pixhawk/px4.launch"/>-->
 
 <!--FLVIS######################################################################################################-->
     <arg name="node_start_delay"  default="5.0" />
-    <param name="/yamlconfigfile" type="string" value="$(find flvis)/launch/d435_pixhawk/sn841512070537_depth_px4.yaml"/>
+    <param name="/yamlconfigfile" type="string" value="$(find flvis)/launch/d435_pixhawk/sn943222072828_stereo_px4.yaml"/>
     <param name="/voc"            type="string" value="$(find flvis)/voc/voc_orb.dbow3"/>
     <!--In lite version, the visualization will be simplified -->
 
@@ -15,7 +15,7 @@
     <node pkg="nodelet" type="nodelet"
           name="flvis_nodelet_manager" args="manager" output="screen"
           launch-prefix="bash -c 'sleep $(arg node_start_delay); $0 $@' ">
-          <param name="num_worker_threads" value="4" />
+          <param name="num_worker_threads" value="1" />
     </node>
 
     <!-- TrackingNode -->
@@ -24,7 +24,7 @@
           launch-prefix="bash -c 'sleep $(arg node_start_delay); $0 $@' ">
         <!-- remap D435 input -->
         <remap from="/vo/input_image_0"  to="/camera/infra1/image_rect_raw"/>
-        <remap from="/vo/input_image_1"  to="/camera/aligned_depth_to_infra1/image_raw"/>
+        <remap from="/vo/input_image_1"  to="/camera/infra2/image_rect_raw"/>
         <!-- remap PIXHAWK input -->
         <remap from="/imu"             to="/mavros/imu/data"/>
         <!-- remap output -->
@@ -33,11 +33,6 @@
         <!--<remap from="imu_path" to="/flvis/imu_path"/>-->
     </node>
 
-    <!-- LocalMapNode -->
-<!--    <node pkg="nodelet" type="nodelet" args="load flvis/LocalMapNodeletClass flvis_nodelet_manager"
-          name="LocalMapNodeletClass_loader" output="screen"
-          launch-prefix="bash -c 'sleep $(arg node_start_delay); $0 $@' ">
-    </node>-->
     <!-- LoopClosingNode -->
 <!--    <node pkg="nodelet" type="nodelet" args="load flvis/LoopClosingNodeletClass flvis_nodelet_manager"
         name="LoopClosingNodeletClass_loader" output="screen"

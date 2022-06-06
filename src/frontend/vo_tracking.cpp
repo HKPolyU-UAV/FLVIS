@@ -144,6 +144,7 @@ private:
     if(vi_type_from_yaml==VI_TYPE_D435_DEPTH_PIXHAWK) {cam_type=DEPTH_D435;    imu_type=PIXHAWK;}
     if(vi_type_from_yaml==VI_TYPE_D435I_STEREO)       {cam_type=STEREO_RECT;   imu_type=D435I;}
     if(vi_type_from_yaml==VI_TYPE_KITTI_STEREO)       {cam_type=STEREO_RECT;   imu_type=NONE;}
+    if(vi_type_from_yaml==VI_TYPE_D435_STEREO_PIXHAWK) {cam_type=STEREO_RECT;  imu_type=PIXHAWK;}
 
 
     if(vi_type_from_yaml == VI_TYPE_D435I_DEPTH || vi_type_from_yaml == VI_TYPE_D435_DEPTH_PIXHAWK)
@@ -170,8 +171,9 @@ private:
                         50,
                         false);
     }
-    if(vi_type_from_yaml == VI_TYPE_D435I_STEREO)
+    if(vi_type_from_yaml == VI_TYPE_D435I_STEREO || vi_type_from_yaml == VI_TYPE_D435_STEREO_PIXHAWK)
     {
+      printf("Stereo mode \n");
       int w = getIntVariableFromYaml(configFilePath,             "image_width");
       int h = getIntVariableFromYaml(configFilePath,             "image_height");
       cv::Mat K0 = cameraMatrixFromYamlIntrinsics(configFilePath,"cam0_intrinsics");
@@ -426,7 +428,7 @@ private:
 
               if(newkf) kf_pub->pub(*cam_tracker->curr_frame,tstamp);
               //kf_pub->pub(*cam_tracker->curr_frame,tstamp);
-              if(reset_cmd) kf_pub->cmdLMResetPub(ros::Time(tstamp));
+              //if(reset_cmd) kf_pub->cmdLMResetPub(ros::Time(tstamp));
               frame_pub->pubFramePtsPoseT_c_w(this->cam_tracker->curr_frame->getValid3dPts(),
                                               this->cam_tracker->curr_frame->T_c_w,
                                               tstamp);

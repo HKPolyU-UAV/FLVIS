@@ -4,20 +4,25 @@
 #2---d435+pixhawk
 #3---d435i_stereo
 #4---KITTI_stereo_mode
-
-type_of_vi: 0
+#5---d435_stereo+pixhawk
+type_of_vi: 5
 #depth image is aligned to left cam0
-image_width:  640
-image_height: 480
-cam0_intrinsics: [384.16455078125, 384.16455078125, 320.2144470214844, 238.94403076171875]#fx fy cx cy
+image_width: 640
+image_height: 360
+cam0_intrinsics: [318.7784118652344, 318.7784118652344, 318.2489013671875, 179.57540893554688]#fx fy cx cy
 cam0_distortion_coeffs: [0.0, 0.0, 0.0, 0.0]#k1 k2 r1 r2
-depth_factor: 1000.0
 T_imu_cam0:
 [ 0.0,  0.0,  1.0,  0.0,
  -1.0,  0.0,  0.0,  0.0,
   0.0, -1.0,  0.0,  0.0,
   0.0,  0.0,  0.0,  1.0]
-
+cam1_intrinsics: [318.7784118652344, 318.7784118652344, 318.2489013671875, 179.57540893554688]#fx fy cx cy
+cam1_distortion_coeffs: [0.0, 0.0, 0.0, 0.0]#k1 k2 r1 r2
+T_cam0_cam1:
+[ 1.0,  0.0,  0.0,  0.05,
+  0.0,  1.0,  0.0,  0.0,
+  0.0,  0.0,  1.0,  0.0,
+  0.0,  0.0,  0.0,  1.0]
 
 is_lite_version:   False
 
@@ -25,36 +30,35 @@ is_lite_version:   False
 #Madgwick beta
 vifusion_para1: 0.1
 #proportion of vision feedforware(roll and pich)
-vifusion_para2: 0.01
+vifusion_para2: 0.03
 #acc-bias feedback parameter
-vifusion_para3: 0.001
+vifusion_para3: 0.003
 #gyro-bias feedback parameter
-vifusion_para4: 0.001
+vifusion_para4: 0.01
 #acc saturation level
-vifusion_para5: 0.1
+vifusion_para5: 0.3
 #gyro saturation level
 vifusion_para6: 0.1
 
 
 #feature relate parameter
 #max features in a grid
-feature_para1: 30
+feature_para1: 10
 #min features in a grid
-feature_para2: 15
+feature_para2: 20
 #distance of features
 feature_para3: 5
 #goodFeaturesToTrack detector maxCorners
-feature_para4: 500
+feature_para4: 400
 #goodFeaturesToTrack detector qualityLevel
-feature_para5: 0.01
+feature_para5: 0.001
 #goodFeaturesToTrack detector minDistance
-feature_para6: 15
+feature_para6: 5
 
-#depth recovery
 #IIR filter ratio
-dr_para1: 0.98
+dr_para1: 0.9
 #triangulate range
-dr_para2: 40
+dr_para2: 20
 #Dummy depth enable 1.0, enable 0.0,disable
 dr_para3: 1.0
 
@@ -81,3 +85,4 @@ ratioRansac: 0.5
 minPts: 20
 #define minScore
 minScore: 0.12
+

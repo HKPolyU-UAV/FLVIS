@@ -6,5 +6,6 @@
 #define VI_TYPE_D435_DEPTH_PIXHAWK (2)
 #define VI_TYPE_D435I_STEREO       (3)
 #define VI_TYPE_KITTI_STEREO       (4)
+#define VI_TYPE_D435_STEREO_PIXHAWK (5)
 
 #endif // VI_TYPE_H

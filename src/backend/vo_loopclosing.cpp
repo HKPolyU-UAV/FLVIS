@@ -240,7 +240,7 @@ private:
                 vector<cv::Mat> ORBDescriptors;
                 ORBFeatures.clear();
                 ORBDescriptors.clear();
-                cv::Ptr<cv::ORB> orb = cv::ORB::create(500,1.2f,8,31,0,2, cv::ORB::HARRIS_SCORE,31,20);
+                cv::Ptr<cv::ORB> orb = cv::ORB::create(1000,1.2f,8,31,0,2, cv::ORB::HARRIS_SCORE,31,20);
                 orb->detectAndCompute(img0_unpack,cv::Mat(),ORBFeatures,ORBDescriptorsL);
                 descriptors_to_vecDesciptor(ORBDescriptorsL,ORBDescriptors);
                 kf.lm_descriptor = ORBDescriptors;
@@ -467,7 +467,7 @@ private:
                     }
                     else
                     {
-
+                        printf("\033[1;32m candidate found \033[0m \n");
                     }
                     bool is_lc = false;
                     uint64_t kf_curr_idx = kf_lc_tmp.size()-1;
@@ -663,7 +663,10 @@ private:
             cv::Mat inliers;
             //SE3_to_rvec_tvec(kf0->T_c_w, r_ , t_ );
             //cout<<"start ransac"<<endl;
-            if(p3d.size() < 5) return is_lc;
+            if(p3d.size() < 5)
+            {
+              printf("\033[1;31m p3d not enough \033[0m \n");
+              return is_lc;}
             cv::solvePnPRansac(p3d,p2d,dc.K0_rect,dc.D0_rect,r_,t_,false,100,2.0,0.99,inliers,cv::SOLVEPNP_P3P);
 
             for( int i = 0; i < inliers.rows; i++){
@@ -674,7 +677,7 @@ private:
 
             if(inliers.rows*1.0/p3d.size() < lc_paras.ratioRansac || inliers.rows < lc_paras.minPts ) //return is_lc;
             {
-
+                printf("\033[1;31m ransac fail \033[0m \n");
                 return is_lc;
             }
             //SE3 se_ij
@@ -873,7 +876,7 @@ private:
         m_vector.unlock();
         //printf("\033[1;32m init time: %lf \033[0m \n", init_clock.dT_ms());
 
-        optimizer.save("/home/yurong/before.g2o");
+        optimizer.save("/home/yurong/flvis_before.g2o");
         cout<<"start to optimize "<<endl;
         // optimize graph
         optimizer.initializeOptimization();
@@ -881,7 +884,7 @@ private:
         optimizer.computeActiveErrors();
         optimizer.optimize(100);
 
-        optimizer.save("/home/yurong/after.g2o");
+        optimizer.save("/home/yurong/flvis_after.g2o");
 
         tic_toc_ros update_clock;
         m_vector.lock();
