@@ -18,7 +18,7 @@ EuRoC MAV Dataset
 We have tested in the following environment: <br />
 Ubuntu 16.04 + ROS Kinetic <br />
 Ubuntu 18.04 + ROS melodic <br />
-Ubuntu 20.04 + ROS melodic <br />
+Ubuntu 20.04 + ROS noetic <br />
 Clone the repository to the catkin work space eg. `/catkin_ws/src`
 ````
 git clone https://github.com/HKPolyU-UAV/FLVIS.git
