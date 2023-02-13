@@ -64,6 +64,7 @@ catkin_package(
     CATKIN_DEPENDS message_runtime
     )
 
+set(Sophus_LIBRARIES libSophus.so)
 
 include_directories(
     ${catkin_INCLUDE_DIRS}
