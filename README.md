@@ -21,7 +21,7 @@ Ubuntu 18.04 + ROS melodic <br />
 Ubuntu 20.04 + ROS noetic <br />
 Clone the repository to the catkin work space eg. `/catkin_ws/src`
 ````
-git clone https://github.com/PAIR-Lab/FLVIS.git
+git clone https://github.com/HKPolyU-UAV/FLVIS.git
 ````
 Install 3rd Part library
 ````
