@@ -10,7 +10,7 @@ alt="cla" width="480" height="300" border="1" /></a>
 | <img src="others/mh05_gif.gif" width="250">  | <img src="others/lab_gif.gif" width="250">  | <img src="others/uav_gif.gif" width="250">  |
 
 ### 2-Relevent Publication:
-Under Review, a pre-print version can be found [here](https://arxiv.org/abs/2007.02250)
+[Stereo Visual Inertial Pose Estimation Based on Feedforward and Feedbacks](https://ieeexplore.ieee.org/document/10155195)
 ### 3-Support Hardware/Dataset:
 Intel RealSense D435i Camera <br />
 EuRoC MAV Dataset
