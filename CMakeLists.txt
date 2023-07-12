@@ -1,9 +1,9 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(flvis)
 
-add_definitions(-std=c++11)
-#set(CMAKE_CXX_FLAGS "-std=c++11)
-set(CMAKE_CXX_FLAGS "-std=c++11 ${CMAKE_CXX_FLAGS} -O3 -Wall -pthread") # -Wextra -Werror
+add_definitions(-std=c++14)
+#set(CMAKE_CXX_FLAGS "-std=c++14)
+set(CMAKE_CXX_FLAGS "-std=c++14 ${CMAKE_CXX_FLAGS} -O3 -Wall -pthread") # -Wextra -Werror
 set(CMAKE_BUILD_TYPE "RELEASE")
 
 
