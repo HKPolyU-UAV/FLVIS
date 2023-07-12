@@ -11,7 +11,11 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/3rdPartLib/g2o/cmake_m
 set(G2O_ROOT /usr/local/include/g2o)
 find_package(G2O REQUIRED) 
 
-find_package (OpenCV 3 REQUIRED)
+find_package (OpenCV 3 EXACT QUIET)
+IF (NOT OpenCV_FOUND)
+    find_package (OpenCV 4 REQUIRED)
+ENDIF ()
+
 find_package (Eigen3 REQUIRED)
 
 find_package (CSparse REQUIRED )
