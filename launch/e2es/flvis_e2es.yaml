@@ -1,0 +1,63 @@
+#type_of_vi:
+#0---d435i
+#1---euroc mav dataset
+#2---d435+pixhawk
+type_of_vi: 2
+#depth image is aligned to left cam0
+image_width: 640
+image_height: 360
+cam0_intrinsics: [343.4963684082031, 343.4963684082031, 320, 180]#fx fy cx cy
+cam0_distortion_coeffs: [0.0, 0.0, 0.0, 0.0]#k1 k2 r1 r2
+depth_factor: 1000.0
+T_imu_cam0:
+[ 0.0,  0.0,    1,  0.12,
+   -1,  0.0,  0.0,   0.0,
+  0.0,   -1,  0.0,   0.0,
+  0.0,  0.0,  0.0,   1.0]
+
+is_lite_version:   False
+
+##vifusion parameter
+#Madgwick beta
+vifusion_para1: 0.1
+#proportion of vision feedforware(roll and pich)
+vifusion_para2: 0.03
+#acc-bias feedback parameter
+vifusion_para3: 0.003
+#gyro-bias feedback parameter
+vifusion_para4: 0.01
+#acc saturation level
+vifusion_para5: 0.3
+#gyro saturation level
+vifusion_para6: 0.1
+
+
+#feature relate parameter
+#max features in a grid
+feature_para1: 15
+#min features in a grid
+feature_para2: 30
+#distance of features
+feature_para3: 3
+#goodFeaturesToTrack detector maxCorners
+feature_para4: 700
+#goodFeaturesToTrack detector qualityLevel
+feature_para5: 0.01
+#goodFeaturesToTrack detector minDistance
+feature_para6: 3
+
+#depth recovery
+#IIR filter ratio
+dr_para1: 0.95
+#triangulate range
+dr_para2: 100
+#Dummy depth enable 1.0, enable 0.0,disable
+dr_para3: 1.0
+
+
+#LocalMapThread
+output_sparse_map: False
+window_size:       8
+
+#LoopClosureTheread
+
