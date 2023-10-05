@@ -1,0 +1,37 @@
+<?xml version="1.0"?>
+<launch>
+<!--FLVIS######################################################################################################-->
+    <arg name="node_start_delay"  default="1.0" />
+    <param name="/yamlconfigfile" type="string" value="$(find flvis)/launch/e2es/flvis_e2es.yaml"/>
+    <param name="/voc"            type="string" value="$(find flvis)/voc/voc_orb.dbow3"/>
+    <param name="/lite_version"   type="bool"   value="false" />
+    <!--In lite version, the visualization will be simplified -->
+
+    <!-- Manager -->
+    <node pkg="nodelet" type="nodelet"
+          name="flvis_nodelet_manager" args="manager" output="screen"
+          launch-prefix="bash -c 'sleep $(arg node_start_delay); $0 $@' ">
+          <param name="num_worker_threads" value="4" />
+    </node>
+
+    <!-- TrackingNode -->
+    <node pkg="nodelet" type="nodelet" args="load flvis/TrackingNodeletClass flvis_nodelet_manager"
+        name="TrackingNodeletClass_loader" output="screen"
+        launch-prefix="bash -c 'sleep $(arg node_start_delay); $0 $@' ">
+        <!-- D435i -->
+        <remap from="/vo/input_image_0"  to="/camera/infra1/image_raw"/>
+        <remap from="/vo/input_image_1"  to="/camera/depth_aligned_to_color_and_infra1/image_raw"/>
+        <remap from="/imu"               to="/iris/imu"/>
+        <remap from="/imu_pose"          to="/mavros/vision_pose/pose"/>
+    </node>
+
+
+    <!-- LocalMapNode -->
+    <!--window_size: Num of keyframes in sliding window optimizer-->
+<!--    <node pkg="nodelet" type="nodelet" args="load flvis/LocalMapNodeletClass flvis_nodelet_manager"
+          name="LocalMapNodeletClass_loader" output="screen"
+          launch-prefix="bash -c 'sleep $(arg node_start_delay); $0 $@' ">
+        <param name="/window_size" type="int" value="8" />
+    </node>-->
+
+</launch>
