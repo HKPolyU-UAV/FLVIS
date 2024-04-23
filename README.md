@@ -15,6 +15,9 @@ alt="cla" width="480" height="300" border="1" /></a>
 Intel RealSense D435i Camera <br />
 EuRoC MAV Dataset
 ### 4-Build The Project
+If you do not want to do a lotta prequisite setting, you can use [Docker](https://github.com/HKPolyU-UAV/airo_docker_lib).
+
+Else...
 We have tested in the following environment: <br />
 Ubuntu 16.04 + ROS Kinetic <br />
 Ubuntu 18.04 + ROS melodic <br />
