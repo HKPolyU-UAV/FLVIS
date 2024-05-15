@@ -1,5 +1,5 @@
 #  FLVIS
-The implementation of Feedforward-feedback Loop-based Visual Inertial System. If you want to use FLVIS with GPU acceleration, try this [repo](https://github.com/JazzyFeng/FLVIS-gpu).
+The implementation of Feedforward-feedback Loop-based Visual Inertial System. 
 
 ### 1-Video
 <a href="https://www.youtube.com/embed/U1GmOICc1Ac" target="_blank"><img src="http://img.youtube.com/vi/ljZWb2x6CRQ/0.jpg" 
@@ -17,25 +17,29 @@ EuRoC MAV Dataset
 ### 4-Build The Project
 If you do not want to do a lotta prequisite setting, you can use [Docker](https://github.com/HKPolyU-UAV/airo_docker_lib).
 
-Else...Do this <br/>
-We have tested in the following environment: <br />
-Ubuntu 16.04 + ROS Kinetic <br />
-Ubuntu 18.04 + ROS melodic <br />
-Ubuntu 20.04 + ROS noetic <br />
-Clone the repository to the catkin work space eg. `/catkin_ws/src`
-````
-git clone https://github.com/HKPolyU-UAV/FLVIS.git
-````
-Install 3rd Part library
-````
-cd catkin_ws/src/FLVIS/3rdPartLib/
-./install3rdPartLib.sh
-````
-Compile
-````
-cd ~/catkin_ws
-catkin_make
-````
+Else...Do the following in (Ubuntu 16.04 + ROS Kinetic; Ubuntu 18.04 + ROS melodic; Ubuntu 20.04 + ROS noetic): <br/><br/>
+
+#### A. Prerequisites
+Make sure your realsense SDK and Wrapper are all good [RS_SDK](https://github.com/IntelRealSense/librealsense/blob/master/doc/distribution_linux.md) & [RS_ROS](https://github.com/IntelRealSense/realsense-ros/tree/ros1-legacy?tab=readme-ov-file#step-2-install-intel-realsense-ros-from-sources).
+
+#### B. Compile
+  Clone the repository to the catkin work space eg. `/catkin_ws/src`
+  ````
+  git clone https://github.com/HKPolyU-UAV/FLVIS.git
+  ````
+  Install 3rd Part library
+  ````
+  cd catkin_ws/src/FLVIS/3rdPartLib/
+  ./install3rdPartLib.sh
+  ````
+  Compile
+  ````
+  cd ~/catkin_ws
+  catkin_make
+  ````
+#### C. Others
+  If you want to use FLVIS with GPU acceleration, try this [repo](https://github.com/JazzyFeng/FLVIS-gpu).
+  
 ### 5-Verification
 Support Platform D435i(Depth/Stereo Mode), EuRoC Dataset, KITTI Dataset
 #### 5.1 D435i Camera Depth Mode

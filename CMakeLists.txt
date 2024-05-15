@@ -1,10 +1,42 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(flvis)
 
-add_definitions(-std=c++11)
-#set(CMAKE_CXX_FLAGS "-std=c++11)
-set(CMAKE_CXX_FLAGS "-std=c++11 ${CMAKE_CXX_FLAGS} -O3 -Wall -pthread") # -Wextra -Werror
-set(CMAKE_BUILD_TYPE "RELEASE")
+# add_definitions(-std=c++11)
+# #set(CMAKE_CXX_FLAGS "-std=c++11)
+# set(CMAKE_CXX_FLAGS "-std=c++11 ${CMAKE_CXX_FLAGS} -O3 -Wall -pthread") # -Wextra -Werror
+# set(CMAKE_BUILD_TYPE "RELEASE")
+
+# Function to check if a given C++ standard is supported
+function(check_cxx_compiler_flag flag result)
+    unset(${result} CACHE)
+    set(CMAKE_REQUIRED_FLAGS ${flag})
+    check_cxx_source_compiles("int main() { return 0; }" ${result})
+    set(CMAKE_REQUIRED_FLAGS)
+endfunction()
+
+# Check for C++14 support
+check_cxx_compiler_flag("-std=c++14" COMPILER_SUPPORTS_CXX14)
+if(COMPILER_SUPPORTS_CXX14)
+    set(CMAKE_CXX_STANDARD 14)
+    set(CXX_STANDARD_FLAG "-std=c++14")
+else()
+    # Fall back to C++11
+    check_cxx_compiler_flag("-std=c++11" COMPILER_SUPPORTS_CXX11)
+    if(COMPILER_SUPPORTS_CXX11)
+        set(CMAKE_CXX_STANDARD 11)
+        set(CXX_STANDARD_FLAG "-std=c++11")
+    else()
+        message(FATAL_ERROR "The compiler does not support C++11 or C++14.")
+    endif()
+endif()
+
+# Set the CXX flags
+set(CMAKE_CXX_FLAGS "${CXX_STANDARD_FLAG} ${CMAKE_CXX_FLAGS} -O3 -Wall -pthread") # -Wextra -Werror
+
+# Set the build type to Release if not specified
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE "RELEASE")
+endif()
 
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/3rdPartLib/g2o/cmake_modules)
